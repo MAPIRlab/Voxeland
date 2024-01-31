@@ -140,9 +140,10 @@ BonxaiServer::BonxaiServer(const rclcpp::NodeOptions& node_options)
   tf2_buffer_->setCreateTimerInterface(timer_interface);
   tf2_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf2_buffer_);
 
+  /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
   using std::chrono_literals::operator""s;
   point_cloud_sub_.subscribe(this, "cloud_in", rmw_qos_profile_sensor_data);
-  tf_point_cloud_sub_ = std::make_shared<tf2_ros::MessageFilter<PointCloud2>>(
+  tf_point_cloud_sub_ = std::make_shared<tf2_ros::MessageFilter<segmentation_msgs::msg::SemanticPointCloud>>(
       point_cloud_sub_,
       *tf2_buffer_,
       world_frame_id_,
@@ -161,12 +162,16 @@ BonxaiServer::BonxaiServer(const rclcpp::NodeOptions& node_options)
       std::bind(&BonxaiServer::onParameter, this, _1));
 }
 
-void BonxaiServer::insertCloudCallback(const PointCloud2::ConstSharedPtr cloud)
+/* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
+void BonxaiServer::insertCloudCallback(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud)
 {
   const auto start_time = rclcpp::Clock{}.now();
 
+  /* Added by JL Matez */
+  
+
   PCLPointCloud pc;  // input cloud for filtering and ground-detection
-  pcl::fromROSMsg(*cloud, pc);
+  pcl::fromROSMsg(cloud->cloud, pc);
 
   // Sensor In Global Frames Coordinates
   geometry_msgs::msg::TransformStamped sensor_to_world_transform_stamped;
@@ -195,7 +200,7 @@ void BonxaiServer::insertCloudCallback(const PointCloud2::ConstSharedPtr cloud)
   // Getting the Translation from the sensor to the Global Reference Frame
   const auto& t = sensor_to_world_transform_stamped.transform.translation;
 
-  const pcl::PointXYZ sensor_to_world_vec3(t.x, t.y, t.z);
+  const PCLPoint sensor_to_world_vec3((float)t.x, (float)t.y, (float)t.z);
 
   bonxai_->insertPointCloud(pc.points, sensor_to_world_vec3, 30.0);
 
@@ -239,7 +244,7 @@ BonxaiServer::onParameter(const std::vector<rclcpp::Parameter>& parameters)
 void BonxaiServer::publishAll(const rclcpp::Time& rostime)
 {
   const auto start_time = rclcpp::Clock{}.now();
-  thread_local std::vector<Eigen::Vector3d> bonxai_result;
+  thread_local std::vector<Bonxai::Point3D> bonxai_result;
   bonxai_result.clear();
   bonxai_->getOccupiedVoxels(bonxai_result);
 
@@ -262,9 +267,9 @@ void BonxaiServer::publishAll(const rclcpp::Time& rostime)
 
     for (const auto& voxel : bonxai_result)
     {
-      if(voxel.z() >= occupancy_min_z_ && voxel.z() <= occupancy_max_z_)
+      if(voxel.z >= occupancy_min_z_ && voxel.z <= occupancy_max_z_)
       {
-        pcl_cloud.push_back(PCLPoint(voxel.x(), voxel.y(), voxel.z()));
+        pcl_cloud.push_back(PCLPoint((float)voxel.x, (float)voxel.y, (float)voxel.z, voxel.r, voxel.g, voxel.b));
       }
     }
     PointCloud2 cloud;

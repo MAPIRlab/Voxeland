@@ -1,6 +1,6 @@
 bonxai_server_node:
   ros__parameters:
-    resolution: 0.02
+    resolution: 0.05
     frame_id: "map"
     base_frame_id: "base_footprint"
 

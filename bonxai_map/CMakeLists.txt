@@ -2,8 +2,12 @@
 add_library(bonxai_map
     include/bonxai_map/pcl_utils.hpp
     include/bonxai_map/probabilistic_map.hpp
+    include/bonxai_map/probabilistic_map_rgb.hpp
+    include/bonxai_map/semantics.hpp
     src/pcl_utils.cpp
-    src/probabilistic_map.cpp)
+    src/probabilistic_map.cpp
+    src/probabilistic_map_rgb.cpp
+    src/semantics.cpp)
 
 target_compile_definitions(bonxai_map PRIVATE
     ${PCL_DEFINITIONS})

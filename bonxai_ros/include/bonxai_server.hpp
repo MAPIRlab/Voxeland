@@ -2,7 +2,7 @@
 #define BONXAI_SERVER__BONXAI_SERVER_HPP_
 
 #include "bonxai_map/pcl_utils.hpp"
-#include "bonxai_map/probabilistic_map.hpp"
+#include "bonxai_map/probabilistic_map_rgb.hpp"
 #include "bonxai/bonxai.hpp"
 
 #include <pcl/segmentation/sac_segmentation.h>
@@ -16,6 +16,9 @@
 
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "std_srvs/srv/empty.hpp"
+
+/* Added by JL Matez */
+#include "segmentation_msgs/msg/semantic_point_cloud.hpp"
 
 #include "pcl_conversions/pcl_conversions.h"
 
@@ -40,9 +43,9 @@ using sensor_msgs::msg::PointCloud2;
 class BonxaiServer : public rclcpp::Node
 {
 public:
-  using PCLPoint = pcl::PointXYZ;
-  using PCLPointCloud = pcl::PointCloud<pcl::PointXYZ>;
-  using BonxaiT = Bonxai::ProbabilisticMap;
+  using PCLPoint = pcl::PointXYZRGB;
+  using PCLPointCloud = pcl::PointCloud<pcl::PointXYZRGB>;
+  using BonxaiT = Bonxai::ProbabilisticMapRGB;
   using ResetSrv = std_srvs::srv::Empty;
 
   explicit BonxaiServer(const rclcpp::NodeOptions& node_options);
@@ -50,7 +53,8 @@ public:
   bool resetSrv(const std::shared_ptr<ResetSrv::Request> req,
                 const std::shared_ptr<ResetSrv::Response> resp);
 
-  virtual void insertCloudCallback(const PointCloud2::ConstSharedPtr cloud);
+  /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
+  virtual void insertCloudCallback(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
 
 protected:
   virtual void publishAll(const rclcpp::Time& rostime);
@@ -60,9 +64,10 @@ protected:
   rcl_interfaces::msg::SetParametersResult
   onParameter(const std::vector<rclcpp::Parameter>& parameters);
 
+  /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
   rclcpp::Publisher<PointCloud2>::SharedPtr point_cloud_pub_;
-  message_filters::Subscriber<PointCloud2> point_cloud_sub_;
-  std::shared_ptr<tf2_ros::MessageFilter<PointCloud2>> tf_point_cloud_sub_;
+  message_filters::Subscriber<segmentation_msgs::msg::SemanticPointCloud> point_cloud_sub_;
+  std::shared_ptr<tf2_ros::MessageFilter<segmentation_msgs::msg::SemanticPointCloud>> tf_point_cloud_sub_;
   // rclcpp::Service<BBoxSrv>::SharedPtr clear_bbox_srv_;
   rclcpp::Service<ResetSrv>::SharedPtr reset_srv_;
   std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
