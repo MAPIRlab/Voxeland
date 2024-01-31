@@ -58,9 +58,10 @@ BonxaiServer::BonxaiServer(const rclcpp::NodeOptions& node_options)
   tf2_buffer_->setCreateTimerInterface(timer_interface);
   tf2_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf2_buffer_);
 
+  /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
   using std::chrono_literals::operator""s;
   point_cloud_sub_.subscribe(this, "cloud_in", rmw_qos_profile_sensor_data);
-  tf_point_cloud_sub_ = std::make_shared<tf2_ros::MessageFilter<PointCloud2>>(
+  tf_point_cloud_sub_ = std::make_shared<tf2_ros::MessageFilter<segmentation_msgs::msg::SemanticPointCloud>>(
       point_cloud_sub_,
       *tf2_buffer_,
       world_frame_id_,
@@ -68,6 +69,7 @@ BonxaiServer::BonxaiServer(const rclcpp::NodeOptions& node_options)
       this->get_node_logging_interface(),
       this->get_node_clock_interface(),
       5s);
+
 
   tf_point_cloud_sub_->registerCallback(&BonxaiServer::insertCloudCallback, this);
 
@@ -166,12 +168,16 @@ void BonxaiServer::initializeBonxaiObject()
   bonxai_->setOptions(options);
 }
 
-void BonxaiServer::insertCloudCallback(const PointCloud2::ConstSharedPtr cloud)
+/* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
+void BonxaiServer::insertCloudCallback(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud)
 {
   const auto start_time = rclcpp::Clock{}.now();
 
+  /* Added by JL Matez */
+  
+
   PCLPointCloud pc;  // input cloud for filtering and ground-detection
-  pcl::fromROSMsg(*cloud, pc);
+  pcl::fromROSMsg(cloud->cloud, pc);
 
   //TODO decide what type of cell to use and pass that info (as an enum) to this function
   if(bonxai_.get()==nullptr)

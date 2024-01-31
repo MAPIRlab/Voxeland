@@ -4,8 +4,11 @@ add_library(bonxai_map
     include/bonxai_map/cell_types.hpp
     include/bonxai_map/probabilistic_map.hpp
     include/bonxai_map/probabilistic_map_templated.hpp
+    include/bonxai_map/semantics.hpp
     src/pcl_utils.cpp
+    src/semantics.cpp
 )
+
 target_compile_definitions(bonxai_map PRIVATE
     ${PCL_DEFINITIONS})
 

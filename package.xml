@@ -19,6 +19,7 @@
   <depend>tf2_geometry_msgs</depend>
   <depend>tf2_ros</depend>
   <depend>visualization_msgs</depend>
+  <depend>segmentation_msgs</depend>
   <depend>message_filters</depend>
   <depend>std_srvs</depend>
 

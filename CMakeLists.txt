@@ -44,7 +44,6 @@ endif()
 add_subdirectory(bonxai_core)
 add_subdirectory(bonxai_map)
 
-
 # Default behavior
 find_package(ament_cmake QUIET)
 
@@ -56,6 +55,8 @@ if ( ament_cmake_FOUND )
     message(STATUS "Building with colcon")
 
     find_package(ament_cmake_auto REQUIRED)
+    find_package(segmentation_msgs REQUIRED)
+    find_package(vision_msgs REQUIRED)
     ament_auto_find_build_dependencies()
 
     include_directories(bonxai_ros/include 3rdparty)
