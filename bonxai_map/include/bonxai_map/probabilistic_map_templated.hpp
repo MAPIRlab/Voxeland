@@ -12,7 +12,7 @@ namespace Bonxai
  * Insert a point cloud to update the current probability
  */
 
-template <typename CellT>
+template <typename DataT>
 class ProbabilisticMapT : public ProbabilisticMap
 {
 public:
@@ -22,52 +22,16 @@ public:
     , _accessor(_grid.createAccessor())
   {}
 
-  [[nodiscard]] VoxelGrid<CellT>& grid()
+  [[nodiscard]] VoxelGrid<ProbabilisticCell<DataT>>& grid()
   {
     return _grid;
   }
 
-  [[nodiscard]] const VoxelGrid<CellT>& grid() const
+  [[nodiscard]] const VoxelGrid<ProbabilisticCell<DataT>>& grid() const
   {
     return _grid;
   }
 
-
-  // This function is usually called by insertPointCloud
-  // We expose it here to add more control to the user.
-  // Once finished adding points, you must call updateFreeCells()
-  void addHitPoint(const Vector3D& point) override
-  {
-    const auto coord = _grid.posToCoord(point);
-    CellT* cell = _accessor.value(coord, true);
-
-    if (cell->update_id != _update_count)
-    {
-      cell->probability_log = std::min(cell->probability_log + _options.prob_hit_log,
-                                      _options.clamp_max_log);
-
-      cell->update_id = _update_count;
-      _hit_coords.push_back(coord);
-    }
-  }
-
-  // This function is usually called by insertPointCloud
-  // We expose it here to add more control to the user.
-  // Once finished adding points, you must call updateFreeCells()
-  void addMissPoint(const Vector3D& point) override
-  {
-    const auto coord = _grid.posToCoord(point);
-    CellT* cell = _accessor.value(coord, true);
-
-    if (cell->update_id != _update_count)
-    {
-      cell->probability_log = std::max(
-          cell->probability_log + _options.prob_miss_log, _options.clamp_min_log);
-
-      cell->update_id = _update_count;
-      _miss_coords.push_back(coord);
-    }
-  }
 
   [[nodiscard]] bool isOccupied(const Bonxai::CoordT& coord) const
   {
@@ -96,22 +60,10 @@ public:
     return false;
   }
 
-  void getOccupiedVoxels(std::vector<Bonxai::CoordT>& coords) override
-  {
-    coords.clear();
-    auto visitor = [&](CellT& cell, const CoordT& coord) {
-      if (cell.probability_log > _options.occupancy_threshold_log)
-      {
-        coords.push_back(coord);
-      }
-    };
-    _grid.forEachCell(visitor);
-  }
-
   void getFreeVoxels(std::vector<Bonxai::CoordT>& coords)
   {
     coords.clear();
-    auto visitor = [&](CellT& cell, const CoordT& coord) {
+    auto visitor = [&](ProbabilisticCell<DataT>& cell, const CoordT& coord) {
       if (cell.probability_log < _options.occupancy_threshold_log)
       {
         coords.push_back(coord);
@@ -121,13 +73,13 @@ public:
   }
 
 private:
-  VoxelGrid<CellT> _grid;
+  VoxelGrid<ProbabilisticCell<DataT>> _grid;
   uint8_t _update_count = 1;
 
   std::vector<CoordT> _miss_coords;
   std::vector<CoordT> _hit_coords;
 
-  mutable typename Bonxai::VoxelGrid<CellT>::Accessor _accessor;
+  mutable typename Bonxai::VoxelGrid<ProbabilisticCell<DataT>>::Accessor _accessor;
 
   void updateFreeCells(const Vector3D& origin) override
   {
@@ -136,7 +88,7 @@ private:
     // same as addMissPoint, but using lambda will force inlining
     auto clearPoint = [this, &accessor](const CoordT& coord)
     {
-      CellT* cell = accessor.value(coord, true);
+      ProbabilisticCell<DataT>* cell = accessor.value(coord, true);
       if (cell->update_id != _update_count)
       {
         cell->probability_log = std::max(

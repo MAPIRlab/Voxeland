@@ -40,12 +40,17 @@ namespace bonxai_server
 
 using sensor_msgs::msg::PointCloud2;
 
+enum MsgType{Empty = 0, RGB = 1 << 0, Semantics = 1 << 1, RGBSemantics = RGB | Semantics};
+MsgType currentMode = Empty;
+
+inline MsgType operator|(MsgType a, MsgType b)
+{
+    return static_cast<MsgType>(static_cast<int>(a) | static_cast<int>(b));
+}
+
 class BonxaiServer : public rclcpp::Node
 {
 public:
-  using PCLPoint = pcl::PointXYZRGB;
-  using PCLPointCloud = pcl::PointCloud<pcl::PointXYZRGB>;
-  using BonxaiT = Bonxai::ProbabilisticMapRGB;
   using ResetSrv = std_srvs::srv::Empty;
 
   explicit BonxaiServer(const rclcpp::NodeOptions& node_options);
@@ -57,7 +62,88 @@ public:
   virtual void insertCloudCallback(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
 
 protected:
-  virtual void publishAll(const rclcpp::Time& rostime);
+
+  template <typename DataT>
+  void publishAll(const rclcpp::Time& rostime)
+  {
+    const auto start_time = rclcpp::Clock{}.now();
+    std::vector<DataT> cell_data;
+    std::vector<Bonxai::Point3D> cell_points;
+    cell_points.clear();
+    bonxai_->getOccupiedVoxels<Bonxai::Point3D, DataT>(cell_points, cell_data);
+
+    if (cell_points.size() <= 1)
+    {
+      RCLCPP_WARN(get_logger(), "Nothing to publish, bonxai is empty");
+      return;
+    }
+
+    bool publish_point_cloud =
+        (latched_topics_ ||
+        point_cloud_pub_->get_subscription_count() +
+        point_cloud_pub_->get_intra_process_subscription_count() > 0);
+
+    // init pointcloud for occupied space:
+    if (publish_point_cloud)
+    {
+      thread_local pcl::PointCloud<PCLPoint> pcl_cloud;
+      pcl_cloud.clear();
+
+      for (const auto& voxel : cell_points)
+      {
+        if(voxel.z >= occupancy_min_z_ && voxel.z <= occupancy_max_z_)
+        {
+          pcl_cloud.push_back(PCLPoint((float)voxel.x, (float)voxel.y, (float)voxel.z));
+        }
+      }
+      PointCloud2 cloud;
+      pcl::toROSMsg(pcl_cloud, cloud);
+
+      cloud.header.frame_id = world_frame_id_;
+      cloud.header.stamp = rostime;
+      point_cloud_pub_->publish(cloud);
+      RCLCPP_WARN(get_logger(), "Published occupancy grid with %ld voxels", pcl_cloud.points.size());
+    }
+  }
+
+  template <typename PointCloudTypeT>
+  void addObservation(PointCloudTypeT& pc){
+    // Sensor In Global Frames Coordinates
+    geometry_msgs::msg::TransformStamped sensor_to_world_transform_stamped;
+    try
+    {
+      sensor_to_world_transform_stamped =
+          tf2_buffer_->lookupTransform(world_frame_id_,
+                                      cloud->header.frame_id,
+                                      cloud->header.stamp,
+                                      rclcpp::Duration::from_seconds(1.0));
+    }
+    catch (const tf2::TransformException& ex)
+    {
+      RCLCPP_WARN(this->get_logger(), "%s", ex.what());
+      return;
+    }
+
+    Eigen::Matrix4f sensor_to_world =
+        tf2::transformToEigen(sensor_to_world_transform_stamped.transform)
+            .matrix()
+            .cast<float>();
+
+    // Transforming Points to Global Reference Frame
+    pcl::transformPointCloud(pc, pc, sensor_to_world);
+
+    // Getting the Translation from the sensor to the Global Reference Frame
+    const auto& t = sensor_to_world_transform_stamped.transform.translation;
+
+    const PCLPoint sensor_to_world_vec3((float)t.x, (float)t.y, (float)t.z);
+
+    bonxai_->insertPointCloud(pc.points, sensor_to_world_vec3, 30.0);
+
+    double total_elapsed = (rclcpp::Clock{}.now() - start_time).seconds();
+    RCLCPP_DEBUG(
+        get_logger(), "Pointcloud insertion in Bonxai done, %f sec)", total_elapsed);
+
+  }
 
   OnSetParametersCallbackHandle::SharedPtr set_param_res_;
 

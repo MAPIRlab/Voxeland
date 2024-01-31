@@ -105,24 +105,78 @@ public:
       }
       else
       {
+        // ToDo: Convert point.whatever_data to DataT
         addHitPoint(to);
       }
     }
     updateFreeCells(from);
   }
 
-  virtual void getOccupiedVoxels(std::vector<Bonxai::CoordT>& coords) = 0;
-  
-  template <typename PointT>
-  void getOccupiedVoxels(std::vector<PointT>& points)
+  // This function is usually called by insertPointCloud
+  // We expose it here to add more control to the user.
+  // Once finished adding points, you must call updateFreeCells()
+  template <typename DataT>
+  void addHitPoint(const Vector3D& point, const DataT& data)
   {
-    thread_local std::vector<Bonxai::CoordT> coords;
+    const auto coord = _grid.posToCoord(point);
+    ProbabilisticCell<DataT>* cell = _accessor.value(coord, true);
+
+    // ToDo: Check what the next if means
+    cell->data = data;
+
+    if (cell->update_id != _update_count)
+    {
+      cell->probability_log = std::min(cell->probability_log + _options.prob_hit_log,
+                                      _options.clamp_max_log);
+
+      cell->update_id = _update_count;
+      _hit_coords.push_back(coord);
+    }
+  }
+
+  // This function is usually called by insertPointCloud
+  // We expose it here to add more control to the user.
+  // Once finished adding points, you must call updateFreeCells()
+  template <typename DataT>
+  void addMissPoint(const Vector3D& point)
+  {
+    const auto coord = _grid.posToCoord(point);
+    ProbabilisticCell<DataT>* cell = _accessor.value(coord, true);
+
+    if (cell->update_id != _update_count)
+    {
+      cell->probability_log = std::max(
+          cell->probability_log + _options.prob_miss_log, _options.clamp_min_log);
+
+      cell->update_id = _update_count;
+      _miss_coords.push_back(coord);
+    }
+  }
+
+  template <typename DataT>
+  void getOccupiedVoxels(std::vector<Bonxai::CoordT>& coords, std::vector<DataT>& cells_data)
+  {
     coords.clear();
-    getOccupiedVoxels(coords);
+    auto visitor = [&](ProbabilisticCell<DataT>& cell, const CoordT& coord) {
+      if (cell.probability_log > _options.occupancy_threshold_log)
+      {
+        coords.push_back(coord);
+        cells_data.push_back(cell.data);
+      }
+    };
+    _grid.forEachCell(visitor);
+  }
+  
+  template <typename PointT, typename DataT>
+  void getOccupiedVoxels(std::vector<PointT>& cells_points, std::vector<DataT>& cells_data)
+  {
+    std::vector<Bonxai::CoordT> coords;
+    coords.clear();
+    getOccupiedVoxels(coords, cells_data);
     for (const auto& coord : coords)
     {
       const auto p = coordToPos(coord);
-      points.emplace_back(p.x, p.y, p.z);
+      cells_points.emplace_back(p.x, p.y, p.z);
     }
   }
 

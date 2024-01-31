@@ -38,9 +38,6 @@ struct Point3D
   double x;
   double y;
   double z;
-  uint8_t r;
-  uint8_t g;
-  uint8_t b;
 
   Point3D() = default;
 
@@ -51,8 +48,6 @@ struct Point3D
   Point3D& operator=(Point3D&& v) = default;
 
   Point3D(double x, double y, double z);
-
-  Point3D(double x, double y, double z, uint8_t r, uint8_t g, uint8_t b);
 
   template <typename T>
   Point3D(const T& v)
@@ -69,20 +64,6 @@ struct Point3D
 
   // Access to x, y, z, using index 0, 1, 2
   [[nodiscard]] double& operator[](size_t index);
-};
-
-struct ColorT
-{
-  uint8_t r;
-  uint8_t g;
-  uint8_t b;
-
-  ColorT(uint8_t _r, uint8_t _g, uint8_t _b)
-  : r(_r)
-  , g(_g)
-  , b(_b)
-  {}
-
 };
 
 struct CoordT
@@ -421,18 +402,6 @@ inline Point3D::Point3D(double _x, double _y, double _z)
   : x(_x)
   , y(_y)
   , z(_z)
-  , r(255)
-  , g(255)  
-  , b(255)
-{}
-
-inline Point3D::Point3D(double _x, double _y, double _z,uint8_t _r, uint8_t _g, uint8_t _b)
-  : x(_x)
-  , y(_y)
-  , z(_z)
-  , r(_r)
-  , g(_g)  
-  , b(_b)
 {}
 
 inline double& Point3D::operator[](size_t index)

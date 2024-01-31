@@ -159,7 +159,15 @@ void BonxaiServer::initializeBonxaiObject()
 
   // initialize bonxai object & params
   RCLCPP_INFO(get_logger(), "Voxel resolution %f", res_);
-  bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell>>(res_);
+  if(currentMode == MsgType::Empty)
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Empty>>>(res_);
+  else if(currentMode == MsgType::RGB)
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Color>>>(res_);
+  else if(currentMode == MsgType::Semantics)
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Semantics>>>(res_);
+  else if(currentMode == MsgType::RGBSemantics)
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::RGBSemantics>>>(res_);
+  
   Bonxai::ProbabilisticMap::Options options = { 
                                 Bonxai::logodds(prob_miss),
                                 Bonxai::logodds(prob_hit),
@@ -174,51 +182,43 @@ void BonxaiServer::insertCloudCallback(const segmentation_msgs::msg::SemanticPoi
   const auto start_time = rclcpp::Clock{}.now();
 
   /* Added by JL Matez */
-  
+  for (size_t i = 0; i < cloud->cloud.fields.size(); i++){
+    
+    if(cloud->cloud.fields[i].name == "rgb") 
+      currentMode = currentMode | MsgType::RGB;
+    else if(cloud->cloud.fields[i].name == "semantics") 
+      currentMode = currentMode | MsgType::Semantics;
+  }
 
-  PCLPointCloud pc;  // input cloud for filtering and ground-detection
-  pcl::fromROSMsg(cloud->cloud, pc);
-
-  //TODO decide what type of cell to use and pass that info (as an enum) to this function
   if(bonxai_.get()==nullptr)
     initializeBonxaiObject();
+
+  if(currentMode == MsgType::Empty) {
+    pcl::PointCloud<pcl::PointXYZ> pc;
+    pcl::fromROSMsg(cloud->cloud, pc);
+    addObservation(pc);
+    publishAll<Bonxai::Empty>(cloud->header.stamp);
+  }
+  else if(currentMode == MsgType::RGB){
+    pcl::PointCloud<pcl::PointXYZRGB> pc;
+    pcl::fromROSMsg(cloud->cloud, pc);
+    addObservation(pc);
+    publishAll<Bonxai::Color>(cloud->header.stamp);
+  }
+  else if(currentMode == MsgType::Semantics){
+    pcl::PointCloud<pcl::PointXYZSemantics> pc;
+    pcl::fromROSMsg(cloud->cloud, pc);
+    addObservation(pc);
+    publishAll<Bonxai::Semantics>(cloud->header.stamp);
+  }
+  else if(currentMode == MsgType::RGBSemantics){
+    pcl::PointCloud<pcl::PointXYZRGBSemantics> pc;
+    pcl::fromROSMsg(cloud->cloud, pc);
+    addObservation(pc);
+    publishAll<Bonxai::RGBSemantics>(cloud->header.stamp);
+  }
+  
     
-  // Sensor In Global Frames Coordinates
-  geometry_msgs::msg::TransformStamped sensor_to_world_transform_stamped;
-  try
-  {
-    sensor_to_world_transform_stamped =
-        tf2_buffer_->lookupTransform(world_frame_id_,
-                                     cloud->header.frame_id,
-                                     cloud->header.stamp,
-                                     rclcpp::Duration::from_seconds(1.0));
-  }
-  catch (const tf2::TransformException& ex)
-  {
-    RCLCPP_WARN(this->get_logger(), "%s", ex.what());
-    return;
-  }
-
-  Eigen::Matrix4f sensor_to_world =
-      tf2::transformToEigen(sensor_to_world_transform_stamped.transform)
-          .matrix()
-          .cast<float>();
-
-  // Transforming Points to Global Reference Frame
-  pcl::transformPointCloud(pc, pc, sensor_to_world);
-
-  // Getting the Translation from the sensor to the Global Reference Frame
-  const auto& t = sensor_to_world_transform_stamped.transform.translation;
-
-  const PCLPoint sensor_to_world_vec3((float)t.x, (float)t.y, (float)t.z);
-
-  bonxai_->insertPointCloud(pc.points, sensor_to_world_vec3, 30.0);
-
-  double total_elapsed = (rclcpp::Clock{}.now() - start_time).seconds();
-  RCLCPP_DEBUG(
-      get_logger(), "Pointcloud insertion in Bonxai done, %f sec)", total_elapsed);
-
-  publishAll(cloud->header.stamp);
 }
 
 rcl_interfaces::msg::SetParametersResult
@@ -244,64 +244,34 @@ BonxaiServer::onParameter(const std::vector<rclcpp::Parameter>& parameters)
 
   bonxai_->setOptions(options);
 
-  publishAll(now());
-
   rcl_interfaces::msg::SetParametersResult result;
   result.successful = true;
   result.reason = "success";
   return result;
 }
 
-void BonxaiServer::publishAll(const rclcpp::Time& rostime)
-{
-  const auto start_time = rclcpp::Clock{}.now();
-  thread_local std::vector<Bonxai::Point3D> bonxai_result;
-  bonxai_result.clear();
-  bonxai_->getOccupiedVoxels<Bonxai::Point3D>(bonxai_result);
-
-  if (bonxai_result.size() <= 1)
-  {
-    RCLCPP_WARN(get_logger(), "Nothing to publish, bonxai is empty");
-    return;
-  }
-
-  bool publish_point_cloud =
-      (latched_topics_ ||
-       point_cloud_pub_->get_subscription_count() +
-       point_cloud_pub_->get_intra_process_subscription_count() > 0);
-
-  // init pointcloud for occupied space:
-  if (publish_point_cloud)
-  {
-    thread_local pcl::PointCloud<PCLPoint> pcl_cloud;
-    pcl_cloud.clear();
-
-    for (const auto& voxel : bonxai_result)
-    {
-      if(voxel.z >= occupancy_min_z_ && voxel.z <= occupancy_max_z_)
-      {
-        pcl_cloud.push_back(PCLPoint((float)voxel.x, (float)voxel.y, (float)voxel.z));
-      }
-    }
-    PointCloud2 cloud;
-    pcl::toROSMsg(pcl_cloud, cloud);
-
-    cloud.header.frame_id = world_frame_id_;
-    cloud.header.stamp = rostime;
-    point_cloud_pub_->publish(cloud);
-    RCLCPP_WARN(get_logger(), "Published occupancy grid with %ld voxels", pcl_cloud.points.size());
-  }
-}
-
 bool BonxaiServer::resetSrv(const std::shared_ptr<ResetSrv::Request>,
                             const std::shared_ptr<ResetSrv::Response>)
 {
   const auto rostime = now();
-  // TODO handle the polymorphism here:
-  //bonxai_ = std::make_unique<BonxaiT>(res_);
+  if(currentMode == MsgType::Empty){
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Empty>>>(res_);
+    publishAll<Bonxai::Empty>(rostime);
+  }
+  else if(currentMode == MsgType::RGB){
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Color>>>(res_);
+    publishAll<Bonxai::Color>(rostime);
+  }
+  else if(currentMode == MsgType::Semantics){
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Semantics>>>(res_);
+    publishAll<Bonxai::Semantics>(rostime);
+  }
+  else if(currentMode == MsgType::RGBSemantics){
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::RGBSemantics>>>(res_);
+    publishAll<Bonxai::RGBSemantics>(rostime);
+  }
 
   RCLCPP_INFO(get_logger(), "Cleared Bonxai");
-  publishAll(rostime);
 
   return true;
 }
