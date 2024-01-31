@@ -2,7 +2,7 @@
 #define BONXAI_SERVER__BONXAI_SERVER_HPP_
 
 #include "bonxai_map/pcl_utils.hpp"
-#include "bonxai_map/probabilistic_map.hpp"
+#include "bonxai_map/probabilistic_map_templated.hpp"
 #include "bonxai/bonxai.hpp"
 
 #include <pcl/segmentation/sac_segmentation.h>
@@ -38,11 +38,11 @@ namespace bonxai_server
 using sensor_msgs::msg::PointCloud2;
 
 class BonxaiServer : public rclcpp::Node
-{
-public:
+{  
   using PCLPoint = pcl::PointXYZ;
   using PCLPointCloud = pcl::PointCloud<pcl::PointXYZ>;
-  using BonxaiT = Bonxai::ProbabilisticMap;
+
+public:
   using ResetSrv = std_srvs::srv::Empty;
 
   explicit BonxaiServer(const rclcpp::NodeOptions& node_options);
@@ -68,7 +68,8 @@ protected:
   std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;
 
-  std::unique_ptr<BonxaiT> bonxai_;
+  std::unique_ptr<Bonxai::ProbabilisticMap> bonxai_;
+  void initializeBonxaiObject();
   std::vector<Bonxai::CoordT> key_ray_;
 
   double max_range_;

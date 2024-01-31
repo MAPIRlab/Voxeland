@@ -7,7 +7,8 @@
 #include <Eigen/Geometry>
 
 #include "bonxai_map/pcl_utils.hpp"
-#include "bonxai_map/probabilistic_map.hpp"
+#include "bonxai_map/probabilistic_map_templated.hpp"
+#include "bonxai_map/cell_types.hpp"
 #include "cxxopt/cxxopts.hpp"
 
 namespace fs = std::filesystem;
@@ -153,7 +154,7 @@ int main(int argc, char** argv)
 
   //---------------------------------------
   octomap::OcTree octree(voxel_size);
-  Bonxai::ProbabilisticMap bonxai_map(voxel_size);
+  Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell> bonxai_map(voxel_size);
 
   for (size_t count = 0; count < cloud_filenames.size(); count++)
   {
@@ -177,7 +178,7 @@ int main(int argc, char** argv)
          double(total_time_bonxai) / double(max_pointclouds));
 
   std::vector<Eigen::Vector3d> bonxai_result;
-  bonxai_map.getOccupiedVoxels(bonxai_result);
+  dynamic_cast<Bonxai::ProbabilisticMap*>(&bonxai_map)->getOccupiedVoxels<Eigen::Vector3d>(bonxai_result);
   std::vector<Bonxai::CoordT> free_coords;
   bonxai_map.getFreeVoxels(free_coords);
   std::cout << "free cells: " << free_coords.size() << std::endl;
