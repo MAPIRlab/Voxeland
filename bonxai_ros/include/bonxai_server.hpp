@@ -35,17 +35,24 @@
 #include <string>
 #include <vector>
 
+#include <bonxai_map/semantics.hpp>
+
 namespace bonxai_server
 {
 
 using sensor_msgs::msg::PointCloud2;
 
-enum MsgType{Empty = 0, RGB = 1 << 0, Semantics = 1 << 1, RGBSemantics = RGB | Semantics};
-MsgType currentMode = Empty;
+enum class MsgType{Empty = 0, RGB = 1 << 0, Semantics = 1 << 1, RGBSemantics = RGB | Semantics};
+MsgType currentMode = MsgType::Empty;
 
 inline MsgType operator|(MsgType a, MsgType b)
 {
     return static_cast<MsgType>(static_cast<int>(a) | static_cast<int>(b));
+}
+
+inline MsgType operator&(MsgType a, MsgType b)
+{
+    return static_cast<MsgType>(static_cast<int>(a) & static_cast<int>(b));
 }
 
 class BonxaiServer : public rclcpp::Node
@@ -63,6 +70,8 @@ public:
 
 protected:
 
+  SemanticMap& semantics = SemanticMap::get_instance();
+
   template <typename DataT>
   void publishAll(const rclcpp::Time& rostime)
   {
@@ -70,7 +79,7 @@ protected:
     std::vector<DataT> cell_data;
     std::vector<Bonxai::Point3D> cell_points;
     cell_points.clear();
-    bonxai_->getOccupiedVoxels<Bonxai::Point3D, DataT>(cell_points, cell_data);
+    dynamic_cast<Bonxai::ProbabilisticMapT<DataT>*>(bonxai_.get())->getOccupiedVoxels(cell_points, cell_data);
 
     if (cell_points.size() <= 1)
     {
@@ -110,15 +119,15 @@ protected:
   }
 
   template <typename PointCloudTypeT, typename DataT>
-  void addObservation(PointCloudTypeT& pc){
+  void addObservation(PointCloudTypeT& pc, std_msgs::msg::Header header){
     // Sensor In Global Frames Coordinates
     geometry_msgs::msg::TransformStamped sensor_to_world_transform_stamped;
     try
     {
       sensor_to_world_transform_stamped =
           tf2_buffer_->lookupTransform(world_frame_id_,
-                                      cloud->header.frame_id,
-                                      cloud->header.stamp,
+                                      header.frame_id,
+                                      header.stamp,
                                       rclcpp::Duration::from_seconds(1.0));
     }
     catch (const tf2::TransformException& ex)
@@ -138,13 +147,10 @@ protected:
     // Getting the Translation from the sensor to the Global Reference Frame
     const auto& t = sensor_to_world_transform_stamped.transform.translation;
 
-    const PCLPoint sensor_to_world_vec3((float)t.x, (float)t.y, (float)t.z);
+    const pcl::PointXYZ sensor_to_world_vec3((float)t.x, (float)t.y, (float)t.z);
 
-    bonxai_->insertPointCloud<PointCloudTypeT, DataT>(pc.points, sensor_to_world_vec3, 30.0);
-
-    double total_elapsed = (rclcpp::Clock{}.now() - start_time).seconds();
-    RCLCPP_DEBUG(
-        get_logger(), "Pointcloud insertion in Bonxai done, %f sec)", total_elapsed);
+    auto bonxai__ = dynamic_cast<Bonxai::ProbabilisticMapT<DataT>*>(bonxai_.get());
+    bonxai__->insertPointCloud(pc.points, sensor_to_world_vec3, 30.0);
 
   }
 

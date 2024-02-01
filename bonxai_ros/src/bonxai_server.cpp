@@ -160,13 +160,13 @@ void BonxaiServer::initializeBonxaiObject()
   // initialize bonxai object & params
   RCLCPP_INFO(get_logger(), "Voxel resolution %f", res_);
   if(currentMode == MsgType::Empty)
-    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Empty>>>(res_);
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::Empty>>(res_);
   else if(currentMode == MsgType::RGB)
-    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Color>>>(res_);
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::Color>>(res_);
   else if(currentMode == MsgType::Semantics)
-    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Semantics>>>(res_);
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::Semantics>>(res_);
   else if(currentMode == MsgType::RGBSemantics)
-    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::RGBSemantics>>>(res_);
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::RGBSemantics>>(res_);
   
   Bonxai::ProbabilisticMap::Options options = { 
                                 Bonxai::logodds(prob_miss),
@@ -186,19 +186,28 @@ void BonxaiServer::insertCloudCallback(const segmentation_msgs::msg::SemanticPoi
   {  
     if(cloud->cloud.fields[i].name == "rgb") 
       currentMode = currentMode | MsgType::RGB;
-    else if(cloud->cloud.fields[i].name == "semantics") 
+    else if(cloud->cloud.fields[i].name == "instance_id") 
       currentMode = currentMode | MsgType::Semantics;
   }
 
   if(bonxai_.get()==nullptr)
     initializeBonxaiObject();
 
+  if(static_cast<int>(currentMode & MsgType::Semantics) != 0 && !semantics.is_initialized()) {
+    semantics.initialize(cloud->categories);
+  }
+
+  if(static_cast<int>(currentMode & MsgType::Semantics) != 0) {
+    std::vector<SemanticObject> localMap = semantics.convertROSMessageToSemanticMap(cloud->instances);
+    semantics.integrateNewSemantics(localMap);
+  }
+
   if(currentMode == MsgType::Empty) 
   {
     using PointCloudType = pcl::PointCloud<pcl::PointXYZ>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation<PointCloudType, Bonxai::Empty>(pc);
+    addObservation<PointCloudType, Bonxai::Empty>(pc, cloud->header);
     publishAll<Bonxai::Empty>(cloud->header.stamp);
   }
   else if(currentMode == MsgType::RGB)
@@ -206,7 +215,7 @@ void BonxaiServer::insertCloudCallback(const segmentation_msgs::msg::SemanticPoi
     using PointCloudType = pcl::PointCloud<pcl::PointXYZRGB>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation<PointCloudType, Bonxai::Color>(pc);
+    addObservation<PointCloudType, Bonxai::Color>(pc, cloud->header);
     publishAll<Bonxai::Color>(cloud->header.stamp);
   }
   else if(currentMode == MsgType::Semantics)
@@ -214,7 +223,8 @@ void BonxaiServer::insertCloudCallback(const segmentation_msgs::msg::SemanticPoi
     using PointCloudType = pcl::PointCloud<pcl::PointXYZSemantics>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation<PointCloudType, Bonxai::Semantics>(pc);
+
+    addObservation<PointCloudType, Bonxai::Semantics>(pc, cloud->header);
     publishAll<Bonxai::Semantics>(cloud->header.stamp);
   }
   else if(currentMode == MsgType::RGBSemantics)
@@ -222,16 +232,18 @@ void BonxaiServer::insertCloudCallback(const segmentation_msgs::msg::SemanticPoi
     using PointCloudType = pcl::PointCloud<pcl::PointXYZRGBSemantics>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation<PointCloudType, Bonxai::RGBSemantics>(pc);
+    addObservation<PointCloudType, Bonxai::RGBSemantics>(pc, cloud->header);
     publishAll<Bonxai::RGBSemantics>(cloud->header.stamp);
   }
   
-    
+  double total_elapsed = (rclcpp::Clock{}.now() - start_time).seconds();
+  RCLCPP_DEBUG(get_logger(), "Pointcloud insertion in Bonxai done, %f sec)", total_elapsed);
+
 }
 
 rcl_interfaces::msg::SetParametersResult
 BonxaiServer::onParameter(const std::vector<rclcpp::Parameter>& parameters)
-{
+{/*
   update_param(parameters, "occupancy_min_z", occupancy_min_z_);
   update_param(parameters, "occupancy_max_z", occupancy_max_z_);
 
@@ -251,11 +263,12 @@ BonxaiServer::onParameter(const std::vector<rclcpp::Parameter>& parameters)
                             Bonxai::logodds(sensor_model_max) };
 
   bonxai_->setOptions(options);
-
+  */
   rcl_interfaces::msg::SetParametersResult result;
   result.successful = true;
   result.reason = "success";
   return result;
+  
 }
 
 bool BonxaiServer::resetSrv(const std::shared_ptr<ResetSrv::Request>,

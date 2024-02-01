@@ -1,5 +1,7 @@
 #pragma once 
 #include "probabilistic_map.hpp"
+#include <pcl/io/pcd_io.h>
+#include <bonxai_map/semantics.hpp>
 
 namespace Bonxai
 {
@@ -68,22 +70,22 @@ namespace Bonxai
 
     struct Semantics
     {
-        uint8_t instance_id;
+        std::vector<double> probabilities;
 
         Semantics() = default;
 
-        Semantics(uint8_t _id)
-        : instance_id(_id)
-        {}
-
         Semantics(const pcl::PointXYZSemantics& pcl)
         {
-            instance_id = pcl.instance_id;
+            SemanticMap& semantics = SemanticMap::get_instance();
+            probabilities = semantics.globalSemanticMap[pcl.instance_id].probabilities;
         }
 
         Color toColor()
         {
-            return Color(255, 255, 255);
+            std::vector<double>::iterator it = std::max_element(probabilities.begin(), probabilities.end());
+            uint8_t localIdx = std::distance(probabilities.begin(), it);
+
+            return Color((localIdx * 73) % 256, (localIdx * 137) % 256, (localIdx * 193) % 256);
         }
     };
 
@@ -91,6 +93,8 @@ namespace Bonxai
     {
         Color rgb;
         Semantics semantics;
+
+        RGBSemantics() {}
 
         RGBSemantics(const Color& _rgb, const Semantics& _semantics)
         : rgb(_rgb)
