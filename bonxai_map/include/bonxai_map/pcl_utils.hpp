@@ -25,13 +25,13 @@ void WritePointsFromPCD(const std::string& filepath,
 namespace pcl
 {
 
- struct PointXYZSemantics{
+struct PointXYZSemantics{
     float x;
     float y;
     float z;
 
     uint8_t instance_id;
- };
+};
 
 struct PointXYZRGBSemantics{
     float x;
@@ -43,6 +43,6 @@ struct PointXYZRGBSemantics{
     uint8_t r;
 
     uint8_t instance_id;
- };
+};
 
 }

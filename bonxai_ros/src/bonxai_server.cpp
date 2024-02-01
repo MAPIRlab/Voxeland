@@ -182,8 +182,8 @@ void BonxaiServer::insertCloudCallback(const segmentation_msgs::msg::SemanticPoi
   const auto start_time = rclcpp::Clock{}.now();
 
   /* Added by JL Matez */
-  for (size_t i = 0; i < cloud->cloud.fields.size(); i++){
-    
+  for (size_t i = 0; i < cloud->cloud.fields.size(); i++)
+  {  
     if(cloud->cloud.fields[i].name == "rgb") 
       currentMode = currentMode | MsgType::RGB;
     else if(cloud->cloud.fields[i].name == "semantics") 
@@ -193,28 +193,36 @@ void BonxaiServer::insertCloudCallback(const segmentation_msgs::msg::SemanticPoi
   if(bonxai_.get()==nullptr)
     initializeBonxaiObject();
 
-  if(currentMode == MsgType::Empty) {
-    pcl::PointCloud<pcl::PointXYZ> pc;
+  if(currentMode == MsgType::Empty) 
+  {
+    using PointCloudType = pcl::PointCloud<pcl::PointXYZ>;
+    PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation(pc);
+    addObservation<PointCloudType, Bonxai::Empty>(pc);
     publishAll<Bonxai::Empty>(cloud->header.stamp);
   }
-  else if(currentMode == MsgType::RGB){
-    pcl::PointCloud<pcl::PointXYZRGB> pc;
+  else if(currentMode == MsgType::RGB)
+  {
+    using PointCloudType = pcl::PointCloud<pcl::PointXYZRGB>;
+    PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation(pc);
+    addObservation<PointCloudType, Bonxai::Color>(pc);
     publishAll<Bonxai::Color>(cloud->header.stamp);
   }
-  else if(currentMode == MsgType::Semantics){
-    pcl::PointCloud<pcl::PointXYZSemantics> pc;
+  else if(currentMode == MsgType::Semantics)
+  {
+    using PointCloudType = pcl::PointCloud<pcl::PointXYZSemantics>;
+    PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation(pc);
+    addObservation<PointCloudType, Bonxai::Semantics>(pc);
     publishAll<Bonxai::Semantics>(cloud->header.stamp);
   }
-  else if(currentMode == MsgType::RGBSemantics){
-    pcl::PointCloud<pcl::PointXYZRGBSemantics> pc;
+  else if(currentMode == MsgType::RGBSemantics)
+  {
+    using PointCloudType = pcl::PointCloud<pcl::PointXYZRGBSemantics>;
+    PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation(pc);
+    addObservation<PointCloudType, Bonxai::RGBSemantics>(pc);
     publishAll<Bonxai::RGBSemantics>(cloud->header.stamp);
   }
   
@@ -254,19 +262,23 @@ bool BonxaiServer::resetSrv(const std::shared_ptr<ResetSrv::Request>,
                             const std::shared_ptr<ResetSrv::Response>)
 {
   const auto rostime = now();
-  if(currentMode == MsgType::Empty){
+  if(currentMode == MsgType::Empty)
+  {
     bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Empty>>>(res_);
     publishAll<Bonxai::Empty>(rostime);
   }
-  else if(currentMode == MsgType::RGB){
+  else if(currentMode == MsgType::RGB)
+  {
     bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Color>>>(res_);
     publishAll<Bonxai::Color>(rostime);
   }
-  else if(currentMode == MsgType::Semantics){
+  else if(currentMode == MsgType::Semantics)
+  {
     bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Semantics>>>(res_);
     publishAll<Bonxai::Semantics>(rostime);
   }
-  else if(currentMode == MsgType::RGBSemantics){
+  else if(currentMode == MsgType::RGBSemantics)
+  {
     bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::RGBSemantics>>>(res_);
     publishAll<Bonxai::RGBSemantics>(rostime);
   }

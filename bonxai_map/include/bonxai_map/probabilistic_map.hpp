@@ -83,8 +83,8 @@ public:
    * @param max_range  max range of the ray, if exceeded, we will use that
    * to compute a free space
    */
-  template <typename PointT, typename Allocator>
-  void insertPointCloud(const std::vector<PointT, Allocator>& points,
+  template <typename PointT, typename DataT>
+  void insertPointCloud(const std::vector<PointT>& points,
                         const PointT& origin,
                         double max_range)
   {
@@ -105,8 +105,7 @@ public:
       }
       else
       {
-        // ToDo: Convert point.whatever_data to DataT
-        addHitPoint(to);
+        addHitPoint(to, DataT(point));
       }
     }
     updateFreeCells(from);
@@ -121,7 +120,7 @@ public:
     const auto coord = _grid.posToCoord(point);
     ProbabilisticCell<DataT>* cell = _accessor.value(coord, true);
 
-    // ToDo: Check what the next if means
+    //TODO updating the data here should call a function in DataT that specifies how the information is to be fused, rather than just overwriting with the latest
     cell->data = data;
 
     if (cell->update_id != _update_count)

@@ -86,14 +86,17 @@ protected:
     // init pointcloud for occupied space:
     if (publish_point_cloud)
     {
-      thread_local pcl::PointCloud<PCLPoint> pcl_cloud;
+      pcl::PointCloud<pcl::PointXYZRGB> pcl_cloud;
       pcl_cloud.clear();
 
-      for (const auto& voxel : cell_points)
+      for (int i = 0; i< cell_points.size(); i++)
       {
+        const auto& voxel = cell_points[i];
+
         if(voxel.z >= occupancy_min_z_ && voxel.z <= occupancy_max_z_)
         {
-          pcl_cloud.push_back(PCLPoint((float)voxel.x, (float)voxel.y, (float)voxel.z));
+          Bonxai::Color vizualization_color = cell_data[i].toColor();
+          pcl_cloud.emplace_back((float)voxel.x, (float)voxel.y, (float)voxel.z, vizualization_color.r, vizualization_color.g, vizualization_color.b);
         }
       }
       PointCloud2 cloud;
@@ -106,7 +109,7 @@ protected:
     }
   }
 
-  template <typename PointCloudTypeT>
+  template <typename PointCloudTypeT, typename DataT>
   void addObservation(PointCloudTypeT& pc){
     // Sensor In Global Frames Coordinates
     geometry_msgs::msg::TransformStamped sensor_to_world_transform_stamped;
@@ -137,7 +140,7 @@ protected:
 
     const PCLPoint sensor_to_world_vec3((float)t.x, (float)t.y, (float)t.z);
 
-    bonxai_->insertPointCloud(pc.points, sensor_to_world_vec3, 30.0);
+    bonxai_->insertPointCloud<PointCloudTypeT, DataT>(pc.points, sensor_to_world_vec3, 30.0);
 
     double total_elapsed = (rclcpp::Clock{}.now() - start_time).seconds();
     RCLCPP_DEBUG(
