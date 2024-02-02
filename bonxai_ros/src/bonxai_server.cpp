@@ -200,6 +200,8 @@ void BonxaiServer::insertCloudCallback(const segmentation_msgs::msg::SemanticPoi
   if(static_cast<int>(currentMode & MsgType::Semantics) != 0) {
     std::vector<SemanticObject> localMap = semantics.convertROSMessageToSemanticMap(cloud->instances);
     semantics.integrateNewSemantics(localMap);
+
+    RCLCPP_INFO(get_logger(), "%d", semantics.globalSemanticMap.size());
   }
 
   if(currentMode == MsgType::Empty) 

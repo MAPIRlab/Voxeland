@@ -1,6 +1,7 @@
 #pragma once 
 #include "probabilistic_map.hpp"
 #include <pcl/io/pcd_io.h>
+#include <bonxai_map/pcl_utils.hpp>
 #include <bonxai_map/semantics.hpp>
 
 namespace Bonxai
@@ -71,21 +72,30 @@ namespace Bonxai
     struct Semantics
     {
         std::vector<double> probabilities;
+        uint8_t instanceID;
 
         Semantics() = default;
 
         Semantics(const pcl::PointXYZSemantics& pcl)
         {
             SemanticMap& semantics = SemanticMap::get_instance();
-            probabilities = semantics.globalSemanticMap[pcl.instance_id].probabilities;
+            instanceID = semantics.localToGlobalInstance(pcl.instance_id);
+            probabilities = semantics.globalSemanticMap[instanceID].probabilities;
         }
 
         Color toColor()
         {
-            std::vector<double>::iterator it = std::max_element(probabilities.begin(), probabilities.end());
-            uint8_t localIdx = std::distance(probabilities.begin(), it);
+            SemanticMap& semantics = SemanticMap::get_instance();
 
-            return Color((localIdx * 73) % 256, (localIdx * 137) % 256, (localIdx * 193) % 256);
+            std::vector<double>::iterator it = std::max_element(probabilities.begin(), probabilities.end());
+
+            uint32_t hexColor = semantics.indexToHexColor(instanceID);
+
+            if(std::distance(probabilities.begin(), it) == (semantics.default_categories.size() - 1)){
+                hexColor = 0xbcbcbc;
+            }
+                     
+            return Color((hexColor >> 16) & 0xFF, (hexColor >> 8) & 0xFF, hexColor & 0xFF);
         }
     };
 
