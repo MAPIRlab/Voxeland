@@ -164,8 +164,7 @@ protected:
 
     const pcl::PointXYZ sensor_to_world_vec3((float)t.x, (float)t.y, (float)t.z);
 
-    auto bonxai__ = dynamic_cast<Bonxai::ProbabilisticMapT<DataT>*>(bonxai_.get());
-    bonxai__->insertPointCloud(pc.points, sensor_to_world_vec3, 30.0);
+    bonxai_->With<DataT>()->insertPointCloud(pc.points, sensor_to_world_vec3, 30.0);
   }
 
   OnSetParametersCallbackHandle::SharedPtr set_param_res_;

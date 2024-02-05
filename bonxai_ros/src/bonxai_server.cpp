@@ -244,7 +244,7 @@ void BonxaiServer::insertCloudCallback(
   }
 
   double total_elapsed = (rclcpp::Clock{}.now() - start_time).seconds();
-  RCLCPP_DEBUG(
+  RCLCPP_INFO(
       get_logger(), "Pointcloud insertion in Bonxai done, %f sec)", total_elapsed);
 }
 
