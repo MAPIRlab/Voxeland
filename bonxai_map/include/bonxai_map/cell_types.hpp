@@ -83,6 +83,8 @@ namespace Bonxai
             probabilities = semantics.globalSemanticMap[instanceID].probabilities;
         }
 
+        // Add function to define how data is integrated (Note, define the function for each data-type, with the same function name). Use it in addHitPoint.
+
         Color toColor()
         {
             SemanticMap& semantics = SemanticMap::get_instance();

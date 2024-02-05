@@ -101,8 +101,8 @@ class SemanticMap {
                     if(localIdx == globalIdx){
                         for(uint8_t i = 0; i < globalInstance.probabilities.size(); i++){
                             globalInstance.probabilities[i] += localInstance.probabilities[i];
-                            lastMapLocalToGlobal[localInstanceID] = globalInstanceID;
                         }
+                        lastMapLocalToGlobal[localInstanceID] = globalInstanceID;
                         fused = true;
                         break;
                     }
