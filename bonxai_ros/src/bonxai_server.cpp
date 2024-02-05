@@ -61,7 +61,8 @@ BonxaiServer::BonxaiServer(const rclcpp::NodeOptions& node_options)
   /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
   using std::chrono_literals::operator""s;
   point_cloud_sub_.subscribe(this, "cloud_in", rmw_qos_profile_sensor_data);
-  tf_point_cloud_sub_ = std::make_shared<tf2_ros::MessageFilter<segmentation_msgs::msg::SemanticPointCloud>>(
+  tf_point_cloud_sub_ = std::make_shared<
+      tf2_ros::MessageFilter<segmentation_msgs::msg::SemanticPointCloud>>(
       point_cloud_sub_,
       *tf2_buffer_,
       world_frame_id_,
@@ -69,7 +70,6 @@ BonxaiServer::BonxaiServer(const rclcpp::NodeOptions& node_options)
       this->get_node_logging_interface(),
       this->get_node_clock_interface(),
       5s);
-
 
   tf_point_cloud_sub_->registerCallback(&BonxaiServer::insertCloudCallback, this);
 
@@ -159,52 +159,57 @@ void BonxaiServer::initializeBonxaiObject()
 
   // initialize bonxai object & params
   RCLCPP_INFO(get_logger(), "Voxel resolution %f", res_);
-  if(currentMode == MsgType::Empty)
+  if (currentMode == MsgType::Empty)
     bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::Empty>>(res_);
-  else if(currentMode == MsgType::RGB)
+  else if (currentMode == MsgType::RGB)
     bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::Color>>(res_);
-  else if(currentMode == MsgType::Semantics)
+  else if (currentMode == MsgType::Semantics)
     bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::Semantics>>(res_);
-  else if(currentMode == MsgType::RGBSemantics)
-    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::RGBSemantics>>(res_);
-  
-  Bonxai::ProbabilisticMap::Options options = { 
-                                Bonxai::logodds(prob_miss),
-                                Bonxai::logodds(prob_hit),
-                                Bonxai::logodds(thres_min),
-                                Bonxai::logodds(thres_max) };
+  else if (currentMode == MsgType::RGBSemantics)
+    bonxai_ =
+        std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::RGBSemantics>>(res_);
+
+  Bonxai::ProbabilisticMap::Options options = { Bonxai::logodds(prob_miss),
+                                                Bonxai::logodds(prob_hit),
+                                                Bonxai::logodds(thres_min),
+                                                Bonxai::logodds(thres_max) };
   bonxai_->setOptions(options);
 }
 
 /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
-void BonxaiServer::insertCloudCallback(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud)
+void BonxaiServer::insertCloudCallback(
+    const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud)
 {
   const auto start_time = rclcpp::Clock{}.now();
 
   /* Added by JL Matez */
   for (size_t i = 0; i < cloud->cloud.fields.size(); i++)
-  {  
-    if(cloud->cloud.fields[i].name == "rgb") 
+  {
+    if (cloud->cloud.fields[i].name == "rgb")
       currentMode = currentMode | MsgType::RGB;
-    else if(cloud->cloud.fields[i].name == "instance_id") 
+    else if (cloud->cloud.fields[i].name == "instance_id")
       currentMode = currentMode | MsgType::Semantics;
   }
 
-  if(bonxai_.get()==nullptr)
+  if (bonxai_.get() == nullptr)
     initializeBonxaiObject();
 
-  if(static_cast<int>(currentMode & MsgType::Semantics) != 0 && !semantics.is_initialized()) {
+  if (static_cast<int>(currentMode & MsgType::Semantics) != 0 &&
+      !semantics.is_initialized())
+  {
     semantics.initialize(cloud->categories);
   }
 
-  if(static_cast<int>(currentMode & MsgType::Semantics) != 0) {
-    std::vector<SemanticObject> localMap = semantics.convertROSMessageToSemanticMap(cloud->instances);
+  if (static_cast<int>(currentMode & MsgType::Semantics) != 0)
+  {
+    std::vector<SemanticObject> localMap =
+        semantics.convertROSMessageToSemanticMap(cloud->instances);
     semantics.integrateNewSemantics(localMap);
 
-    RCLCPP_INFO(get_logger(), "%d", semantics.globalSemanticMap.size());
+    RCLCPP_INFO(get_logger(), "Number of instances: %ld", semantics.globalSemanticMap.size());
   }
 
-  if(currentMode == MsgType::Empty) 
+  if (currentMode == MsgType::Empty)
   {
     using PointCloudType = pcl::PointCloud<pcl::PointXYZ>;
     PointCloudType pc;
@@ -212,7 +217,7 @@ void BonxaiServer::insertCloudCallback(const segmentation_msgs::msg::SemanticPoi
     addObservation<PointCloudType, Bonxai::Empty>(pc, cloud->header);
     publishAll<Bonxai::Empty>(cloud->header.stamp);
   }
-  else if(currentMode == MsgType::RGB)
+  else if (currentMode == MsgType::RGB)
   {
     using PointCloudType = pcl::PointCloud<pcl::PointXYZRGB>;
     PointCloudType pc;
@@ -220,7 +225,7 @@ void BonxaiServer::insertCloudCallback(const segmentation_msgs::msg::SemanticPoi
     addObservation<PointCloudType, Bonxai::Color>(pc, cloud->header);
     publishAll<Bonxai::Color>(cloud->header.stamp);
   }
-  else if(currentMode == MsgType::Semantics)
+  else if (currentMode == MsgType::Semantics)
   {
     using PointCloudType = pcl::PointCloud<pcl::PointXYZSemantics>;
     PointCloudType pc;
@@ -229,7 +234,7 @@ void BonxaiServer::insertCloudCallback(const segmentation_msgs::msg::SemanticPoi
     addObservation<PointCloudType, Bonxai::Semantics>(pc, cloud->header);
     publishAll<Bonxai::Semantics>(cloud->header.stamp);
   }
-  else if(currentMode == MsgType::RGBSemantics)
+  else if (currentMode == MsgType::RGBSemantics)
   {
     using PointCloudType = pcl::PointCloud<pcl::PointXYZRGBSemantics>;
     PointCloudType pc;
@@ -237,64 +242,69 @@ void BonxaiServer::insertCloudCallback(const segmentation_msgs::msg::SemanticPoi
     addObservation<PointCloudType, Bonxai::RGBSemantics>(pc, cloud->header);
     publishAll<Bonxai::RGBSemantics>(cloud->header.stamp);
   }
-  
-  double total_elapsed = (rclcpp::Clock{}.now() - start_time).seconds();
-  RCLCPP_DEBUG(get_logger(), "Pointcloud insertion in Bonxai done, %f sec)", total_elapsed);
 
+  double total_elapsed = (rclcpp::Clock{}.now() - start_time).seconds();
+  RCLCPP_INFO(
+      get_logger(), "Pointcloud insertion in Bonxai done, %f sec)", total_elapsed);
 }
 
 rcl_interfaces::msg::SetParametersResult
 BonxaiServer::onParameter(const std::vector<rclcpp::Parameter>& parameters)
-{/*
-  update_param(parameters, "occupancy_min_z", occupancy_min_z_);
-  update_param(parameters, "occupancy_max_z", occupancy_max_z_);
+{ /*
+   update_param(parameters, "occupancy_min_z", occupancy_min_z_);
+   update_param(parameters, "occupancy_max_z", occupancy_max_z_);
 
-  double sensor_model_min{ get_parameter("sensor_model.min").as_double() };
-  update_param(parameters, "sensor_model.min", sensor_model_min);
-  double sensor_model_max{ get_parameter("sensor_model.max").as_double() };
-  update_param(parameters, "sensor_model.max", sensor_model_max);
-  double sensor_model_hit{ get_parameter("sensor_model.hit").as_double() };
-  update_param(parameters, "sensor_model.hit", sensor_model_hit);
-  double sensor_model_miss{ get_parameter("sensor_model.miss").as_double() };
-  update_param(parameters, "sensor_model.miss", sensor_model_miss);
+   double sensor_model_min{ get_parameter("sensor_model.min").as_double() };
+   update_param(parameters, "sensor_model.min", sensor_model_min);
+   double sensor_model_max{ get_parameter("sensor_model.max").as_double() };
+   update_param(parameters, "sensor_model.max", sensor_model_max);
+   double sensor_model_hit{ get_parameter("sensor_model.hit").as_double() };
+   update_param(parameters, "sensor_model.hit", sensor_model_hit);
+   double sensor_model_miss{ get_parameter("sensor_model.miss").as_double() };
+   update_param(parameters, "sensor_model.miss", sensor_model_miss);
 
-  Bonxai::ProbabilisticMap::Options options = { 
-                            Bonxai::logodds(sensor_model_miss),
-                            Bonxai::logodds(sensor_model_hit),
-                            Bonxai::logodds(sensor_model_min),
-                            Bonxai::logodds(sensor_model_max) };
+   Bonxai::ProbabilisticMap::Options options = {
+                             Bonxai::logodds(sensor_model_miss),
+                             Bonxai::logodds(sensor_model_hit),
+                             Bonxai::logodds(sensor_model_min),
+                             Bonxai::logodds(sensor_model_max) };
 
-  bonxai_->setOptions(options);
-  */
+   bonxai_->setOptions(options);
+   */
   rcl_interfaces::msg::SetParametersResult result;
   result.successful = true;
   result.reason = "success";
   return result;
-  
 }
 
 bool BonxaiServer::resetSrv(const std::shared_ptr<ResetSrv::Request>,
                             const std::shared_ptr<ResetSrv::Response>)
 {
   const auto rostime = now();
-  if(currentMode == MsgType::Empty)
+  if (currentMode == MsgType::Empty)
   {
-    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Empty>>>(res_);
+    bonxai_ = std::make_unique<
+        Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Empty>>>(res_);
     publishAll<Bonxai::Empty>(rostime);
   }
-  else if(currentMode == MsgType::RGB)
+  else if (currentMode == MsgType::RGB)
   {
-    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Color>>>(res_);
+    bonxai_ = std::make_unique<
+        Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Color>>>(res_);
     publishAll<Bonxai::Color>(rostime);
   }
-  else if(currentMode == MsgType::Semantics)
+  else if (currentMode == MsgType::Semantics)
   {
-    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Semantics>>>(res_);
+    bonxai_ = std::make_unique<
+        Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Semantics>>>(
+        res_);
     publishAll<Bonxai::Semantics>(rostime);
   }
-  else if(currentMode == MsgType::RGBSemantics)
+  else if (currentMode == MsgType::RGBSemantics)
   {
-    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::RGBSemantics>>>(res_);
+    bonxai_ = std::make_unique<
+        Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::RGBSemantics>>>(
+        res_);
     publishAll<Bonxai::RGBSemantics>(rostime);
   }
 

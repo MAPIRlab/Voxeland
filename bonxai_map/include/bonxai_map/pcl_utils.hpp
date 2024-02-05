@@ -29,45 +29,36 @@ void WritePointsFromPCD(const std::string& filepath,
 
 }  // namespace Bonxai
 
-namespace pcl {
+namespace pcl
+{
+#define INSTANCEIDT int32_t
 
-struct PointXYZSemantics{
-
-    PCL_ADD_POINT4D;              
-    int32_t instance_id;
-    
+struct PointXYZSemantics
+{
+  PCL_ADD_POINT4D;
+  INSTANCEIDT instance_id;
 };
 
-struct PointXYZRGBSemantics{
-    
-    PCL_ADD_POINT4D; 
+struct PointXYZRGBSemantics
+{
+  PCL_ADD_POINT4D;
 
-    uint8_t b;
-    uint8_t g;
-    uint8_t r;
+  uint8_t b;
+  uint8_t g;
+  uint8_t r;
 
-    uint8_t instance_id;
+  INSTANCEIDT instance_id;
 };
 
-}
+}  // namespace pcl
 
-POINT_CLOUD_REGISTER_POINT_STRUCT (pcl::PointXYZSemantics,           
-                                   (float, x, x)
-                                   (float, y, y)
-                                   (float, z, z)
-                                   (int32_t, instance_id, instance_id)
-                                   )
+POINT_CLOUD_REGISTER_POINT_STRUCT(
+    pcl::PointXYZSemantics,
+    (float, x, x)(float, y, y)(float, z, z)(INSTANCEIDT, instance_id, instance_id))
 
-
-
-POINT_CLOUD_REGISTER_POINT_STRUCT (pcl::PointXYZRGBSemantics,           // here we assume a XYZ + "test" (as fields)
-                                  (float, x, x)
-                                  (float, y, y)
-                                  (float, z, z)
-                                  (uint8_t, b, b)
-                                  (uint8_t, g, g)
-                                  (uint8_t, r, r)
-                                  (uint8_t, instance_id, instance_id)
-                                  )
-
-
+POINT_CLOUD_REGISTER_POINT_STRUCT(
+    pcl::PointXYZRGBSemantics,  // here we assume a XYZ + "test" (as fields)
+    (float, x, x)(float, y, y)(float, z, z)(uint8_t, b, b)(uint8_t, g, g)(
+        uint8_t,
+        r,
+        r)(INSTANCEIDT, instance_id, instance_id))

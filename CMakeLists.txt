@@ -23,7 +23,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CONFIG_PATH}")
 
 find_package(PCL REQUIRED COMPONENTS common io)
 
-find_package(benchmark QUIET)
+#find_package(benchmark QUIET)
 find_package(octomap QUIET)
 find_package(LZ4 QUIET)
 find_package(Eigen3 QUIET)
@@ -38,7 +38,7 @@ endif()
 
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic -fno-omit-frame-pointer)
+  add_compile_options(-Wpedantic -fno-omit-frame-pointer)
 endif()
 
 
@@ -58,6 +58,7 @@ if ( ament_cmake_FOUND )
 
     find_package(ament_cmake_auto REQUIRED)
     find_package(segmentation_msgs REQUIRED)
+    find_package(sensor_msgs REQUIRED)
     find_package(vision_msgs REQUIRED)
     ament_auto_find_build_dependencies()
 

@@ -36,9 +36,9 @@ public:
    * @param max_range  max range of the ray, if exceeded, we will use that
    * to compute a free space
    */
-  template <typename PointT, typename allocatorT>
+  template <typename PointT, typename allocatorT, typename OriginT>
   void insertPointCloud(const std::vector<PointT, allocatorT>& points,
-                        const pcl::PointXYZ& origin,
+                        const OriginT& origin,
                         double max_range)
   {
     const auto from = ConvertPoint<Vector3D>(origin);
@@ -72,13 +72,14 @@ public:
     const auto coord = _grid.posToCoord(point);
     ProbabilisticCell<DataT>* cell = _accessor.value(coord, true);
 
-    //TODO updating the data here should call a function in DataT that specifies how the information is to be fused, rather than just overwriting with the latest
+    // TODO updating the data here should call a function in DataT that specifies how
+    // the information is to be fused, rather than just overwriting with the latest
     cell->data = data;
 
     if (cell->update_id != _update_count)
     {
       cell->probability_log = std::min(cell->probability_log + _options.prob_hit_log,
-                                      _options.clamp_max_log);
+                                       _options.clamp_max_log);
 
       cell->update_id = _update_count;
       _hit_coords.push_back(coord);
@@ -104,7 +105,8 @@ public:
   }
 
   template <typename PointT>
-  void getOccupiedVoxels(std::vector<PointT>& cells_points, std::vector<DataT>& cells_data)
+  void getOccupiedVoxels(std::vector<PointT>& cells_points,
+                         std::vector<DataT>& cells_data)
   {
     std::vector<Bonxai::CoordT> coords;
     coords.clear();
@@ -116,7 +118,8 @@ public:
     }
   }
 
-  void getOccupiedVoxels(std::vector<Bonxai::CoordT>& coords, std::vector<DataT>& cells_data)
+  void getOccupiedVoxels(std::vector<Bonxai::CoordT>& coords,
+                         std::vector<DataT>& cells_data)
   {
     coords.clear();
     auto visitor = [&](ProbabilisticCell<DataT>& cell, const CoordT& coord) {
@@ -129,20 +132,16 @@ public:
     _grid.forEachCell(visitor);
   }
 
-  [[nodiscard]] VoxelGrid<ProbabilisticCell<DataT>>& grid()
-  {
-    return _grid;
-  }
+  [[nodiscard]] VoxelGrid<ProbabilisticCell<DataT>>& grid() { return _grid; }
 
   [[nodiscard]] const VoxelGrid<ProbabilisticCell<DataT>>& grid() const
   {
     return _grid;
   }
 
-
   [[nodiscard]] bool isOccupied(const Bonxai::CoordT& coord) const
   {
-    if(auto* cell = _accessor.value(coord, false))
+    if (auto* cell = _accessor.value(coord, false))
     {
       return cell->probability_log > _options.occupancy_threshold_log;
     }
@@ -151,7 +150,7 @@ public:
 
   [[nodiscard]] bool isUnknown(const Bonxai::CoordT& coord) const
   {
-    if(auto* cell = _accessor.value(coord, false))
+    if (auto* cell = _accessor.value(coord, false))
     {
       return cell->probability_log == _options.occupancy_threshold_log;
     }
@@ -160,7 +159,7 @@ public:
 
   [[nodiscard]] bool isFree(const Bonxai::CoordT& coord) const
   {
-    if(auto* cell = _accessor.value(coord, false))
+    if (auto* cell = _accessor.value(coord, false))
     {
       return cell->probability_log < _options.occupancy_threshold_log;
     }
@@ -193,8 +192,7 @@ private:
     auto accessor = _grid.createAccessor();
 
     // same as addMissPoint, but using lambda will force inlining
-    auto clearPoint = [this, &accessor](const CoordT& coord)
-    {
+    auto clearPoint = [this, &accessor](const CoordT& coord) {
       ProbabilisticCell<DataT>* cell = accessor.value(coord, true);
       if (cell->update_id != _update_count)
       {
@@ -225,10 +223,7 @@ private:
     }
   }
 
-  Point3D coordToPos(CoordT coord) override
-  {
-    return _grid.coordToPos(coord);
-  }
+  Point3D coordToPos(CoordT coord) override { return _grid.coordToPos(coord); }
 };
 
 //--------------------------------------------------

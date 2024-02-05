@@ -42,17 +42,23 @@ namespace bonxai_server
 
 using sensor_msgs::msg::PointCloud2;
 
-enum class MsgType{Empty = 0, RGB = 1 << 0, Semantics = 1 << 1, RGBSemantics = RGB | Semantics};
+enum class MsgType
+{
+  Empty = 0,
+  RGB = 1 << 0,
+  Semantics = 1 << 1,
+  RGBSemantics = RGB | Semantics
+};
 MsgType currentMode = MsgType::Empty;
 
 inline MsgType operator|(MsgType a, MsgType b)
 {
-    return static_cast<MsgType>(static_cast<int>(a) | static_cast<int>(b));
+  return static_cast<MsgType>(static_cast<int>(a) | static_cast<int>(b));
 }
 
 inline MsgType operator&(MsgType a, MsgType b)
 {
-    return static_cast<MsgType>(static_cast<int>(a) & static_cast<int>(b));
+  return static_cast<MsgType>(static_cast<int>(a) & static_cast<int>(b));
 }
 
 class BonxaiServer : public rclcpp::Node
@@ -66,10 +72,10 @@ public:
                 const std::shared_ptr<ResetSrv::Response> resp);
 
   /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
-  virtual void insertCloudCallback(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
+  virtual void insertCloudCallback(
+      const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
 
 protected:
-
   SemanticMap& semantics = SemanticMap::get_instance();
 
   template <typename DataT>
@@ -79,7 +85,7 @@ protected:
     std::vector<DataT> cell_data;
     std::vector<Bonxai::Point3D> cell_points;
     cell_points.clear();
-    dynamic_cast<Bonxai::ProbabilisticMapT<DataT>*>(bonxai_.get())->getOccupiedVoxels(cell_points, cell_data);
+    bonxai_->With<DataT>()->getOccupiedVoxels(cell_points, cell_data);
 
     if (cell_points.size() <= 1)
     {
@@ -89,8 +95,9 @@ protected:
 
     bool publish_point_cloud =
         (latched_topics_ ||
-        point_cloud_pub_->get_subscription_count() +
-        point_cloud_pub_->get_intra_process_subscription_count() > 0);
+         point_cloud_pub_->get_subscription_count() +
+                 point_cloud_pub_->get_intra_process_subscription_count() >
+             0);
 
     // init pointcloud for occupied space:
     if (publish_point_cloud)
@@ -98,14 +105,19 @@ protected:
       pcl::PointCloud<pcl::PointXYZRGB> pcl_cloud;
       pcl_cloud.clear();
 
-      for (int i = 0; i< cell_points.size(); i++)
+      for (size_t i = 0; i < cell_points.size(); i++)
       {
         const auto& voxel = cell_points[i];
 
-        if(voxel.z >= occupancy_min_z_ && voxel.z <= occupancy_max_z_)
+        if (voxel.z >= occupancy_min_z_ && voxel.z <= occupancy_max_z_)
         {
           Bonxai::Color vizualization_color = cell_data[i].toColor();
-          pcl_cloud.emplace_back((float)voxel.x, (float)voxel.y, (float)voxel.z, vizualization_color.r, vizualization_color.g, vizualization_color.b);
+          pcl_cloud.emplace_back((float)voxel.x,
+                                 (float)voxel.y,
+                                 (float)voxel.z,
+                                 vizualization_color.r,
+                                 vizualization_color.g,
+                                 vizualization_color.b);
         }
       }
       PointCloud2 cloud;
@@ -114,21 +126,24 @@ protected:
       cloud.header.frame_id = world_frame_id_;
       cloud.header.stamp = rostime;
       point_cloud_pub_->publish(cloud);
-      RCLCPP_WARN(get_logger(), "Published occupancy grid with %ld voxels", pcl_cloud.points.size());
+      RCLCPP_WARN(get_logger(),
+                  "Published occupancy grid with %ld voxels",
+                  pcl_cloud.points.size());
     }
   }
 
   template <typename PointCloudTypeT, typename DataT>
-  void addObservation(PointCloudTypeT& pc, std_msgs::msg::Header header){
+  void addObservation(PointCloudTypeT& pc, std_msgs::msg::Header header)
+  {
     // Sensor In Global Frames Coordinates
     geometry_msgs::msg::TransformStamped sensor_to_world_transform_stamped;
     try
     {
       sensor_to_world_transform_stamped =
           tf2_buffer_->lookupTransform(world_frame_id_,
-                                      header.frame_id,
-                                      header.stamp,
-                                      rclcpp::Duration::from_seconds(1.0));
+                                       header.frame_id,
+                                       header.stamp,
+                                       rclcpp::Duration::from_seconds(1.0));
     }
     catch (const tf2::TransformException& ex)
     {
@@ -149,9 +164,7 @@ protected:
 
     const pcl::PointXYZ sensor_to_world_vec3((float)t.x, (float)t.y, (float)t.z);
 
-    auto bonxai__ = dynamic_cast<Bonxai::ProbabilisticMapT<DataT>*>(bonxai_.get());
-    bonxai__->insertPointCloud(pc.points, sensor_to_world_vec3, 30.0);
-
+    bonxai_->With<DataT>()->insertPointCloud(pc.points, sensor_to_world_vec3, 30.0);
   }
 
   OnSetParametersCallbackHandle::SharedPtr set_param_res_;
@@ -161,8 +174,10 @@ protected:
 
   /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
   rclcpp::Publisher<PointCloud2>::SharedPtr point_cloud_pub_;
-  message_filters::Subscriber<segmentation_msgs::msg::SemanticPointCloud> point_cloud_sub_;
-  std::shared_ptr<tf2_ros::MessageFilter<segmentation_msgs::msg::SemanticPointCloud>> tf_point_cloud_sub_;
+  message_filters::Subscriber<segmentation_msgs::msg::SemanticPointCloud>
+      point_cloud_sub_;
+  std::shared_ptr<tf2_ros::MessageFilter<segmentation_msgs::msg::SemanticPointCloud>>
+      tf_point_cloud_sub_;
   // rclcpp::Service<BBoxSrv>::SharedPtr clear_bbox_srv_;
   rclcpp::Service<ResetSrv>::SharedPtr reset_srv_;
   std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
