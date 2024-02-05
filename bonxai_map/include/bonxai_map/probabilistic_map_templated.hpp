@@ -36,9 +36,9 @@ public:
    * @param max_range  max range of the ray, if exceeded, we will use that
    * to compute a free space
    */
-  template <typename PointT, typename allocatorT>
+  template <typename PointT, typename allocatorT, typename OriginT>
   void insertPointCloud(const std::vector<PointT, allocatorT>& points,
-                        const PointT& origin,
+                        const OriginT& origin,
                         double max_range)
   {
     const auto from = ConvertPoint<Vector3D>(origin);

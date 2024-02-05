@@ -66,9 +66,9 @@ struct Empty
 struct Semantics
 {
   std::vector<double> probabilities;
-  uint8_t instanceID;
+  INSTANCEIDT instanceID;
 
-  Semantics() = default;
+  Semantics(): instanceID(0) {};
 
   Semantics(const pcl::PointXYZSemantics& pcl)
   {
@@ -101,7 +101,7 @@ struct RGBSemantics
   Color rgb;
   Semantics semantics;
 
-  RGBSemantics() {}
+  RGBSemantics(): rgb(), semantics() {}
 
   RGBSemantics(const Color& _rgb, const Semantics& _semantics)
     : rgb(_rgb)

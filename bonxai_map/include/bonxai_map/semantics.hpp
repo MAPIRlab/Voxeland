@@ -8,7 +8,7 @@
 #include <eigen3/Eigen/Core>
 #include "bonxai/bonxai.hpp"
 
-#include "sensor_msgs/msg/point_cloud2.hpp"
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include "segmentation_msgs/msg/semantic_point_cloud.hpp"
 #include "vision_msgs/msg/detection2_d.hpp"
 
@@ -76,7 +76,7 @@ public:
     std::vector<SemanticObject> localSemanticMap(
         instances.size(), SemanticObject(default_categories.size()));
 
-    for (uint8_t i = 0; i < instances.size(); i++)
+    for (INSTANCEIDT i = 0; i < instances.size(); i++)
     {
       SemanticObject newObject = convertDetection2DToSemanticObject(instances[i]);
 
@@ -96,7 +96,7 @@ public:
       const SemanticObject& localInstance = localMap[localInstanceID];
       std::vector<double>::const_iterator itLocal = std::max_element(
           localInstance.probabilities.begin(), localInstance.probabilities.end());
-      uint8_t localIdx = std::distance(localInstance.probabilities.begin(), itLocal);
+      uint8_t localClassIdx = std::distance(localInstance.probabilities.begin(), itLocal);
       bool fused = false;
       for (size_t globalInstanceID = 0; globalInstanceID < globalSemanticMap.size();
            globalInstanceID++)
@@ -105,10 +105,10 @@ public:
         std::vector<double>::iterator itGlobal =
             std::max_element(globalInstance.probabilities.begin(),
                              globalInstance.probabilities.end());
-        uint8_t globalIdx =
+        uint8_t globalClassIdx =
             std::distance(globalInstance.probabilities.begin(), itGlobal);
 
-        if (localIdx == globalIdx)
+        if (localClassIdx == globalClassIdx)
         {
           for (uint8_t i = 0; i < globalInstance.probabilities.size(); i++)
           {
@@ -127,7 +127,7 @@ public:
     }
   }
 
-  uint8_t localToGlobalInstance(uint8_t localInstance)
+  INSTANCEIDT localToGlobalInstance(INSTANCEIDT localInstance)
   {
     return lastMapLocalToGlobal[localInstance];
   }
@@ -143,7 +143,7 @@ public:
   }
 
 private:
-  std::vector<uint8_t> lastMapLocalToGlobal;
+  std::vector<INSTANCEIDT> lastMapLocalToGlobal;
 
   bool initialized = false;
   double kld_threshold = 0.1f;

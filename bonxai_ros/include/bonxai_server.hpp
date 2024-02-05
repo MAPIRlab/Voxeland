@@ -85,7 +85,7 @@ protected:
     std::vector<DataT> cell_data;
     std::vector<Bonxai::Point3D> cell_points;
     cell_points.clear();
-    bonxai_->With<DataT>.getOccupiedVoxels(cell_points, cell_data);
+    bonxai_->With<DataT>()->getOccupiedVoxels(cell_points, cell_data);
 
     if (cell_points.size() <= 1)
     {
@@ -105,7 +105,7 @@ protected:
       pcl::PointCloud<pcl::PointXYZRGB> pcl_cloud;
       pcl_cloud.clear();
 
-      for (int i = 0; i < cell_points.size(); i++)
+      for (size_t i = 0; i < cell_points.size(); i++)
       {
         const auto& voxel = cell_points[i];
 

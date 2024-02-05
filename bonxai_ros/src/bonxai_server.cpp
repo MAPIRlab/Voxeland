@@ -206,7 +206,7 @@ void BonxaiServer::insertCloudCallback(
         semantics.convertROSMessageToSemanticMap(cloud->instances);
     semantics.integrateNewSemantics(localMap);
 
-    RCLCPP_INFO(get_logger(), "%d", semantics.globalSemanticMap.size());
+    RCLCPP_INFO(get_logger(), "Number of instances: %ld", semantics.globalSemanticMap.size());
   }
 
   if (currentMode == MsgType::Empty)
