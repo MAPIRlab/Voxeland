@@ -34,7 +34,7 @@ namespace pcl {
 struct PointXYZSemantics{
 
     PCL_ADD_POINT4D;              
-    uint8_t instance_id;
+    int32_t instance_id;
     
 };
 
@@ -55,7 +55,7 @@ POINT_CLOUD_REGISTER_POINT_STRUCT (pcl::PointXYZSemantics,
                                    (float, x, x)
                                    (float, y, y)
                                    (float, z, z)
-                                   (uint8_t, instance_id, instance_id)
+                                   (int32_t, instance_id, instance_id)
                                    )
 
 

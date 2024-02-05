@@ -26,27 +26,25 @@ inline void ComputeRay(const CoordT& key_origin,
   });
 }
 
-
 /// Compute the logds, but return the result as an integer,
 /// The real number is represented as a fixed precision
 /// integer (6 decimals after the comma)
 [[nodiscard]] static constexpr int32_t logodds(float prob)
 {
-return int32_t(1e6 * std::log(prob / (1.0 - prob)));
+  return int32_t(1e6 * std::log(prob / (1.0 - prob)));
 }
 
 /// Expect the fixed comma value returned by logodds()
 [[nodiscard]] static constexpr float prob(int32_t logodds_fixed)
 {
-float logodds = float(logodds_fixed) * 1e-6;
-return (1.0 - 1.0 / (1.0 + std::exp(logodds)));
+  float logodds = float(logodds_fixed) * 1e-6;
+  return (1.0 - 1.0 / (1.0 + std::exp(logodds)));
 }
 
 class ProbabilisticMap
 {
 public:
   using Vector3D = Eigen::Vector3d;
-
 
   static constexpr int32_t UnknownProbability = logodds(0.5f);
   /// These default values are the same as OctoMap
@@ -61,21 +59,16 @@ public:
     int32_t occupancy_threshold_log = logodds(0.5);
   };
 
-  [[nodiscard]] const Options& options() const
-  {
-    return _options;
-  }
+  [[nodiscard]] const Options& options() const { return _options; }
 
-  void setOptions(const Options& options) 
-  {
-    _options = options;
-  }
+  void setOptions(const Options& options) { _options = options; }
 
   template <typename DataT>
   ProbabilisticMapT<DataT>* With()
   {
     return dynamic_cast<ProbabilisticMapT<DataT>*>(this);
   }
+
 protected:
   virtual void updateFreeCells(const Vector3D& origin) = 0;
   virtual Point3D coordToPos(CoordT coord) = 0;
