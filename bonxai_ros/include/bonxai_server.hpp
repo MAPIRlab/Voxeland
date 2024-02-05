@@ -79,7 +79,7 @@ protected:
     std::vector<DataT> cell_data;
     std::vector<Bonxai::Point3D> cell_points;
     cell_points.clear();
-    dynamic_cast<Bonxai::ProbabilisticMapT<DataT>*>(bonxai_.get())->getOccupiedVoxels(cell_points, cell_data);
+    bonxai_->With<DataT>.getOccupiedVoxels(cell_points, cell_data);
 
     if (cell_points.size() <= 1)
     {

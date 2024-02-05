@@ -7,6 +7,8 @@
 namespace Bonxai
 {
 
+template <typename DataT>
+class ProbabilisticMapT;
 
 template <class Functor>
 void RayIterator(const CoordT& key_origin,
@@ -69,6 +71,11 @@ public:
     _options = options;
   }
 
+  template <typename DataT>
+  ProbabilisticMapT<DataT>* With()
+  {
+    return dynamic_cast<ProbabilisticMapT<DataT>*>(this);
+  }
 protected:
   virtual void updateFreeCells(const Vector3D& origin) = 0;
   virtual Point3D coordToPos(CoordT coord) = 0;

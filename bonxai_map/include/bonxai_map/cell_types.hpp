@@ -1,5 +1,6 @@
 #pragma once 
 #include "probabilistic_map.hpp"
+#include "pcl_utils.hpp"
 #include <pcl/io/pcd_io.h>
 #include <bonxai_map/semantics.hpp>
 

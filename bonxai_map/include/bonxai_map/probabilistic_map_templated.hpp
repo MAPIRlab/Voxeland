@@ -38,7 +38,7 @@ public:
    */
   template <typename PointT, typename allocatorT>
   void insertPointCloud(const std::vector<PointT, allocatorT>& points,
-                        const pcl::PointXYZ& origin,
+                        const PointT& origin,
                         double max_range)
   {
     const auto from = ConvertPoint<Vector3D>(origin);
