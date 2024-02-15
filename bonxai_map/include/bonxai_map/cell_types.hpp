@@ -66,15 +66,22 @@ struct Empty
 struct Semantics
 {
   std::vector<double> probabilities;
-  INSTANCEIDT instanceID;
 
-  Semantics(): instanceID(0) {};
+  Semantics() {};
 
   Semantics(const pcl::PointXYZSemantics& pcl)
   {
     SemanticMap& semantics = SemanticMap::get_instance();
-    instanceID = semantics.localToGlobalInstance(pcl.instance_id);
-    probabilities = semantics.globalSemanticMap[instanceID].probabilities;
+    if (!probabilities.empty()) {
+      for (INSTANCEIDT i = 0; i < probabilities.size(); i++){
+        probabilities[i] += semantics.lastLocalSemanticMap[pcl.instance_id].probabilities[i];
+      }
+      
+    }
+    else {
+      probabilities = semantics.lastLocalSemanticMap[pcl.instance_id].probabilities;
+    }
+    
   }
 
   Color toColor()
@@ -84,10 +91,11 @@ struct Semantics
     std::vector<double>::iterator it =
         std::max_element(probabilities.begin(), probabilities.end());
 
-    uint32_t hexColor = semantics.indexToHexColor(instanceID);
+    uint8_t mainObjectCategory = std::distance(probabilities.begin(), it);
 
-    if (std::distance(probabilities.begin(), it) ==
-        (semantics.default_categories.size() - 1))
+    uint32_t hexColor = semantics.indexToHexColor(mainObjectCategory);
+
+    if (mainObjectCategory == (semantics.default_categories.size() - 1))
     {
       hexColor = 0xbcbcbc;
     }
@@ -117,4 +125,60 @@ struct RGBSemantics
 
   Color toColor() { return rgb; }
 };
+
+struct SemanticsInstances
+{
+  std::vector<double> probabilities;
+  INSTANCEIDT instanceID;
+
+  SemanticsInstances(): instanceID(0) {};
+
+  SemanticsInstances(const pcl::PointXYZSemantics& pcl)
+  {
+    SemanticMap& semantics = SemanticMap::get_instance();
+    instanceID = semantics.localToGlobalInstance(pcl.instance_id);
+    probabilities = semantics.globalSemanticMap[instanceID].probabilities;
+  }
+
+  Color toColor()
+  {
+    SemanticMap& semantics = SemanticMap::get_instance();
+
+    std::vector<double>::iterator it =
+        std::max_element(probabilities.begin(), probabilities.end());
+
+    uint32_t hexColor = semantics.indexToHexColor(instanceID);
+
+    if (std::distance(probabilities.begin(), it) ==
+        (semantics.default_categories.size() - 1))
+    {
+      hexColor = 0xbcbcbc;
+    }
+
+    return Color((hexColor >> 16) & 0xFF, (hexColor >> 8) & 0xFF, hexColor & 0xFF);
+  }
+};
+
+struct RGBSemanticsInstances
+{
+  Color rgb;
+  Semantics semantics;
+
+  RGBSemanticsInstances(): rgb(), semantics() {}
+
+  RGBSemanticsInstances(const Color& _rgb, const Semantics& _semantics)
+    : rgb(_rgb)
+    , semantics(_semantics)
+  {}
+
+  RGBSemanticsInstances(const pcl::PointXYZRGBSemantics& pcl)
+  {
+    rgb.r = pcl.r;
+    rgb.g = pcl.g;
+    rgb.b = pcl.b;
+  }
+
+  Color toColor() { return rgb; }
+};
+
 }  // namespace Bonxai

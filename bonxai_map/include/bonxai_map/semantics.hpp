@@ -37,6 +37,7 @@ public:
   std::unordered_map<std::string, size_t> categoryIndexMap;
 
   std::vector<SemanticObject> globalSemanticMap;
+  std::vector<SemanticObject> lastLocalSemanticMap;
 
   SemanticMap() = default;
 
@@ -55,6 +56,10 @@ public:
   };
 
   bool is_initialized() { return initialized; }
+
+  void setLocalSemanticMap(const std::vector<SemanticObject>& localMap) {
+    lastLocalSemanticMap = localMap;
+  }
 
   SemanticObject
   convertDetection2DToSemanticObject(const vision_msgs::msg::Detection2D& instance)

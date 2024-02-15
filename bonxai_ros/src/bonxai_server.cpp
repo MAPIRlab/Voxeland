@@ -34,6 +34,10 @@ BonxaiServer::BonxaiServer(const rclcpp::NodeOptions& node_options)
     base_frame_id_ = declare_parameter("base_frame_id", "base_footprint");
   }
 
+  {
+    semantics_as_instances_ = declare_parameter("semantics_as_instances", false);
+  }
+
   latched_topics_ = declare_parameter("latch", true);
   if (latched_topics_)
   {
@@ -159,15 +163,21 @@ void BonxaiServer::initializeBonxaiObject()
 
   // initialize bonxai object & params
   RCLCPP_INFO(get_logger(), "Voxel resolution %f", res_);
-  if (currentMode == MsgType::Empty)
+  if (currentMode == DataMode::Empty)
     bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::Empty>>(res_);
-  else if (currentMode == MsgType::RGB)
+  else if (currentMode == DataMode::RGB)
     bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::Color>>(res_);
-  else if (currentMode == MsgType::Semantics)
+  else if (currentMode == DataMode::Semantics)
     bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::Semantics>>(res_);
-  else if (currentMode == MsgType::RGBSemantics)
+  else if (currentMode == DataMode::RGBSemantics)
     bonxai_ =
         std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::RGBSemantics>>(res_);
+  else if (currentMode == DataMode::SemanticsInstances)
+    bonxai_ =
+        std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::SemanticsInstances>>(res_);
+  else if (currentMode == DataMode::RGBSemanticsInstances)
+    bonxai_ =
+        std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::RGBSemanticsInstances>>(res_);
 
   Bonxai::ProbabilisticMap::Options options = { Bonxai::logodds(prob_miss),
                                                 Bonxai::logodds(prob_hit),
@@ -183,33 +193,47 @@ void BonxaiServer::insertCloudCallback(
   const auto start_time = rclcpp::Clock{}.now();
 
   /* Added by JL Matez */
-  for (size_t i = 0; i < cloud->cloud.fields.size(); i++)
-  {
-    if (cloud->cloud.fields[i].name == "rgb")
-      currentMode = currentMode | MsgType::RGB;
-    else if (cloud->cloud.fields[i].name == "instance_id")
-      currentMode = currentMode | MsgType::Semantics;
-  }
+  if (currentMode == DataMode::Uninitialized){
 
+    currentMode = DataMode::Empty;
+
+    for (size_t i = 0; i < cloud->cloud.fields.size(); i++)
+    {
+      if (cloud->cloud.fields[i].name == "rgb")
+        currentMode = currentMode | DataMode::RGB;
+      else if (cloud->cloud.fields[i].name == "instance_id")
+        currentMode = currentMode | DataMode::Semantics;
+    }
+    if (semantics_as_instances_ && static_cast<int>(currentMode & DataMode::Semantics) != 0) {
+      currentMode = currentMode | DataMode::SemanticsInstances;
+    }
+  }
+  
   if (bonxai_.get() == nullptr)
     initializeBonxaiObject();
 
-  if (static_cast<int>(currentMode & MsgType::Semantics) != 0 &&
+  if (static_cast<int>(currentMode & DataMode::Semantics) != 0 &&
       !semantics.is_initialized())
   {
     semantics.initialize(cloud->categories);
   }
 
-  if (static_cast<int>(currentMode & MsgType::Semantics) != 0)
+  if (static_cast<int>(currentMode & DataMode::Semantics) != 0)
   {
     std::vector<SemanticObject> localMap =
         semantics.convertROSMessageToSemanticMap(cloud->instances);
-    semantics.integrateNewSemantics(localMap);
+    
+    if (semantics_as_instances_){
+      semantics.integrateNewSemantics(localMap);
+    }
+    else{
+      semantics.setLocalSemanticMap(localMap);
+    }  
 
-    RCLCPP_INFO(get_logger(), "Number of instances: %ld", semantics.globalSemanticMap.size());
+    RCLCPP_INFO(get_logger(), "Number of instances in global map: %ld", semantics.globalSemanticMap.size());
   }
 
-  if (currentMode == MsgType::Empty)
+  if (currentMode == DataMode::Empty)
   {
     using PointCloudType = pcl::PointCloud<pcl::PointXYZ>;
     PointCloudType pc;
@@ -217,7 +241,7 @@ void BonxaiServer::insertCloudCallback(
     addObservation<PointCloudType, Bonxai::Empty>(pc, cloud->header);
     publishAll<Bonxai::Empty>(cloud->header.stamp);
   }
-  else if (currentMode == MsgType::RGB)
+  else if (currentMode == DataMode::RGB)
   {
     using PointCloudType = pcl::PointCloud<pcl::PointXYZRGB>;
     PointCloudType pc;
@@ -225,22 +249,37 @@ void BonxaiServer::insertCloudCallback(
     addObservation<PointCloudType, Bonxai::Color>(pc, cloud->header);
     publishAll<Bonxai::Color>(cloud->header.stamp);
   }
-  else if (currentMode == MsgType::Semantics)
+  else if (currentMode == DataMode::Semantics)
   {
     using PointCloudType = pcl::PointCloud<pcl::PointXYZSemantics>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-
     addObservation<PointCloudType, Bonxai::Semantics>(pc, cloud->header);
     publishAll<Bonxai::Semantics>(cloud->header.stamp);
   }
-  else if (currentMode == MsgType::RGBSemantics)
+  else if (currentMode == DataMode::RGBSemantics)
   {
     using PointCloudType = pcl::PointCloud<pcl::PointXYZRGBSemantics>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
     addObservation<PointCloudType, Bonxai::RGBSemantics>(pc, cloud->header);
     publishAll<Bonxai::RGBSemantics>(cloud->header.stamp);
+  }
+  else if (currentMode == DataMode::SemanticsInstances)
+  {
+    using PointCloudType = pcl::PointCloud<pcl::PointXYZSemantics>;
+    PointCloudType pc;
+    pcl::fromROSMsg(cloud->cloud, pc);
+    addObservation<PointCloudType, Bonxai::SemanticsInstances>(pc, cloud->header);
+    publishAll<Bonxai::SemanticsInstances>(cloud->header.stamp);
+  }
+  else if (currentMode == DataMode::RGBSemanticsInstances)
+  {
+    using PointCloudType = pcl::PointCloud<pcl::PointXYZRGBSemantics>;
+    PointCloudType pc;
+    pcl::fromROSMsg(cloud->cloud, pc);
+    addObservation<PointCloudType, Bonxai::RGBSemanticsInstances>(pc, cloud->header);
+    publishAll<Bonxai::RGBSemanticsInstances>(cloud->header.stamp);
   }
 
   double total_elapsed = (rclcpp::Clock{}.now() - start_time).seconds();
@@ -281,31 +320,45 @@ bool BonxaiServer::resetSrv(const std::shared_ptr<ResetSrv::Request>,
                             const std::shared_ptr<ResetSrv::Response>)
 {
   const auto rostime = now();
-  if (currentMode == MsgType::Empty)
+  if (currentMode == DataMode::Empty)
   {
     bonxai_ = std::make_unique<
         Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Empty>>>(res_);
     publishAll<Bonxai::Empty>(rostime);
   }
-  else if (currentMode == MsgType::RGB)
+  else if (currentMode == DataMode::RGB)
   {
     bonxai_ = std::make_unique<
         Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Color>>>(res_);
     publishAll<Bonxai::Color>(rostime);
   }
-  else if (currentMode == MsgType::Semantics)
+  else if (currentMode == DataMode::Semantics)
   {
     bonxai_ = std::make_unique<
         Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Semantics>>>(
         res_);
     publishAll<Bonxai::Semantics>(rostime);
   }
-  else if (currentMode == MsgType::RGBSemantics)
+  else if (currentMode == DataMode::RGBSemantics)
   {
     bonxai_ = std::make_unique<
         Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::RGBSemantics>>>(
         res_);
     publishAll<Bonxai::RGBSemantics>(rostime);
+  }
+  else if (currentMode == DataMode::SemanticsInstances)
+  {
+    bonxai_ = std::make_unique<
+        Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::SemanticsInstances>>>(
+        res_);
+    publishAll<Bonxai::SemanticsInstances>(rostime);
+  }
+  else if (currentMode == DataMode::RGBSemanticsInstances)
+  {
+    bonxai_ = std::make_unique<
+        Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::RGBSemanticsInstances>>>(
+        res_);
+    publishAll<Bonxai::RGBSemanticsInstances>(rostime);
   }
 
   RCLCPP_INFO(get_logger(), "Cleared Bonxai");

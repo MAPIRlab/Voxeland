@@ -42,23 +42,26 @@ namespace bonxai_server
 
 using sensor_msgs::msg::PointCloud2;
 
-enum class MsgType
+enum class DataMode
 {
+  Uninitialized = 1,
   Empty = 0,
-  RGB = 1 << 0,
-  Semantics = 1 << 1,
-  RGBSemantics = RGB | Semantics
+  RGB = 1 << 1,
+  Semantics = 1 << 2,
+  SemanticsInstances = Semantics | (1 << 3),
+  RGBSemantics = RGB | Semantics,
+  RGBSemanticsInstances = RGBSemantics | SemanticsInstances
 };
-MsgType currentMode = MsgType::Empty;
+DataMode currentMode = DataMode::Uninitialized;
 
-inline MsgType operator|(MsgType a, MsgType b)
+inline DataMode operator|(DataMode a, DataMode b)
 {
-  return static_cast<MsgType>(static_cast<int>(a) | static_cast<int>(b));
+  return static_cast<DataMode>(static_cast<int>(a) | static_cast<int>(b));
 }
 
-inline MsgType operator&(MsgType a, MsgType b)
+inline DataMode operator&(DataMode a, DataMode b)
 {
-  return static_cast<MsgType>(static_cast<int>(a) & static_cast<int>(b));
+  return static_cast<DataMode>(static_cast<int>(a) & static_cast<int>(b));
 }
 
 class BonxaiServer : public rclcpp::Node
@@ -203,6 +206,9 @@ protected:
   // octomap::OcTreeKey padded_min_key_;
   unsigned multires_2d_scale_;
   bool project_complete_map_;
+
+  // Added by JL Matez: SemanticBonxai Parameters
+  bool semantics_as_instances_;
 };
 }  // namespace bonxai_server
 
