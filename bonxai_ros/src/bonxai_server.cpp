@@ -235,50 +235,56 @@ void BonxaiServer::insertCloudCallback(
 
   if (currentMode == DataMode::Empty)
   {
+    RCLCPP_INFO(get_logger(), "Mode Empty");
     using PointCloudType = pcl::PointCloud<pcl::PointXYZ>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation<PointCloudType, Bonxai::Empty>(pc, cloud->header);
+    addObservation<PointCloudType, Bonxai::Empty>(pc, cloud->pose);
     publishAll<Bonxai::Empty>(cloud->header.stamp);
   }
   else if (currentMode == DataMode::RGB)
   {
+    RCLCPP_INFO(get_logger(), "Mode RGB");
     using PointCloudType = pcl::PointCloud<pcl::PointXYZRGB>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation<PointCloudType, Bonxai::Color>(pc, cloud->header);
+    addObservation<PointCloudType, Bonxai::Color>(pc, cloud->pose);
     publishAll<Bonxai::Color>(cloud->header.stamp);
   }
   else if (currentMode == DataMode::Semantics)
   {
+    RCLCPP_INFO(get_logger(), "Mode Semantics");
     using PointCloudType = pcl::PointCloud<pcl::PointXYZSemantics>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation<PointCloudType, Bonxai::Semantics>(pc, cloud->header);
+    addObservation<PointCloudType, Bonxai::Semantics>(pc, cloud->pose);
     publishAll<Bonxai::Semantics>(cloud->header.stamp);
   }
   else if (currentMode == DataMode::RGBSemantics)
   {
+    RCLCPP_INFO(get_logger(), "Mode RGBSemantics");
     using PointCloudType = pcl::PointCloud<pcl::PointXYZRGBSemantics>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation<PointCloudType, Bonxai::RGBSemantics>(pc, cloud->header);
+    addObservation<PointCloudType, Bonxai::RGBSemantics>(pc, cloud->pose);
     publishAll<Bonxai::RGBSemantics>(cloud->header.stamp);
   }
   else if (currentMode == DataMode::SemanticsInstances)
   {
+    RCLCPP_INFO(get_logger(), "Mode SemanticsInstances");
     using PointCloudType = pcl::PointCloud<pcl::PointXYZSemantics>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation<PointCloudType, Bonxai::SemanticsInstances>(pc, cloud->header);
+    addObservation<PointCloudType, Bonxai::SemanticsInstances>(pc, cloud->pose);
     publishAll<Bonxai::SemanticsInstances>(cloud->header.stamp);
   }
   else if (currentMode == DataMode::RGBSemanticsInstances)
   {
+    RCLCPP_INFO(get_logger(), "Mode RGBSemanticsInstances");
     using PointCloudType = pcl::PointCloud<pcl::PointXYZRGBSemantics>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation<PointCloudType, Bonxai::RGBSemanticsInstances>(pc, cloud->header);
+    addObservation<PointCloudType, Bonxai::RGBSemanticsInstances>(pc, cloud->pose);
     publishAll<Bonxai::RGBSemanticsInstances>(cloud->header.stamp);
   }
 

@@ -58,7 +58,7 @@ public:
       }
       else
       {
-        addHitPoint(to, DataT(point));
+        addHitPoint(to, point);
       }
     }
     updateFreeCells(from);
@@ -67,14 +67,15 @@ public:
   // This function is usually called by insertPointCloud
   // We expose it here to add more control to the user.
   // Once finished adding points, you must call updateFreeCells()
-  void addHitPoint(const Vector3D& point, const DataT& data)
+  template <typename PointT>
+  void addHitPoint(const Vector3D& point, const PointT& data)
   {
     const auto coord = _grid.posToCoord(point);
     ProbabilisticCell<DataT>* cell = _accessor.value(coord, true);
 
     // TODO updating the data here should call a function in DataT that specifies how
     // the information is to be fused, rather than just overwriting with the latest
-    cell->data = data;
+    cell->data.update(data);
 
     if (cell->update_id != _update_count)
     {

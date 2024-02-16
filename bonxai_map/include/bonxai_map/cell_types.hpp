@@ -52,6 +52,13 @@ struct Color
     b = pcl.b;
   }
 
+  void update(const pcl::PointXYZRGB& pcl)
+  {
+    r = pcl.r;
+    g = pcl.g;
+    b = pcl.b;
+  }
+
   Color toColor() { return Color(*this); }
 };
 
@@ -59,6 +66,8 @@ struct Empty
 {
   Empty() = default;
   Empty(const pcl::PointXYZ& pcl) {}
+
+  void update(const pcl::PointXYZ& pcl) {}
 
   Color toColor() { return Color(255, 255, 255); }
 };
@@ -82,6 +91,19 @@ struct Semantics
       probabilities = semantics.lastLocalSemanticMap[pcl.instance_id].probabilities;
     }
     
+  }
+  
+  void update(const pcl::PointXYZSemantics& pcl){
+    SemanticMap& semantics = SemanticMap::get_instance();
+    if (!probabilities.empty()) {
+      for (INSTANCEIDT i = 0; i < probabilities.size(); i++){
+        probabilities[i] += semantics.lastLocalSemanticMap[pcl.instance_id].probabilities[i];
+      }
+      
+    }
+    else {
+      probabilities = semantics.lastLocalSemanticMap[pcl.instance_id].probabilities;
+    }
   }
 
   Color toColor()
@@ -123,6 +145,12 @@ struct RGBSemantics
     rgb.b = pcl.b;
   }
 
+  void update(const pcl::PointXYZRGBSemantics& pcl){
+    rgb.r = pcl.r;
+    rgb.g = pcl.g;
+    rgb.b = pcl.b;
+  }
+
   Color toColor() { return rgb; }
 };
 
@@ -134,6 +162,13 @@ struct SemanticsInstances
   SemanticsInstances(): instanceID(0) {};
 
   SemanticsInstances(const pcl::PointXYZSemantics& pcl)
+  {
+    SemanticMap& semantics = SemanticMap::get_instance();
+    instanceID = semantics.localToGlobalInstance(pcl.instance_id);
+    probabilities = semantics.globalSemanticMap[instanceID].probabilities;
+  }
+
+  void update(const pcl::PointXYZSemantics& pcl)
   {
     SemanticMap& semantics = SemanticMap::get_instance();
     instanceID = semantics.localToGlobalInstance(pcl.instance_id);
@@ -172,6 +207,13 @@ struct RGBSemanticsInstances
   {}
 
   RGBSemanticsInstances(const pcl::PointXYZRGBSemantics& pcl)
+  {
+    rgb.r = pcl.r;
+    rgb.g = pcl.g;
+    rgb.b = pcl.b;
+  }
+
+  void update(const pcl::PointXYZRGBSemantics& pcl)
   {
     rgb.r = pcl.r;
     rgb.g = pcl.g;

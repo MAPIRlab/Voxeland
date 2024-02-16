@@ -136,8 +136,11 @@ protected:
   }
 
   template <typename PointCloudTypeT, typename DataT>
-  void addObservation(PointCloudTypeT& pc, std_msgs::msg::Header header)
+  void addObservation(PointCloudTypeT& pc, geometry_msgs::msg::PoseWithCovariance pose)
   {
+    /* REMOVED BY JL MATEZ. REASON: From now on, SemanticPointCloud msg
+    already includes the sensor pose with covariance.
+
     // Sensor In Global Frames Coordinates
     geometry_msgs::msg::TransformStamped sensor_to_world_transform_stamped;
     try
@@ -158,12 +161,17 @@ protected:
         tf2::transformToEigen(sensor_to_world_transform_stamped.transform)
             .matrix()
             .cast<float>();
+    */
 
+    Eigen::Isometry3d sensor_to_world_iso;
+    tf2::fromMsg(pose.pose, sensor_to_world_iso);
+    Eigen::Matrix4f sensor_to_world = sensor_to_world_iso.matrix().cast<float>();
+    
     // Transforming Points to Global Reference Frame
     pcl::transformPointCloud(pc, pc, sensor_to_world);
 
     // Getting the Translation from the sensor to the Global Reference Frame
-    const auto& t = sensor_to_world_transform_stamped.transform.translation;
+    const auto& t = pose.pose.position;
 
     const pcl::PointXYZ sensor_to_world_vec3((float)t.x, (float)t.y, (float)t.z);
 
