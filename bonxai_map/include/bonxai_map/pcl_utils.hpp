@@ -42,10 +42,24 @@ struct PointXYZSemantics
 struct PointXYZRGBSemantics
 {
   PCL_ADD_POINT4D;
+  PCL_ADD_RGB;
 
-  uint8_t b;
+  /*uint8_t b;
   uint8_t g;
   uint8_t r;
+
+  union
+  {
+    struct
+    {
+      uint8_t b;
+      uint8_t g;
+      uint8_t r;
+      uint8_t a;
+    };
+    float rgb;
+  };
+  uint32_t rgba;*/
 
   INSTANCEIDT instance_id;
 };
@@ -58,7 +72,4 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(
 
 POINT_CLOUD_REGISTER_POINT_STRUCT(
     pcl::PointXYZRGBSemantics,  // here we assume a XYZ + "test" (as fields)
-    (float, x, x)(float, y, y)(float, z, z)(uint8_t, b, b)(uint8_t, g, g)(
-        uint8_t,
-        r,
-        r)(INSTANCEIDT, instance_id, instance_id))
+    (float, x, x)(float, y, y)(float, z, z)(float, rgb, rgb)(INSTANCEIDT, instance_id, instance_id))

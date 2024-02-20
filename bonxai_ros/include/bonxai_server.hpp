@@ -2,6 +2,7 @@
 #define BONXAI_SERVER__BONXAI_SERVER_HPP_
 
 #include "bonxai_map/pcl_utils.hpp"
+#include <bonxai_map/cell_types.hpp>
 #include "bonxai_map/probabilistic_map_templated.hpp"
 #include "bonxai/bonxai.hpp"
 
@@ -36,6 +37,7 @@
 #include <vector>
 
 #include <bonxai_map/semantics.hpp>
+#include <semantics_ros_wrapper.hpp>
 
 namespace bonxai_server
 {
@@ -77,6 +79,8 @@ public:
   /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
   virtual void insertCloudCallback(
       const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
+  
+  SemanticsROSWrapper semantics_ros_wrapper;
 
 protected:
   SemanticMap& semantics = SemanticMap::get_instance();

@@ -1,5 +1,4 @@
 #include <bonxai_server.hpp>
-#include <bonxai_map/cell_types.hpp>
 
 namespace
 {
@@ -221,7 +220,7 @@ void BonxaiServer::insertCloudCallback(
   if (static_cast<int>(currentMode & DataMode::Semantics) != 0)
   {
     std::vector<SemanticObject> localMap =
-        semantics.convertROSMessageToSemanticMap(cloud->instances);
+        semantics_ros_wrapper.convertROSMessageToSemanticMap(cloud->instances);
     
     if (semantics_as_instances_){
       semantics.integrateNewSemantics(localMap);

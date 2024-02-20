@@ -129,29 +129,48 @@ struct Semantics
 struct RGBSemantics
 {
   Color rgb;
-  Semantics semantics;
+  std::vector<double> probabilities;
 
-  RGBSemantics(): rgb(), semantics() {}
+  RGBSemantics(): rgb() {}
 
-  RGBSemantics(const Color& _rgb, const Semantics& _semantics)
-    : rgb(_rgb)
-    , semantics(_semantics)
-  {}
-
-  RGBSemantics(const pcl::PointXYZRGBSemantics& pcl)
-  {
-    rgb.r = pcl.r;
-    rgb.g = pcl.g;
-    rgb.b = pcl.b;
-  }
 
   void update(const pcl::PointXYZRGBSemantics& pcl){
+
+    SemanticMap& semantics = SemanticMap::get_instance();
+    if (!probabilities.empty()) {
+      for (INSTANCEIDT i = 0; i < probabilities.size(); i++){
+        probabilities[i] += semantics.lastLocalSemanticMap[pcl.instance_id].probabilities[i];
+      }
+      
+    }
+    else {
+      probabilities = semantics.lastLocalSemanticMap[pcl.instance_id].probabilities;
+    }
+
     rgb.r = pcl.r;
     rgb.g = pcl.g;
     rgb.b = pcl.b;
   }
 
-  Color toColor() { return rgb; }
+  Color toColor()
+  {
+    SemanticMap& semantics = SemanticMap::get_instance();
+
+    std::vector<double>::iterator it =
+        std::max_element(probabilities.begin(), probabilities.end());
+
+    uint8_t mainObjectCategory = std::distance(probabilities.begin(), it);
+
+    uint32_t hexColor = semantics.indexToHexColor(mainObjectCategory);
+
+    if (mainObjectCategory == (semantics.default_categories.size() - 1))
+    {
+      hexColor = (static_cast<uint32_t>(rgb.r) << 16) | (static_cast<uint32_t>(rgb.g) << 8) | static_cast<uint32_t>(rgb.b);
+      //hexColor = 0xbcbcbc;
+    }
+
+    return Color((hexColor >> 16) & 0xFF, (hexColor >> 8) & 0xFF, hexColor & 0xFF);
+  }
 };
 
 struct SemanticsInstances
