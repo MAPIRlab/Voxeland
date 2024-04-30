@@ -210,7 +210,7 @@ public:
             
             // Compute 3D IoU... To Do... meanwhile, check if the best category of each one is the same
             //if (localClassIdx == globalClassIdx)
-            if (compute3DIoU<DataT>(globalInstance.bbox, globalInstanceID, localInstance.localGeometry.value()) > 0.7)
+            if (compute3DIoU<DataT>(globalInstance.bbox, globalInstanceID, localInstance.localGeometry.value()) > 0.6)
             {
               BONXAI_INFO("integrando!");
               for (size_t i = 0; i < globalInstance.probabilities.size(); i++)
