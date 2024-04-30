@@ -20,6 +20,7 @@
 
 /* Added by JL Matez */
 #include "segmentation_msgs/msg/semantic_point_cloud.hpp"
+#include "segmentation_msgs/msg/instance_semantic_map.hpp"
 
 #include "pcl_conversions/pcl_conversions.h"
 
@@ -37,6 +38,7 @@
 #include <vector>
 
 #include <bonxai_map/semantics.hpp>
+#include <bonxai_map/data_modes.hpp>
 #include <semantics_ros_wrapper.hpp>
 
 namespace bonxai_server
@@ -44,32 +46,14 @@ namespace bonxai_server
 
 using sensor_msgs::msg::PointCloud2;
 
-enum class DataMode
-{
-  Uninitialized = 1,
-  Empty = 0,
-  RGB = 1 << 1,
-  Semantics = 1 << 2,
-  SemanticsInstances = Semantics | (1 << 3),
-  RGBSemantics = RGB | Semantics,
-  RGBSemanticsInstances = RGBSemantics | SemanticsInstances
-};
-DataMode currentMode = DataMode::Uninitialized;
-
-inline DataMode operator|(DataMode a, DataMode b)
-{
-  return static_cast<DataMode>(static_cast<int>(a) | static_cast<int>(b));
-}
-
-inline DataMode operator&(DataMode a, DataMode b)
-{
-  return static_cast<DataMode>(static_cast<int>(a) & static_cast<int>(b));
-}
+using DataMode = Bonxai::DataMode;
 
 class BonxaiServer : public rclcpp::Node
 {
 public:
   using ResetSrv = std_srvs::srv::Empty;
+
+  DataMode currentMode = DataMode::Uninitialized;
 
   explicit BonxaiServer(const rclcpp::NodeOptions& node_options);
 
@@ -140,7 +124,7 @@ protected:
   }
 
   template <typename PointCloudTypeT, typename DataT>
-  void addObservation(PointCloudTypeT& pc, geometry_msgs::msg::PoseWithCovariance pose)
+  pcl::PointXYZ transformPointCloudToGlobal(PointCloudTypeT& pc, geometry_msgs::msg::PoseWithCovariance pose)
   {
     /* REMOVED BY JL MATEZ. REASON: From now on, SemanticPointCloud msg
     already includes the sensor pose with covariance.
@@ -177,9 +161,8 @@ protected:
     // Getting the Translation from the sensor to the Global Reference Frame
     const auto& t = pose.pose.position;
 
-    const pcl::PointXYZ sensor_to_world_vec3((float)t.x, (float)t.y, (float)t.z);
+    return pcl::PointXYZ ((float)t.x, (float)t.y, (float)t.z);
 
-    bonxai_->With<DataT>()->insertPointCloud(pc.points, sensor_to_world_vec3, 30.0);
   }
 
   OnSetParametersCallbackHandle::SharedPtr set_param_res_;
@@ -189,10 +172,13 @@ protected:
 
   /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
   rclcpp::Publisher<PointCloud2>::SharedPtr point_cloud_pub_;
-  message_filters::Subscriber<segmentation_msgs::msg::SemanticPointCloud>
+  rclcpp::Publisher<segmentation_msgs::msg::InstanceSemanticMap>::SharedPtr semantic_map_pub_;
+  rclcpp::Subscription<segmentation_msgs::msg::SemanticPointCloud>::SharedPtr
+      point_cloud_sub_;
+  /*message_filters::Subscriber<segmentation_msgs::msg::SemanticPointCloud>
       point_cloud_sub_;
   std::shared_ptr<tf2_ros::MessageFilter<segmentation_msgs::msg::SemanticPointCloud>>
-      tf_point_cloud_sub_;
+      tf_point_cloud_sub_;*/
   // rclcpp::Service<BBoxSrv>::SharedPtr clear_bbox_srv_;
   rclcpp::Service<ResetSrv>::SharedPtr reset_srv_;
   std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;

@@ -8,28 +8,6 @@
 namespace Bonxai
 {
 
-/**
- * @brief The ProbabilisticMap class is meant to behave as much as possible as
- * octomap::Octree, given the same voxel size.
- *
- * Insert a point cloud to update the current probability
- */
-
-template <typename DataT>
-struct ProbabilisticCell
-{
-  // variable used to check if a cell was already updated in this loop
-  int32_t update_id : 4;
-  // the probability of the cell to be occupied
-  int32_t probability_log : 28;
-  // Arbitrary data (RGB, Semantics, etc.)
-  DataT data;
-
-  ProbabilisticCell()
-    : update_id(0)
-    , probability_log(ProbabilisticMap::UnknownProbability){};
-};
-
 struct Color
 {
   uint8_t r;
@@ -59,6 +37,10 @@ struct Color
     b = pcl.b;
   }
 
+  bool checkCell(){
+    return false;
+  }
+
   Color toColor() { return Color(*this); }
 };
 
@@ -68,6 +50,10 @@ struct Empty
   Empty(const pcl::PointXYZ& pcl) {}
 
   void update(const pcl::PointXYZ& pcl) {}
+
+  bool checkCell(){
+    return false;
+  }
 
   Color toColor() { return Color(255, 255, 255); }
 };
@@ -104,6 +90,10 @@ struct Semantics
     else {
       probabilities = semantics.lastLocalSemanticMap[pcl.instance_id].probabilities;
     }
+  }
+
+  bool checkCell(){
+    return false;
   }
 
   Color toColor()
@@ -152,6 +142,10 @@ struct RGBSemantics
     rgb.b = pcl.b;
   }
 
+  bool checkCell(){
+    return false;
+  }
+
   Color toColor()
   {
     SemanticMap& semantics = SemanticMap::get_instance();
@@ -175,37 +169,68 @@ struct RGBSemantics
 
 struct SemanticsInstances
 {
-  std::vector<double> probabilities;
-  INSTANCEIDT instanceID;
+  std::vector<INSTANCEIDT> instances_candidates;
+  std::vector<uint32_t> instances_votes;
 
-  SemanticsInstances(): instanceID(0) {};
+  SemanticsInstances() {};
 
   SemanticsInstances(const pcl::PointXYZSemantics& pcl)
   {
     SemanticMap& semantics = SemanticMap::get_instance();
-    instanceID = semantics.localToGlobalInstance(pcl.instance_id);
-    probabilities = semantics.globalSemanticMap[instanceID].probabilities;
+    INSTANCEIDT thisGlobalID = semantics.localToGlobalInstance(pcl.instance_id);
+
+    auto it = std::find(instances_candidates.begin(), instances_candidates.end(), thisGlobalID);
+
+    if (it != instances_candidates.end()) {
+      if(thisGlobalID != 0){
+        instances_votes[std::distance(instances_candidates.begin(), it)]+=1;
+      }
+    }
+    else{
+      instances_candidates.push_back(thisGlobalID);
+      instances_votes.push_back(0);
+    }
   }
 
   void update(const pcl::PointXYZSemantics& pcl)
   {
     SemanticMap& semantics = SemanticMap::get_instance();
-    instanceID = semantics.localToGlobalInstance(pcl.instance_id);
-    probabilities = semantics.globalSemanticMap[instanceID].probabilities;
+    INSTANCEIDT thisGlobalID = semantics.localToGlobalInstance(pcl.instance_id);
+
+    auto it = std::find(instances_candidates.begin(), instances_candidates.end(), thisGlobalID);
+
+    if (it != instances_candidates.end()) {
+      if(thisGlobalID != 0){
+        instances_votes[std::distance(instances_candidates.begin(), it)]+=1;
+      }
+    }
+    else{
+      instances_candidates.push_back(thisGlobalID);
+      instances_votes.push_back(0);
+    }
+  }
+
+  bool checkCell(){
+    return !instances_candidates.empty();
   }
 
   Color toColor()
   {
     SemanticMap& semantics = SemanticMap::get_instance();
 
-    std::vector<double>::iterator it =
-        std::max_element(probabilities.begin(), probabilities.end());
+    auto itInstances = std::max_element(instances_votes.begin(), instances_votes.end());
+    
+    std::vector<double> probsBestInstance = semantics.globalSemanticMap[std::distance(instances_votes.begin(), itInstances)].probabilities;
 
-    uint32_t hexColor = semantics.indexToHexColor(instanceID);
+    auto itProbs = std::max_element(probsBestInstance.begin(), probsBestInstance.end());
 
-    if (std::distance(probabilities.begin(), it) ==
-        (semantics.default_categories.size() - 1))
-    {
+    // Set the color of the best object category of the most probable instance
+    //uint32_t hexColor = semantics.indexToHexColor(std::distance(probsBestInstance.begin(), itProbs));
+    // Set a unique color for the most probable instance
+    uint32_t hexColor = semantics.indexToHexColor(instances_candidates[std::distance(instances_votes.begin(), itInstances)]);
+
+    if (std::distance(probsBestInstance.begin(), itProbs) ==
+        (semantics.default_categories.size() - 1)){
       hexColor = 0xbcbcbc;
     }
 
@@ -217,6 +242,8 @@ struct RGBSemanticsInstances
 {
   Color rgb;
   Semantics semantics;
+  std::vector<INSTANCEIDT> instances_candidates;
+  std::vector<uint32_t> instances_votes;
 
   RGBSemanticsInstances(): rgb(), semantics() {}
 
@@ -237,6 +264,10 @@ struct RGBSemanticsInstances
     rgb.r = pcl.r;
     rgb.g = pcl.g;
     rgb.b = pcl.b;
+  }
+
+  bool checkCell(){
+    return false;
   }
 
   Color toColor() { return rgb; }

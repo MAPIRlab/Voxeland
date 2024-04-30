@@ -9,6 +9,13 @@ add_library(bonxai_map
     src/semantics.cpp
 )
 
+get_directory_property(MYDEFS COMPILE_DEFINITIONS)
+
+
+if(MYDEFS MATCHES "USING_ROS")
+    ament_target_dependencies(bonxai_map rclcpp)
+endif()
+
 target_compile_definitions(bonxai_map PRIVATE
     ${PCL_DEFINITIONS})
 
@@ -16,7 +23,7 @@ target_include_directories(bonxai_map PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>)
 
-target_link_libraries(bonxai_map PUBLIC
+target_link_libraries(bonxai_map
     bonxai_core
     ${PCL_LIBRARIES})
 

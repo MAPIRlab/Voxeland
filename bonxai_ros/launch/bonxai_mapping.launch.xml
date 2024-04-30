@@ -2,7 +2,7 @@
 	<node pkg="bonxai_ros" exec="bonxai_server_node" name="bonxai_server">
 	
 		<!-- fVoxelGrid Resolution -->
-		<param name="resolution" value="0.05" />
+		<param name="resolution" value="0.02" />
 
 		<!-- fixed map frame (set to 'map' if SLAM or localization running!) -->
 		<param name="frame_id" value="map" />
@@ -17,7 +17,7 @@
 		<param name="use_height_map" value="true" />
 
 		<!-- SemanticBonxai Parameters-->
-		<param name="semantics_as_instances" value="false" />
+		<param name="semantics_as_instances" value="true" />
 
 	</node>
 </launch>

@@ -16,6 +16,7 @@ endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "-fno-omit-frame-pointer -g")
+set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 
 #---- Add the subdirectory cmake ----
 set(CMAKE_CONFIG_PATH ${CMAKE_MODULE_PATH}  "${CMAKE_CURRENT_LIST_DIR}/cmake")
@@ -41,13 +42,16 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wpedantic -fno-omit-frame-pointer)
 endif()
 
+add_compile_definitions(USING_ROS=1)
 
 ####################################################
-add_subdirectory(bonxai_core)
-add_subdirectory(bonxai_map)
 
 # Default behavior
+find_package(rclcpp)
 find_package(ament_cmake QUIET)
+
+add_subdirectory(bonxai_core)
+add_subdirectory(bonxai_map)
 
 if ( ament_cmake_FOUND )
 

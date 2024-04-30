@@ -1,4 +1,5 @@
  #include <bonxai_map/semantics.hpp>
+ #include <bonxai_map/cell_types.hpp>
 
 SemanticMap::SemanticMap() : kld_threshold(0.1f), color_palette({0xFAD4E0, 0x9DBBE3, 0xBFE3DF, 0xB59CD9, 0xFFF5CC, 0xFFD9BD, 0xEE9D94, 0xF7ADCF,
                                                                 0xe6194B, 0x3cb44b, 0xffe119, 0x4363d8, 0xf58231, 0x911eb4, 0x42d4f4,
@@ -23,7 +24,7 @@ SemanticMap::SemanticMap() : kld_threshold(0.1f), color_palette({0xFAD4E0, 0x9DB
 
 bool SemanticMap::is_initialized() { return initialized; }
 
-void SemanticMap::initialize(std::vector<std::string> dataset_categories)
+void SemanticMap::initialize(std::vector<std::string> dataset_categories, Bonxai::ProbabilisticMap& _bonxai, Bonxai::DataMode mode)
   {
     // Initialize objectInfoMap with SemanticObject for each object name
     for (size_t i = 0; i < dataset_categories.size(); ++i)
@@ -31,6 +32,24 @@ void SemanticMap::initialize(std::vector<std::string> dataset_categories)
       default_categories.push_back(dataset_categories[i]);
       categoryIndexMap[dataset_categories[i]] = i;
     }
+
+  if (mode == Bonxai::DataMode::Semantics) 
+  {
+    BonxaiQuery<Bonxai::Semantics>::createAccessor(_bonxai.With<Bonxai::Semantics>()->grid());
+  }
+  else if (mode == Bonxai::DataMode::RGBSemantics) 
+  {
+    BonxaiQuery<Bonxai::RGBSemantics>::createAccessor(_bonxai.With<Bonxai::RGBSemantics>()->grid());
+  }
+  else if (mode == Bonxai::DataMode::SemanticsInstances)
+  {
+    BonxaiQuery<Bonxai::SemanticsInstances>::createAccessor(_bonxai.With<Bonxai::SemanticsInstances>()->grid());
+  }
+  else if (mode == Bonxai::DataMode::RGBSemanticsInstances)
+  {
+    BonxaiQuery<Bonxai::RGBSemanticsInstances>::createAccessor(_bonxai.With<Bonxai::RGBSemanticsInstances>()->grid());
+  }
+
     initialized = true;
   }
 
@@ -43,6 +62,7 @@ INSTANCEIDT SemanticMap::localToGlobalInstance(INSTANCEIDT localInstance)
     return lastMapLocalToGlobal[localInstance];
   }
 
+/*
 void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& localMap)
   {
     lastMapLocalToGlobal.resize(localMap.size());
@@ -79,17 +99,18 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
       if (!fused)
       {
         lastMapLocalToGlobal[localInstanceID] = globalSemanticMap.size();
-        globalSemanticMap.push_back(SemanticObject(localInstance.probabilities));
+        globalSemanticMap.push_back(SemanticObject(localInstance.probabilities, globalSemanticMap.size()+1));
       }
     }
   }
+*/
 
 uint32_t SemanticMap::indexToHexColor(INSTANCEIDT index)
   {
-    if (index == (default_categories.size() - 1))
-    {
-      return 0xbcbcbc;
-    }
+    //if (index == (default_categories.size() - 1))
+    //{
+    //  return 0xbcbcbc;
+    //}
 
     return color_palette[index % color_palette.size()];
   }
@@ -130,3 +151,34 @@ double SemanticMap::computeKLD(const std::vector<double>& P, const std::vector<d
       return 0.0;
     }
   }
+
+bool SemanticMap::checkBBoxIntersect(const BoundingBox3D& bbox1, const BoundingBox3D& bbox2) {
+  // Check for no overlap along x-axis
+  if (bbox1.maxX < bbox2.minX || bbox2.maxX < bbox1.minX)
+      return false;
+
+  // Check for no overlap along y-axis
+  if (bbox1.maxY < bbox2.minY || bbox2.maxY < bbox1.minY)
+      return false;
+
+  // Check for no overlap along z-axis
+  if (bbox1.maxZ < bbox2.minZ || bbox2.maxZ < bbox1.minZ)
+      return false;
+
+  // If there is overlap along all axes, the boxes intersect
+  return true;
+}
+
+void SemanticMap::updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D& update){
+
+  // Update min bounds
+  original.minX = std::min(update.minX, original.minX);
+  original.minY = std::min(update.minY, original.minY);
+  original.minZ = std::min(update.minZ, original.minZ);
+
+  // Update max bounds
+  original.maxX = std::max(update.maxX, original.maxX);
+  original.maxY = std::max(update.maxY, original.maxY);
+  original.maxZ = std::max(update.maxZ, original.maxZ);
+
+}

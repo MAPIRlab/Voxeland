@@ -4,8 +4,16 @@
 #include <eigen3/Eigen/Geometry>
 #include <unordered_set>
 
+
 namespace Bonxai
 {
+
+/**
+ * @brief The ProbabilisticMap class is meant to behave as much as possible as
+ * octomap::Octree, given the same voxel size.
+ *
+ * Insert a point cloud to update the current probability
+ */
 
 template <typename DataT>
 class ProbabilisticMapT;
@@ -74,6 +82,21 @@ protected:
   virtual Point3D coordToPos(CoordT coord) = 0;
 
   Options _options;
+};
+
+template <typename DataT>
+struct ProbabilisticCell
+{
+  // variable used to check if a cell was already updated in this loop
+  int32_t update_id : 4;
+  // the probability of the cell to be occupied
+  int32_t probability_log : 28;
+  // Arbitrary data (RGB, Semantics, etc.)
+  DataT data;
+
+  ProbabilisticCell()
+    : update_id(0)
+    , probability_log(ProbabilisticMap::UnknownProbability){};
 };
 
 //--------------------------------------------------

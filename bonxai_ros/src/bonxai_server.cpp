@@ -61,8 +61,8 @@ BonxaiServer::BonxaiServer(const rclcpp::NodeOptions& node_options)
   tf2_buffer_->setCreateTimerInterface(timer_interface);
   tf2_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf2_buffer_);
 
-  /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
   using std::chrono_literals::operator""s;
+  /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg 
   point_cloud_sub_.subscribe(this, "cloud_in", rmw_qos_profile_sensor_data);
   tf_point_cloud_sub_ = std::make_shared<
       tf2_ros::MessageFilter<segmentation_msgs::msg::SemanticPointCloud>>(
@@ -75,6 +75,8 @@ BonxaiServer::BonxaiServer(const rclcpp::NodeOptions& node_options)
       5s);
 
   tf_point_cloud_sub_->registerCallback(&BonxaiServer::insertCloudCallback, this);
+  */
+  point_cloud_sub_ = create_subscription<segmentation_msgs::msg::SemanticPointCloud>("cloud_in", 1000, std::bind(&BonxaiServer::insertCloudCallback, this, _1));
 
   reset_srv_ = create_service<ResetSrv>(
       "~/reset", std::bind(&BonxaiServer::resetSrv, this, _1, _2));
@@ -191,7 +193,11 @@ void BonxaiServer::insertCloudCallback(
 {
   const auto start_time = rclcpp::Clock{}.now();
 
-  /* Added by JL Matez */
+  // Checking the operation mode: 
+  // XYZ, XYZRGB, XYZSemantics, XYZSemanticsInstances, XYZRGBSemantics, XYZRGBSemanticsInstances
+  // Note that RGB and Semantics options are set in the PointCloud2 message, based on the received fields.
+  // On the other hand, Instances is set as parameter of Bonxai, to indicate if semantics should be
+  // considered as instances or isolated voxels.
   if (currentMode == DataMode::Uninitialized){
 
     currentMode = DataMode::Empty;
@@ -211,80 +217,84 @@ void BonxaiServer::insertCloudCallback(
   if (bonxai_.get() == nullptr)
     initializeBonxaiObject();
 
+  // If semantics are included in the point cloud, the possible object categories are retrieved from the
+  // first message.
   if (static_cast<int>(currentMode & DataMode::Semantics) != 0 &&
       !semantics.is_initialized())
   {
-    semantics.initialize(cloud->categories);
-  }
-
-  if (static_cast<int>(currentMode & DataMode::Semantics) != 0)
-  {
-    std::vector<SemanticObject> localMap =
-        semantics_ros_wrapper.convertROSMessageToSemanticMap(cloud->instances);
-    
+    semantics.initialize(cloud->categories, *bonxai_, currentMode);
     if (semantics_as_instances_){
-      semantics.integrateNewSemantics(localMap);
+      semantic_map_pub_ = create_publisher<segmentation_msgs::msg::InstanceSemanticMap>("semantic_map_instances", 1);
     }
-    else{
-      semantics.setLocalSemanticMap(localMap);
-    }  
-
-    RCLCPP_INFO(get_logger(), "Number of instances in global map: %ld", semantics.globalSemanticMap.size());
   }
 
-  if (currentMode == DataMode::Empty)
+  if (currentMode == DataMode::Empty) // Mode XYZ
   {
     RCLCPP_INFO(get_logger(), "Mode Empty");
     using PointCloudType = pcl::PointCloud<pcl::PointXYZ>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation<PointCloudType, Bonxai::Empty>(pc, cloud->pose);
+    pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, Bonxai::Empty>(pc, cloud->pose);
+    bonxai_->With<Bonxai::Empty>()->insertPointCloud(pc.points, sensorPosition, 30.0);
     publishAll<Bonxai::Empty>(cloud->header.stamp);
   }
-  else if (currentMode == DataMode::RGB)
+  else if (currentMode == DataMode::RGB)  // Mode XYZRGB
   {
     RCLCPP_INFO(get_logger(), "Mode RGB");
     using PointCloudType = pcl::PointCloud<pcl::PointXYZRGB>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation<PointCloudType, Bonxai::Color>(pc, cloud->pose);
+    pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, Bonxai::Color>(pc, cloud->pose);
+    bonxai_->With<Bonxai::Color>()->insertPointCloud(pc.points, sensorPosition, 30.0);
     publishAll<Bonxai::Color>(cloud->header.stamp);
   }
-  else if (currentMode == DataMode::Semantics)
+  else if (currentMode == DataMode::Semantics)  // Mode XYZSemantics
   {
     RCLCPP_INFO(get_logger(), "Mode Semantics");
     using PointCloudType = pcl::PointCloud<pcl::PointXYZSemantics>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation<PointCloudType, Bonxai::Semantics>(pc, cloud->pose);
+    pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, Bonxai::Semantics>(pc, cloud->pose);
+    semantics_ros_wrapper.addLocalSemanticMap<PointCloudType>(cloud->instances, pc);
+    bonxai_->With<Bonxai::Semantics>()->insertPointCloud(pc.points, sensorPosition, 30.0);
     publishAll<Bonxai::Semantics>(cloud->header.stamp);
   }
-  else if (currentMode == DataMode::RGBSemantics)
+  else if (currentMode == DataMode::RGBSemantics) // Mode XYZRGBSemantics
   {
     RCLCPP_INFO(get_logger(), "Mode RGBSemantics");
     using PointCloudType = pcl::PointCloud<pcl::PointXYZRGBSemantics>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation<PointCloudType, Bonxai::RGBSemantics>(pc, cloud->pose);
+    pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, Bonxai::RGBSemantics>(pc, cloud->pose);
+    semantics_ros_wrapper.addLocalSemanticMap<PointCloudType>(cloud->instances, pc);
+    bonxai_->With<Bonxai::RGBSemantics>()->insertPointCloud(pc.points, sensorPosition, 30.0);
     publishAll<Bonxai::RGBSemantics>(cloud->header.stamp);
   }
-  else if (currentMode == DataMode::SemanticsInstances)
+  else if (currentMode == DataMode::SemanticsInstances) // Mode XYZSemanticsInstances
   {
     RCLCPP_INFO(get_logger(), "Mode SemanticsInstances");
     using PointCloudType = pcl::PointCloud<pcl::PointXYZSemantics>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation<PointCloudType, Bonxai::SemanticsInstances>(pc, cloud->pose);
+    pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, Bonxai::SemanticsInstances>(pc, cloud->pose);
+    semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, Bonxai::SemanticsInstances>(cloud->instances, pc);
+    bonxai_->With<Bonxai::SemanticsInstances>()->insertPointCloud(pc.points, sensorPosition, 30.0);
     publishAll<Bonxai::SemanticsInstances>(cloud->header.stamp);
+    semantic_map_pub_->publish(semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp));
+    RCLCPP_INFO(get_logger(), "Number of instances in global map: %ld", semantics.globalSemanticMap.size());
   }
-  else if (currentMode == DataMode::RGBSemanticsInstances)
+  else if (currentMode == DataMode::RGBSemanticsInstances)  // Mode XYZRGBSemanticsInstances
   {
     RCLCPP_INFO(get_logger(), "Mode RGBSemanticsInstances");
     using PointCloudType = pcl::PointCloud<pcl::PointXYZRGBSemantics>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    addObservation<PointCloudType, Bonxai::RGBSemanticsInstances>(pc, cloud->pose);
+    pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, Bonxai::RGBSemanticsInstances>(pc, cloud->pose);
+    semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, Bonxai::RGBSemanticsInstances>(cloud->instances, pc);
+    bonxai_->With<Bonxai::RGBSemanticsInstances>()->insertPointCloud(pc.points, sensorPosition, 30.0);
     publishAll<Bonxai::RGBSemanticsInstances>(cloud->header.stamp);
+    semantic_map_pub_->publish(semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp));
+    RCLCPP_INFO(get_logger(), "Number of instances in global map: %ld", semantics.globalSemanticMap.size());
   }
 
   double total_elapsed = (rclcpp::Clock{}.now() - start_time).seconds();

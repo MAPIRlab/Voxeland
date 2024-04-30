@@ -1,7 +1,7 @@
 #pragma once
 
 #include "probabilistic_map.hpp"
-#include <bonxai_map/cell_types.hpp>
+#include "bonxai_map/logging.hpp"
 
 namespace Bonxai
 {
@@ -76,6 +76,9 @@ public:
     // TODO updating the data here should call a function in DataT that specifies how
     // the information is to be fused, rather than just overwriting with the latest
     cell->data.update(data);
+    
+    if(!cell->data.checkCell())
+      BONXAI_INFO("Cell coords: %d, %d, %d", coord.x, coord.y, coord.z);
 
     if (cell->update_id != _update_count)
     {
