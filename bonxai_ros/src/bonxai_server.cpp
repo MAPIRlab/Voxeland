@@ -76,7 +76,7 @@ BonxaiServer::BonxaiServer(const rclcpp::NodeOptions& node_options)
 
   tf_point_cloud_sub_->registerCallback(&BonxaiServer::insertCloudCallback, this);
   */
-  point_cloud_sub_ = create_subscription<segmentation_msgs::msg::SemanticPointCloud>("cloud_in", 1000, std::bind(&BonxaiServer::insertCloudCallback, this, _1));
+  point_cloud_sub_ = create_subscription<segmentation_msgs::msg::SemanticPointCloud>("cloud_in", 1, std::bind(&BonxaiServer::insertCloudCallback, this, _1));
 
   reset_srv_ = create_service<ResetSrv>(
       "~/reset", std::bind(&BonxaiServer::resetSrv, this, _1, _2));
@@ -191,6 +191,8 @@ void BonxaiServer::initializeBonxaiObject()
 void BonxaiServer::insertCloudCallback(
     const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud)
 {
+  number_iterations++;
+
   const auto start_time = rclcpp::Clock{}.now();
 
   // Checking the operation mode: 
@@ -279,9 +281,33 @@ void BonxaiServer::insertCloudCallback(
     pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, Bonxai::SemanticsInstances>(pc, cloud->pose);
     semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, Bonxai::SemanticsInstances>(cloud->instances, pc);
     bonxai_->With<Bonxai::SemanticsInstances>()->insertPointCloud(pc.points, sensorPosition, 30.0);
-    publishAll<Bonxai::SemanticsInstances>(cloud->header.stamp);
-    semantic_map_pub_->publish(semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp));
-    RCLCPP_INFO(get_logger(), "Number of instances in global map: %ld", semantics.globalSemanticMap.size());
+    if (number_iterations % 30 == 0){
+      semantics.refineGlobalSemanticMap<Bonxai::SemanticsInstances>();
+    }
+    publishAllWithInstances<Bonxai::SemanticsInstances>(cloud->header.stamp);
+
+
+    std::set<INSTANCEIDT> visibleInstances = semantics.getCurrentVisibleInstances<Bonxai::SemanticsInstances>(occupancy_min_z_, occupancy_max_z_);
+    semantic_map_pub_->publish(semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp, visibleInstances));
+    /*RCLCPP_INFO(get_logger(), "############### MAP AFTER UPDATE ################");
+    for(INSTANCEIDT idx = 0; idx < semantics.globalSemanticMap.size(); idx++){
+      if(semantics.listOfVoxelsInsideBBox<Bonxai::SemanticsInstances>(semantics.globalSemanticMap[idx].bbox, idx).size() == 1){
+        BONXAI_INFO("aqui 1 voxel solo");
+      }
+      BONXAI_INFO("{} with: {} voxels", semantics.globalSemanticMap[idx].instanceID, semantics.listOfVoxelsInsideBBox<Bonxai::SemanticsInstances>(semantics.globalSemanticMap[idx].bbox, idx).size());
+    }
+    uint32_t oneObservationInstances = 0;
+    uint32_t activeInstances = 0;
+    for(INSTANCEIDT i = 0; i < semantics.globalSemanticMap.size(); i++){
+      if(semantics.globalSemanticMap[i].pointsTo == -1 && semantics.globalSemanticMap[i].numberObservations < 2){
+        oneObservationInstances += 1;
+      }
+      if(semantics.globalSemanticMap[i].pointsTo == -1){
+        activeInstances += 1;
+      }
+    }
+    BONXAI_INFO("Single observation instances / Total active instances: {} / {}", oneObservationInstances, activeInstances);
+    RCLCPP_INFO(get_logger(), "Global map: %ld visible and %ld active instances", visibleInstances.size(), semantics.globalSemanticMap.size());*/
   }
   else if (currentMode == DataMode::RGBSemanticsInstances)  // Mode XYZRGBSemanticsInstances
   {
@@ -292,9 +318,13 @@ void BonxaiServer::insertCloudCallback(
     pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, Bonxai::RGBSemanticsInstances>(pc, cloud->pose);
     semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, Bonxai::RGBSemanticsInstances>(cloud->instances, pc);
     bonxai_->With<Bonxai::RGBSemanticsInstances>()->insertPointCloud(pc.points, sensorPosition, 30.0);
-    publishAll<Bonxai::RGBSemanticsInstances>(cloud->header.stamp);
-    semantic_map_pub_->publish(semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp));
-    RCLCPP_INFO(get_logger(), "Number of instances in global map: %ld", semantics.globalSemanticMap.size());
+    if (number_iterations % 30 == 0){
+      semantics.refineGlobalSemanticMap<Bonxai::RGBSemanticsInstances>();
+    }    
+    publishAllWithInstances<Bonxai::RGBSemanticsInstances>(cloud->header.stamp);
+    std::set<INSTANCEIDT> visibleInstances = semantics.getCurrentVisibleInstances<Bonxai::RGBSemanticsInstances>(occupancy_min_z_, occupancy_max_z_);
+    semantic_map_pub_->publish(semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp, visibleInstances));
+    RCLCPP_INFO(get_logger(), "Global map: %ld visible and %ld active instances", visibleInstances.size(), semantics.globalSemanticMap.size());
   }
 
   double total_elapsed = (rclcpp::Clock{}.now() - start_time).seconds();

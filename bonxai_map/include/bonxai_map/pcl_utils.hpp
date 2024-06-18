@@ -62,6 +62,10 @@ struct PointXYZRGBSemantics
   uint32_t rgba;*/
 
   INSTANCEIDT instance_id;
+
+  PointXYZRGBSemantics() {};
+  PointXYZRGBSemantics(float x_, float y_, float z_, float rgb_, INSTANCEIDT instance_id_):
+    x(x_), y(y_), z(z_), rgb(rgb_), instance_id(instance_id_) {};
 };
 
 }  // namespace pcl

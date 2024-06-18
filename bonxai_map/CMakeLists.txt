@@ -9,6 +9,10 @@ add_library(bonxai_map
     src/semantics.cpp
 )
 
+if(NOT TARGET fmt::fmt)
+add_subdirectory(3rdparty/fmt)
+endif()
+
 get_directory_property(MYDEFS COMPILE_DEFINITIONS)
 
 
@@ -25,6 +29,7 @@ target_include_directories(bonxai_map PUBLIC
 
 target_link_libraries(bonxai_map
     bonxai_core
+    fmt
     ${PCL_LIBRARIES})
 
 ####################################################

@@ -41,6 +41,8 @@
 #include <bonxai_map/data_modes.hpp>
 #include <semantics_ros_wrapper.hpp>
 
+#include <bonxai_map/logging.hpp>
+
 namespace bonxai_server
 {
 
@@ -72,7 +74,6 @@ protected:
   template <typename DataT>
   void publishAll(const rclcpp::Time& rostime)
   {
-    const auto start_time = rclcpp::Clock{}.now();
     std::vector<DataT> cell_data;
     std::vector<Bonxai::Point3D> cell_points;
     cell_points.clear();
@@ -104,11 +105,70 @@ protected:
         {
           Bonxai::Color vizualization_color = cell_data[i].toColor();
           pcl_cloud.emplace_back((float)voxel.x,
-                                 (float)voxel.y,
-                                 (float)voxel.z,
-                                 vizualization_color.r,
-                                 vizualization_color.g,
-                                 vizualization_color.b);
+                                (float)voxel.y,
+                                (float)voxel.z,
+                                vizualization_color.r,
+                                vizualization_color.g,
+                                vizualization_color.b);
+          
+        }
+      }
+      PointCloud2 cloud;
+      pcl::toROSMsg(pcl_cloud, cloud);
+
+      cloud.header.frame_id = world_frame_id_;
+      cloud.header.stamp = rostime;
+      point_cloud_pub_->publish(cloud);
+      RCLCPP_WARN(get_logger(),
+                  "Published occupancy grid with %ld voxels",
+                  pcl_cloud.points.size());
+    }
+  }
+
+  template <typename DataT>
+  void publishAllWithInstances(const rclcpp::Time& rostime)
+  {
+    std::vector<DataT> cell_data;
+    std::vector<Bonxai::Point3D> cell_points;
+    cell_points.clear();
+    bonxai_->With<DataT>()->getOccupiedVoxels(cell_points, cell_data);
+
+    if (cell_points.size() <= 1)
+    {
+      RCLCPP_WARN(get_logger(), "Nothing to publish, bonxai is empty");
+      return;
+    }
+
+    bool publish_point_cloud =
+        (latched_topics_ ||
+         point_cloud_pub_->get_subscription_count() +
+                 point_cloud_pub_->get_intra_process_subscription_count() >
+             0);
+
+    // init pointcloud for occupied space:
+    if (publish_point_cloud)
+    {
+      pcl::PointCloud<pcl::PointXYZRGBSemantics> pcl_cloud;
+      
+      pcl_cloud.clear();
+
+      for (size_t i = 0; i < cell_points.size(); i++)
+      {
+        const auto& voxel = cell_points[i];
+
+        if (voxel.z >= occupancy_min_z_ && voxel.z <= occupancy_max_z_)
+        {
+          Bonxai::Color vizualization_color = cell_data[i].toColor();
+          std::uint32_t rgb = ((std::uint32_t)vizualization_color.r << 16 | (std::uint32_t)vizualization_color.g << 8 | (std::uint32_t)vizualization_color.b);
+          auto itInstances = std::max_element(cell_data[i].instances_votes.begin(), cell_data[i].instances_votes.end());
+          auto idxMaxVotes = std::distance(cell_data[i].instances_votes.begin(), itInstances);
+          INSTANCEIDT instanceID = cell_data[i].instances_candidates[idxMaxVotes];
+          pcl_cloud.emplace_back((float)voxel.x,
+                                (float)voxel.y,
+                                (float)voxel.z,
+                                *reinterpret_cast<float*>(&rgb),
+                                instanceID);
+          
         }
       }
       PointCloud2 cloud;
@@ -207,6 +267,7 @@ protected:
 
   // Added by JL Matez: SemanticBonxai Parameters
   bool semantics_as_instances_;
+  u_int32_t number_iterations = 0;
 };
 }  // namespace bonxai_server
 

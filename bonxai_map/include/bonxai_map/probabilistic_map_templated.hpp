@@ -76,9 +76,6 @@ public:
     // TODO updating the data here should call a function in DataT that specifies how
     // the information is to be fused, rather than just overwriting with the latest
     cell->data.update(data);
-    
-    if(!cell->data.checkCell())
-      BONXAI_INFO("Cell coords: %d, %d, %d", coord.x, coord.y, coord.z);
 
     if (cell->update_id != _update_count)
     {
@@ -136,11 +133,11 @@ public:
     _grid.forEachCell(visitor);
   }
 
-  [[nodiscard]] VoxelGrid<ProbabilisticCell<DataT>>& grid() { return _grid; }
+  [[nodiscard]] VoxelGrid<ProbabilisticCell<DataT>>* grid() { return &_grid; }
 
-  [[nodiscard]] const VoxelGrid<ProbabilisticCell<DataT>>& grid() const
+  [[nodiscard]] const VoxelGrid<ProbabilisticCell<DataT>>* grid() const
   {
-    return _grid;
+    return &_grid;
   }
 
   [[nodiscard]] bool isOccupied(const Bonxai::CoordT& coord) const

@@ -35,23 +35,33 @@ void SemanticMap::initialize(std::vector<std::string> dataset_categories, Bonxai
 
   if (mode == Bonxai::DataMode::Semantics) 
   {
-    BonxaiQuery<Bonxai::Semantics>::createAccessor(_bonxai.With<Bonxai::Semantics>()->grid());
+    BonxaiQuery<Bonxai::Semantics>::createAccessor(_bonxai.With<Bonxai::Semantics>());
   }
   else if (mode == Bonxai::DataMode::RGBSemantics) 
   {
-    BonxaiQuery<Bonxai::RGBSemantics>::createAccessor(_bonxai.With<Bonxai::RGBSemantics>()->grid());
+    BonxaiQuery<Bonxai::RGBSemantics>::createAccessor(_bonxai.With<Bonxai::RGBSemantics>());
   }
   else if (mode == Bonxai::DataMode::SemanticsInstances)
   {
-    BonxaiQuery<Bonxai::SemanticsInstances>::createAccessor(_bonxai.With<Bonxai::SemanticsInstances>()->grid());
+    BonxaiQuery<Bonxai::SemanticsInstances>::createAccessor(_bonxai.With<Bonxai::SemanticsInstances>());
   }
   else if (mode == Bonxai::DataMode::RGBSemanticsInstances)
   {
-    BonxaiQuery<Bonxai::RGBSemanticsInstances>::createAccessor(_bonxai.With<Bonxai::RGBSemanticsInstances>()->grid());
+    BonxaiQuery<Bonxai::RGBSemanticsInstances>::createAccessor(_bonxai.With<Bonxai::RGBSemanticsInstances>());
   }
 
     initialized = true;
   }
+
+uint32_t SemanticMap::getCurrentActiveInstances(){
+  uint32_t activeInstances = 0;
+  for (INSTANCEIDT i = 0; i < globalSemanticMap.size(); i++ ){
+    if (globalSemanticMap[i].pointsTo == -1){
+      activeInstances += 1;
+    }
+  }
+  return activeInstances;
+}
 
 void SemanticMap::setLocalSemanticMap(const std::vector<SemanticObject>& localMap) {
     lastLocalSemanticMap = localMap;

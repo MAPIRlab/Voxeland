@@ -1,0 +1,3 @@
+[submodule "bonxai_map/3rdparty/fmt"]
+	path = bonxai_map/3rdparty/fmt
+	url = git@github.com:fmtlib/fmt.git
