@@ -13,19 +13,15 @@
 namespace Bonxai
 {
 
-bool ReadPointsFromPCD(const std::string& filepath,
-                       std::vector<Eigen::Vector3d>& points);
+bool ReadPointsFromPCD(const std::string& filepath, std::vector<Eigen::Vector3d>& points);
 
 bool ReadPointsFromPCD(const std::string& filepath, std::vector<Point3D>& points);
 
-void WritePointsFromPCD(const std::string& filepath,
-                        const std::vector<Eigen::Vector3d>& points);
+void WritePointsFromPCD(const std::string& filepath, const std::vector<Eigen::Vector3d>& points);
 
-void WritePointsFromPCD(const std::string& filepath,
-                        const std::vector<Bonxai::Point3D>& points);
+void WritePointsFromPCD(const std::string& filepath, const std::vector<Bonxai::Point3D>& points);
 
-void WritePointsFromPCD(const std::string& filepath,
-                        const std::vector<Bonxai::CoordT>& points);
+void WritePointsFromPCD(const std::string& filepath, const std::vector<Bonxai::CoordT>& points);
 
 }  // namespace Bonxai
 
@@ -63,17 +59,21 @@ struct PointXYZRGBSemantics
 
   INSTANCEIDT instance_id;
 
-  PointXYZRGBSemantics() {};
-  PointXYZRGBSemantics(float x_, float y_, float z_, float rgb_, INSTANCEIDT instance_id_):
-    x(x_), y(y_), z(z_), rgb(rgb_), instance_id(instance_id_) {};
+  PointXYZRGBSemantics(){};
+  PointXYZRGBSemantics(float x_, float y_, float z_, float rgb_, INSTANCEIDT instance_id_)
+    : x(x_)
+    , y(y_)
+    , z(z_)
+    , rgb(rgb_)
+    , instance_id(instance_id_){};
 };
 
 }  // namespace pcl
 
-POINT_CLOUD_REGISTER_POINT_STRUCT(
-    pcl::PointXYZSemantics,
-    (float, x, x)(float, y, y)(float, z, z)(INSTANCEIDT, instance_id, instance_id))
+POINT_CLOUD_REGISTER_POINT_STRUCT(pcl::PointXYZSemantics,
+                                  (float, x, x)(float, y, y)(float, z, z)(INSTANCEIDT, instance_id, instance_id))
 
-POINT_CLOUD_REGISTER_POINT_STRUCT(
-    pcl::PointXYZRGBSemantics,  // here we assume a XYZ + "test" (as fields)
-    (float, x, x)(float, y, y)(float, z, z)(float, rgb, rgb)(INSTANCEIDT, instance_id, instance_id))
+POINT_CLOUD_REGISTER_POINT_STRUCT(pcl::PointXYZRGBSemantics,  // here we assume a XYZ + "test" (as fields)
+                                  (float, x, x)(float, y, y)(float, z, z)(float, rgb, rgb)(INSTANCEIDT,
+                                                                                           instance_id,
+                                                                                           instance_id))

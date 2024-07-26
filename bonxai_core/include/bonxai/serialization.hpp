@@ -54,9 +54,7 @@ inline std::string demangle(const char* name)
 {
   int status = -4;  // some arbitrary value to eliminate the compiler warning
 
-  std::unique_ptr<char, void (*)(void*)> res{
-    abi::__cxa_demangle(name, NULL, NULL, &status), std::free
-  };
+  std::unique_ptr<char, void (*)(void*)> res{ abi::__cxa_demangle(name, NULL, NULL, &status), std::free };
   return (status == 0) ? res.get() : name;
 }
 
@@ -81,8 +79,7 @@ inline void Write(std::ostream& out, const T& val)
 template <typename DataT>
 inline void Serialize(std::ostream& out, const VoxelGrid<DataT>& grid)
 {
-  static_assert(std::is_trivially_copyable_v<DataT>,
-                "DataT must be trivially copyable");
+  static_assert(std::is_trivially_copyable_v<DataT>, "DataT must be trivially copyable");
 
   char header[256];
   std::string type_name = details::demangle(typeid(DataT).name());
@@ -192,11 +189,7 @@ inline VoxelGrid<DataT> Deserialize(std::istream& input, HeaderInfo info)
     auto inner_it = grid.root_map.find(root_coord);
     if (inner_it == grid.root_map.end())
     {
-      inner_it =
-          grid.root_map
-              .insert({ root_coord,
-                        typename VoxelGrid<DataT>::InnerGrid(info.inner_bits) })
-              .first;
+      inner_it = grid.root_map.insert({ root_coord, typename VoxelGrid<DataT>::InnerGrid(info.inner_bits) }).first;
     }
     auto& inner_grid = inner_it->second;
 
@@ -228,4 +221,3 @@ inline VoxelGrid<DataT> Deserialize(std::istream& input, HeaderInfo info)
 }
 
 }  // namespace Bonxai
-

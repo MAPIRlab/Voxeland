@@ -68,16 +68,14 @@ public:
 
   explicit BonxaiServer(const rclcpp::NodeOptions& node_options);
 
-  bool resetSrv(const std::shared_ptr<ResetSrv::Request> req,
-                const std::shared_ptr<ResetSrv::Response> resp);
+  bool resetSrv(const std::shared_ptr<ResetSrv::Request> req, const std::shared_ptr<ResetSrv::Response> resp);
 
   void saveMapSrv(const std::shared_ptr<std_srvs::srv::Empty::Request> req,
-                const std::shared_ptr<std_srvs::srv::Empty::Response> resp);
+                  const std::shared_ptr<std_srvs::srv::Empty::Response> resp);
 
   /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
-  virtual void insertCloudCallback(
-      const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
-  
+  virtual void insertCloudCallback(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
+
   SemanticsROSWrapper semantics_ros_wrapper;
 
 protected:
@@ -99,9 +97,7 @@ protected:
 
     bool publish_point_cloud =
         (latched_topics_ ||
-         point_cloud_pub_->get_subscription_count() +
-                 point_cloud_pub_->get_intra_process_subscription_count() >
-             0);
+         point_cloud_pub_->get_subscription_count() + point_cloud_pub_->get_intra_process_subscription_count() > 0);
 
     // init pointcloud for occupied space:
     if (publish_point_cloud)
@@ -117,12 +113,11 @@ protected:
         {
           Bonxai::Color vizualization_color = cell_data[i].toColor();
           pcl_cloud.emplace_back((float)voxel.x,
-                                (float)voxel.y,
-                                (float)voxel.z,
-                                vizualization_color.r,
-                                vizualization_color.g,
-                                vizualization_color.b);
-          
+                                 (float)voxel.y,
+                                 (float)voxel.z,
+                                 vizualization_color.r,
+                                 vizualization_color.g,
+                                 vizualization_color.b);
         }
       }
       PointCloud2 cloud;
@@ -131,9 +126,7 @@ protected:
       cloud.header.frame_id = world_frame_id_;
       cloud.header.stamp = rostime;
       point_cloud_pub_->publish(cloud);
-      RCLCPP_WARN(get_logger(),
-                  "Published occupancy grid with %ld voxels",
-                  pcl_cloud.points.size());
+      RCLCPP_WARN(get_logger(), "Published occupancy grid with %ld voxels", pcl_cloud.points.size());
     }
   }
 
@@ -153,15 +146,13 @@ protected:
 
     bool publish_point_cloud =
         (latched_topics_ ||
-         point_cloud_pub_->get_subscription_count() +
-                 point_cloud_pub_->get_intra_process_subscription_count() >
-             0);
+         point_cloud_pub_->get_subscription_count() + point_cloud_pub_->get_intra_process_subscription_count() > 0);
 
     // init pointcloud for occupied space:
     if (publish_point_cloud)
     {
       pcl::PointCloud<pcl::PointXYZRGBSemantics> pcl_cloud;
-      
+
       pcl_cloud.clear();
 
       for (size_t i = 0; i < cell_points.size(); i++)
@@ -171,16 +162,13 @@ protected:
         if (voxel.z >= occupancy_min_z_ && voxel.z <= occupancy_max_z_)
         {
           Bonxai::Color vizualization_color = cell_data[i].toColor();
-          std::uint32_t rgb = ((std::uint32_t)vizualization_color.r << 16 | (std::uint32_t)vizualization_color.g << 8 | (std::uint32_t)vizualization_color.b);
+          std::uint32_t rgb = ((std::uint32_t)vizualization_color.r << 16 | (std::uint32_t)vizualization_color.g << 8 |
+                               (std::uint32_t)vizualization_color.b);
           auto itInstances = std::max_element(cell_data[i].instances_votes.begin(), cell_data[i].instances_votes.end());
           auto idxMaxVotes = std::distance(cell_data[i].instances_votes.begin(), itInstances);
           INSTANCEIDT instanceID = cell_data[i].instances_candidates[idxMaxVotes];
-          pcl_cloud.emplace_back((float)voxel.x,
-                                (float)voxel.y,
-                                (float)voxel.z,
-                                *reinterpret_cast<float*>(&rgb),
-                                instanceID);
-          
+          pcl_cloud.emplace_back(
+              (float)voxel.x, (float)voxel.y, (float)voxel.z, *reinterpret_cast<float*>(&rgb), instanceID);
         }
       }
       PointCloud2 cloud;
@@ -189,9 +177,7 @@ protected:
       cloud.header.frame_id = world_frame_id_;
       cloud.header.stamp = rostime;
       point_cloud_pub_->publish(cloud);
-      RCLCPP_WARN(get_logger(),
-                  "Published occupancy grid with %ld voxels",
-                  pcl_cloud.points.size());
+      RCLCPP_WARN(get_logger(), "Published occupancy grid with %ld voxels", pcl_cloud.points.size());
     }
   }
 
@@ -226,46 +212,43 @@ protected:
     Eigen::Isometry3d sensor_to_world_iso;
     tf2::fromMsg(pose.pose, sensor_to_world_iso);
     Eigen::Matrix4f sensor_to_world = sensor_to_world_iso.matrix().cast<float>();
-    
+
     // Transforming Points to Global Reference Frame
     pcl::transformPointCloud(pc, pc, sensor_to_world);
 
     // Getting the Translation from the sensor to the Global Reference Frame
     const auto& t = pose.pose.position;
 
-    return pcl::PointXYZ ((float)t.x, (float)t.y, (float)t.z);
-
+    return pcl::PointXYZ((float)t.x, (float)t.y, (float)t.z);
   }
 
   template <typename DataT>
-  std::string mapToPLY(){
-
+  std::string mapToPLY()
+  {
     std::vector<DataT> cell_data;
     std::vector<Bonxai::Point3D> cell_points;
 
     bonxai_->With<DataT>()->getOccupiedVoxels(cell_points, cell_data);
 
-    std::string ply = fmt::format("ply\nformat ascii 1.0\nelement vertex {}\n{}\nend_header\n", cell_points.size(), DataT::getHeaderPLY());
+    std::string ply = fmt::format(
+        "ply\nformat ascii 1.0\nelement vertex {}\n{}\nend_header\n", cell_points.size(), DataT::getHeaderPLY());
 
-    for (size_t i = 0; i < cell_points.size(); i++){
-
+    for (size_t i = 0; i < cell_points.size(); i++)
+    {
       ply += cell_data[i].toPLY(cell_points[i]);
     }
 
     return ply;
-
   }
 
   OnSetParametersCallbackHandle::SharedPtr set_param_res_;
 
-  rcl_interfaces::msg::SetParametersResult
-  onParameter(const std::vector<rclcpp::Parameter>& parameters);
+  rcl_interfaces::msg::SetParametersResult onParameter(const std::vector<rclcpp::Parameter>& parameters);
 
   /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
   rclcpp::Publisher<PointCloud2>::SharedPtr point_cloud_pub_;
   rclcpp::Publisher<segmentation_msgs::msg::InstanceSemanticMap>::SharedPtr semantic_map_pub_;
-  rclcpp::Subscription<segmentation_msgs::msg::SemanticPointCloud>::SharedPtr
-      point_cloud_sub_;
+  rclcpp::Subscription<segmentation_msgs::msg::SemanticPointCloud>::SharedPtr point_cloud_sub_;
   /*message_filters::Subscriber<segmentation_msgs::msg::SemanticPointCloud>
       point_cloud_sub_;
   std::shared_ptr<tf2_ros::MessageFilter<segmentation_msgs::msg::SemanticPointCloud>>

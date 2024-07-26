@@ -3,14 +3,10 @@
 namespace
 {
 template <typename T>
-bool update_param(const std::vector<rclcpp::Parameter>& p,
-                  const std::string& name,
-                  T& value)
+bool update_param(const std::vector<rclcpp::Parameter>& p, const std::string& name, T& value)
 {
   auto it = std::find_if(
-      p.cbegin(), p.cend(), [&name](const rclcpp::Parameter& parameter) {
-        return parameter.get_name() == name;
-      });
+      p.cbegin(), p.cend(), [&name](const rclcpp::Parameter& parameter) { return parameter.get_name() == name; });
   if (it != p.cend())
   {
     value = it->template get_value<T>();
@@ -52,17 +48,16 @@ BonxaiServer::BonxaiServer(const rclcpp::NodeOptions& node_options)
   }
 
   auto qos = latched_topics_ ? rclcpp::QoS{ 1 }.transient_local() : rclcpp::QoS{ 1 };
-  point_cloud_pub_ =
-      create_publisher<PointCloud2>("bonxai_point_cloud_centers", qos);
+  point_cloud_pub_ = create_publisher<PointCloud2>("bonxai_point_cloud_centers", qos);
 
   tf2_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
-  auto timer_interface = std::make_shared<tf2_ros::CreateTimerROS>(
-      this->get_node_base_interface(), this->get_node_timers_interface());
+  auto timer_interface =
+      std::make_shared<tf2_ros::CreateTimerROS>(this->get_node_base_interface(), this->get_node_timers_interface());
   tf2_buffer_->setCreateTimerInterface(timer_interface);
   tf2_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf2_buffer_);
 
   using std::chrono_literals::operator""s;
-  /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg 
+  /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg
   point_cloud_sub_.subscribe(this, "cloud_in", rmw_qos_profile_sensor_data);
   tf_point_cloud_sub_ = std::make_shared<
       tf2_ros::MessageFilter<segmentation_msgs::msg::SemanticPointCloud>>(
@@ -76,42 +71,36 @@ BonxaiServer::BonxaiServer(const rclcpp::NodeOptions& node_options)
 
   tf_point_cloud_sub_->registerCallback(&BonxaiServer::insertCloudCallback, this);
   */
-  point_cloud_sub_ = create_subscription<segmentation_msgs::msg::SemanticPointCloud>("cloud_in", 1, std::bind(&BonxaiServer::insertCloudCallback, this, _1));
+  point_cloud_sub_ = create_subscription<segmentation_msgs::msg::SemanticPointCloud>(
+      "cloud_in", 1, std::bind(&BonxaiServer::insertCloudCallback, this, _1));
 
-  reset_srv_ = create_service<ResetSrv>(
-      "~/reset", std::bind(&BonxaiServer::resetSrv, this, _1, _2));
+  reset_srv_ = create_service<ResetSrv>("~/reset", std::bind(&BonxaiServer::resetSrv, this, _1, _2));
 
-  save_map_srv_ = create_service<ResetSrv>(
-      "~/save_map", std::bind(&BonxaiServer::saveMapSrv, this, _1, _2));
-  
+  save_map_srv_ = create_service<ResetSrv>("~/save_map", std::bind(&BonxaiServer::saveMapSrv, this, _1, _2));
+
   // set parameter callback
-  set_param_res_ = this->add_on_set_parameters_callback(
-      std::bind(&BonxaiServer::onParameter, this, _1));
+  set_param_res_ = this->add_on_set_parameters_callback(std::bind(&BonxaiServer::onParameter, this, _1));
 }
 
 void BonxaiServer::initializeBonxaiObject()
 {
   {
     rcl_interfaces::msg::ParameterDescriptor occupancy_min_z_desc;
-    occupancy_min_z_desc.description =
-        "Minimum height of occupied cells to consider in the final map";
+    occupancy_min_z_desc.description = "Minimum height of occupied cells to consider in the final map";
     rcl_interfaces::msg::FloatingPointRange occupancy_min_z_range;
     occupancy_min_z_range.from_value = -100.0;
     occupancy_min_z_range.to_value = 100.0;
     occupancy_min_z_desc.floating_point_range.push_back(occupancy_min_z_range);
-    occupancy_min_z_ =
-        declare_parameter("occupancy_min_z", -100.0, occupancy_min_z_desc);
+    occupancy_min_z_ = declare_parameter("occupancy_min_z", -100.0, occupancy_min_z_desc);
   }
   {
     rcl_interfaces::msg::ParameterDescriptor occupancy_max_z_desc;
-    occupancy_max_z_desc.description =
-        "Maximum height of occupied cells to consider in the final map";
+    occupancy_max_z_desc.description = "Maximum height of occupied cells to consider in the final map";
     rcl_interfaces::msg::FloatingPointRange occupancy_max_z_range;
     occupancy_max_z_range.from_value = -100.0;
     occupancy_max_z_range.to_value = 100.0;
     occupancy_max_z_desc.floating_point_range.push_back(occupancy_max_z_range);
-    occupancy_max_z_ =
-        declare_parameter("occupancy_max_z", 100.0, occupancy_max_z_desc);
+    occupancy_max_z_ = declare_parameter("occupancy_max_z", 100.0, occupancy_max_z_desc);
   }
 
   {
@@ -127,8 +116,7 @@ void BonxaiServer::initializeBonxaiObject()
   res_ = declare_parameter("resolution", 0.1);
 
   rcl_interfaces::msg::ParameterDescriptor prob_hit_desc;
-  prob_hit_desc.description =
-      "Probabilities for hits in the sensor model when dynamically building a map";
+  prob_hit_desc.description = "Probabilities for hits in the sensor model when dynamically building a map";
   rcl_interfaces::msg::FloatingPointRange prob_hit_range;
   prob_hit_range.from_value = 0.5;
   prob_hit_range.to_value = 1.0;
@@ -136,34 +124,28 @@ void BonxaiServer::initializeBonxaiObject()
   const double prob_hit = declare_parameter("sensor_model.hit", 0.7, prob_hit_desc);
 
   rcl_interfaces::msg::ParameterDescriptor prob_miss_desc;
-  prob_miss_desc.description =
-      "Probabilities for misses in the sensor model when dynamically building a map";
+  prob_miss_desc.description = "Probabilities for misses in the sensor model when dynamically building a map";
   rcl_interfaces::msg::FloatingPointRange prob_miss_range;
   prob_miss_range.from_value = 0.0;
   prob_miss_range.to_value = 0.5;
   prob_miss_desc.floating_point_range.push_back(prob_miss_range);
-  const double prob_miss =
-      declare_parameter("sensor_model.miss", 0.4, prob_miss_desc);
+  const double prob_miss = declare_parameter("sensor_model.miss", 0.4, prob_miss_desc);
 
   rcl_interfaces::msg::ParameterDescriptor prob_min_desc;
-  prob_min_desc.description =
-      "Minimum probability for clamping when dynamically building a map";
+  prob_min_desc.description = "Minimum probability for clamping when dynamically building a map";
   rcl_interfaces::msg::FloatingPointRange prob_min_range;
   prob_min_range.from_value = 0.0;
   prob_min_range.to_value = 1.0;
   prob_min_desc.floating_point_range.push_back(prob_min_range);
-  const double thres_min =
-      declare_parameter("sensor_model.min", 0.12, prob_min_desc);
+  const double thres_min = declare_parameter("sensor_model.min", 0.12, prob_min_desc);
 
   rcl_interfaces::msg::ParameterDescriptor prob_max_desc;
-  prob_max_desc.description =
-      "Maximum probability for clamping when dynamically building a map";
+  prob_max_desc.description = "Maximum probability for clamping when dynamically building a map";
   rcl_interfaces::msg::FloatingPointRange prob_max_range;
   prob_max_range.from_value = 0.0;
   prob_max_range.to_value = 1.0;
   prob_max_desc.floating_point_range.push_back(prob_max_range);
-  const double thres_max =
-      declare_parameter("sensor_model.max", 0.97, prob_max_desc);
+  const double thres_max = declare_parameter("sensor_model.max", 0.97, prob_max_desc);
 
   // initialize bonxai object & params
   RCLCPP_INFO(get_logger(), "Voxel resolution %f", res_);
@@ -174,37 +156,32 @@ void BonxaiServer::initializeBonxaiObject()
   else if (currentMode == DataMode::Semantics)
     bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::Semantics>>(res_);
   else if (currentMode == DataMode::RGBSemantics)
-    bonxai_ =
-        std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::RGBSemantics>>(res_);
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::RGBSemantics>>(res_);
   else if (currentMode == DataMode::SemanticsInstances)
-    bonxai_ =
-        std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::SemanticsInstances>>(res_);
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::SemanticsInstances>>(res_);
   else if (currentMode == DataMode::RGBSemanticsInstances)
-    bonxai_ =
-        std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::RGBSemanticsInstances>>(res_);
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::RGBSemanticsInstances>>(res_);
 
-  Bonxai::ProbabilisticMap::Options options = { Bonxai::logodds(prob_miss),
-                                                Bonxai::logodds(prob_hit),
-                                                Bonxai::logodds(thres_min),
-                                                Bonxai::logodds(thres_max) };
+  Bonxai::ProbabilisticMap::Options options = {
+    Bonxai::logodds(prob_miss), Bonxai::logodds(prob_hit), Bonxai::logodds(thres_min), Bonxai::logodds(thres_max)
+  };
   bonxai_->setOptions(options);
 }
 
 /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
-void BonxaiServer::insertCloudCallback(
-    const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud)
+void BonxaiServer::insertCloudCallback(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud)
 {
   number_iterations++;
 
   const auto start_time = rclcpp::Clock{}.now();
 
-  // Checking the operation mode: 
+  // Checking the operation mode:
   // XYZ, XYZRGB, XYZSemantics, XYZSemanticsInstances, XYZRGBSemantics, XYZRGBSemanticsInstances
   // Note that RGB and Semantics options are set in the PointCloud2 message, based on the received fields.
   // On the other hand, Instances is set as parameter of Bonxai, to indicate if semantics should be
   // considered as instances or isolated voxels.
-  if (currentMode == DataMode::Uninitialized){
-
+  if (currentMode == DataMode::Uninitialized)
+  {
     currentMode = DataMode::Empty;
 
     for (size_t i = 0; i < cloud->cloud.fields.size(); i++)
@@ -214,26 +191,27 @@ void BonxaiServer::insertCloudCallback(
       else if (cloud->cloud.fields[i].name == "instance_id")
         currentMode = currentMode | DataMode::Semantics;
     }
-    if (semantics_as_instances_ && static_cast<int>(currentMode & DataMode::Semantics) != 0) {
+    if (semantics_as_instances_ && static_cast<int>(currentMode & DataMode::Semantics) != 0)
+    {
       currentMode = currentMode | DataMode::SemanticsInstances;
     }
   }
-  
+
   if (bonxai_.get() == nullptr)
     initializeBonxaiObject();
 
   // If semantics are included in the point cloud, the possible object categories are retrieved from the
   // first message.
-  if (static_cast<int>(currentMode & DataMode::Semantics) != 0 &&
-      !semantics.is_initialized())
+  if (static_cast<int>(currentMode & DataMode::Semantics) != 0 && !semantics.is_initialized())
   {
     semantics.initialize(cloud->categories, *bonxai_, currentMode);
-    if (semantics_as_instances_){
+    if (semantics_as_instances_)
+    {
       semantic_map_pub_ = create_publisher<segmentation_msgs::msg::InstanceSemanticMap>("semantic_map_instances", 1);
     }
   }
 
-  if (currentMode == DataMode::Empty) // Mode XYZ
+  if (currentMode == DataMode::Empty)  // Mode XYZ
   {
     RCLCPP_INFO(get_logger(), "Mode Empty");
     using PointCloudType = pcl::PointCloud<pcl::PointXYZ>;
@@ -264,7 +242,7 @@ void BonxaiServer::insertCloudCallback(
     bonxai_->With<Bonxai::Semantics>()->insertPointCloud(pc.points, sensorPosition, 30.0);
     publishAll<Bonxai::Semantics>(cloud->header.stamp);
   }
-  else if (currentMode == DataMode::RGBSemantics) // Mode XYZRGBSemantics
+  else if (currentMode == DataMode::RGBSemantics)  // Mode XYZRGBSemantics
   {
     RCLCPP_INFO(get_logger(), "Mode RGBSemantics");
     using PointCloudType = pcl::PointCloud<pcl::PointXYZRGBSemantics>;
@@ -275,13 +253,14 @@ void BonxaiServer::insertCloudCallback(
     bonxai_->With<Bonxai::RGBSemantics>()->insertPointCloud(pc.points, sensorPosition, 30.0);
     publishAll<Bonxai::RGBSemantics>(cloud->header.stamp);
   }
-  else if (currentMode == DataMode::SemanticsInstances) // Mode XYZSemanticsInstances
+  else if (currentMode == DataMode::SemanticsInstances)  // Mode XYZSemanticsInstances
   {
     RCLCPP_INFO(get_logger(), "Mode SemanticsInstances");
     using PointCloudType = pcl::PointCloud<pcl::PointXYZSemantics>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, Bonxai::SemanticsInstances>(pc, cloud->pose);
+    pcl::PointXYZ sensorPosition =
+        transformPointCloudToGlobal<PointCloudType, Bonxai::SemanticsInstances>(pc, cloud->pose);
     const auto stime = rclcpp::Clock{}.now();
     semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, Bonxai::SemanticsInstances>(cloud->instances, pc);
     data_association_time += (rclcpp::Clock{}.now() - stime).seconds();
@@ -290,7 +269,8 @@ void BonxaiServer::insertCloudCallback(
     bonxai_->With<Bonxai::SemanticsInstances>()->insertPointCloud(pc.points, sensorPosition, 30.0);
     map_integration_time += (rclcpp::Clock{}.now() - stime2).seconds();
     map_integration_k++;
-    if (number_iterations % 20 == 0){
+    if (number_iterations % 20 == 0)
+    {
       const auto stime3 = rclcpp::Clock{}.now();
       semantics.refineGlobalSemanticMap<Bonxai::SemanticsInstances>(5);
       map_refinement_time += (rclcpp::Clock{}.now() - stime3).seconds();
@@ -298,15 +278,16 @@ void BonxaiServer::insertCloudCallback(
     }
     publishAllWithInstances<Bonxai::SemanticsInstances>(cloud->header.stamp);
 
-
-    std::set<INSTANCEIDT> visibleInstances = semantics.getCurrentVisibleInstances<Bonxai::SemanticsInstances>(occupancy_min_z_, occupancy_max_z_);
+    std::set<INSTANCEIDT> visibleInstances =
+        semantics.getCurrentVisibleInstances<Bonxai::SemanticsInstances>(occupancy_min_z_, occupancy_max_z_);
     semantic_map_pub_->publish(semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp, visibleInstances));
     /*RCLCPP_INFO(get_logger(), "############### MAP AFTER UPDATE ################");
     for(INSTANCEIDT idx = 0; idx < semantics.globalSemanticMap.size(); idx++){
-      if(semantics.listOfVoxelsInsideBBox<Bonxai::SemanticsInstances>(semantics.globalSemanticMap[idx].bbox, idx).size() == 1){
-        BONXAI_INFO("aqui 1 voxel solo");
+      if(semantics.listOfVoxelsInsideBBox<Bonxai::SemanticsInstances>(semantics.globalSemanticMap[idx].bbox, idx).size()
+    == 1){ BONXAI_INFO("aqui 1 voxel solo");
       }
-      BONXAI_INFO("{} with: {} voxels", semantics.globalSemanticMap[idx].instanceID, semantics.listOfVoxelsInsideBBox<Bonxai::SemanticsInstances>(semantics.globalSemanticMap[idx].bbox, idx).size());
+      BONXAI_INFO("{} with: {} voxels", semantics.globalSemanticMap[idx].instanceID,
+    semantics.listOfVoxelsInsideBBox<Bonxai::SemanticsInstances>(semantics.globalSemanticMap[idx].bbox, idx).size());
     }
     uint32_t oneObservationInstances = 0;
     uint32_t activeInstances = 0;
@@ -318,8 +299,9 @@ void BonxaiServer::insertCloudCallback(
         activeInstances += 1;
       }
     }
-    BONXAI_INFO("Single observation instances / Total active instances: {} / {}", oneObservationInstances, activeInstances);
-    RCLCPP_INFO(get_logger(), "Global map: %ld visible and %ld active instances", visibleInstances.size(), semantics.globalSemanticMap.size());*/
+    BONXAI_INFO("Single observation instances / Total active instances: {} / {}", oneObservationInstances,
+    activeInstances); RCLCPP_INFO(get_logger(), "Global map: %ld visible and %ld active instances",
+    visibleInstances.size(), semantics.globalSemanticMap.size());*/
   }
   else if (currentMode == DataMode::RGBSemanticsInstances)  // Mode XYZRGBSemanticsInstances
   {
@@ -327,34 +309,41 @@ void BonxaiServer::insertCloudCallback(
     using PointCloudType = pcl::PointCloud<pcl::PointXYZRGBSemantics>;
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
-    pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, Bonxai::RGBSemanticsInstances>(pc, cloud->pose);
-    semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, Bonxai::RGBSemanticsInstances>(cloud->instances, pc);
+    pcl::PointXYZ sensorPosition =
+        transformPointCloudToGlobal<PointCloudType, Bonxai::RGBSemanticsInstances>(pc, cloud->pose);
+    semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, Bonxai::RGBSemanticsInstances>(cloud->instances,
+                                                                                                     pc);
     bonxai_->With<Bonxai::RGBSemanticsInstances>()->insertPointCloud(pc.points, sensorPosition, 30.0);
-    if (number_iterations % 30 == 0){
+    if (number_iterations % 30 == 0)
+    {
       semantics.refineGlobalSemanticMap<Bonxai::RGBSemanticsInstances>(5);
-    }    
+    }
     publishAllWithInstances<Bonxai::RGBSemanticsInstances>(cloud->header.stamp);
-    std::set<INSTANCEIDT> visibleInstances = semantics.getCurrentVisibleInstances<Bonxai::RGBSemanticsInstances>(occupancy_min_z_, occupancy_max_z_);
+    std::set<INSTANCEIDT> visibleInstances =
+        semantics.getCurrentVisibleInstances<Bonxai::RGBSemanticsInstances>(occupancy_min_z_, occupancy_max_z_);
     semantic_map_pub_->publish(semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp, visibleInstances));
-    RCLCPP_INFO(get_logger(), "Global map: %ld visible and %ld active instances", visibleInstances.size(), semantics.globalSemanticMap.size());
+    RCLCPP_INFO(get_logger(),
+                "Global map: %ld visible and %ld active instances",
+                visibleInstances.size(),
+                semantics.globalSemanticMap.size());
   }
 
   double total_elapsed = (rclcpp::Clock{}.now() - start_time).seconds();
-  RCLCPP_INFO(
-      get_logger(), "Pointcloud insertion in Bonxai done, %f sec)", total_elapsed);
+  RCLCPP_INFO(get_logger(), "Pointcloud insertion in Bonxai done, %f sec)", total_elapsed);
 
-  if(data_association_k > 0){
+  if (data_association_k > 0)
+  {
+    RCLCPP_INFO(get_logger(),
+                "Average data association time: %f ms)",
+                1000. * data_association_time / float(data_association_k));
     RCLCPP_INFO(
-      get_logger(), "Average data association time: %f ms)", 1000.*data_association_time / float(data_association_k));
+        get_logger(), "Average map integration time: %f ms)", 1000. * map_integration_time / float(map_integration_k));
     RCLCPP_INFO(
-      get_logger(), "Average map integration time: %f ms)",  1000.*map_integration_time / float(map_integration_k));
-    RCLCPP_INFO(
-      get_logger(), "Average map refinement time: %f ms)",  1000.*map_refinement_time / float(map_refinement_k));
+        get_logger(), "Average map refinement time: %f ms)", 1000. * map_refinement_time / float(map_refinement_k));
   }
 }
 
-rcl_interfaces::msg::SetParametersResult
-BonxaiServer::onParameter(const std::vector<rclcpp::Parameter>& parameters)
+rcl_interfaces::msg::SetParametersResult BonxaiServer::onParameter(const std::vector<rclcpp::Parameter>& parameters)
 { /*
    update_param(parameters, "occupancy_min_z", occupancy_min_z_);
    update_param(parameters, "occupancy_max_z", occupancy_max_z_);
@@ -382,48 +371,38 @@ BonxaiServer::onParameter(const std::vector<rclcpp::Parameter>& parameters)
   return result;
 }
 
-bool BonxaiServer::resetSrv(const std::shared_ptr<ResetSrv::Request>,
-                            const std::shared_ptr<ResetSrv::Response>)
+bool BonxaiServer::resetSrv(const std::shared_ptr<ResetSrv::Request>, const std::shared_ptr<ResetSrv::Response>)
 {
   const auto rostime = now();
   if (currentMode == DataMode::Empty)
   {
-    bonxai_ = std::make_unique<
-        Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Empty>>>(res_);
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Empty>>>(res_);
     publishAll<Bonxai::Empty>(rostime);
   }
   else if (currentMode == DataMode::RGB)
   {
-    bonxai_ = std::make_unique<
-        Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Color>>>(res_);
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Color>>>(res_);
     publishAll<Bonxai::Color>(rostime);
   }
   else if (currentMode == DataMode::Semantics)
   {
-    bonxai_ = std::make_unique<
-        Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Semantics>>>(
-        res_);
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Semantics>>>(res_);
     publishAll<Bonxai::Semantics>(rostime);
   }
   else if (currentMode == DataMode::RGBSemantics)
   {
-    bonxai_ = std::make_unique<
-        Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::RGBSemantics>>>(
-        res_);
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::RGBSemantics>>>(res_);
     publishAll<Bonxai::RGBSemantics>(rostime);
   }
   else if (currentMode == DataMode::SemanticsInstances)
   {
-    bonxai_ = std::make_unique<
-        Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::SemanticsInstances>>>(
-        res_);
+    bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::SemanticsInstances>>>(res_);
     publishAll<Bonxai::SemanticsInstances>(rostime);
   }
   else if (currentMode == DataMode::RGBSemanticsInstances)
   {
-    bonxai_ = std::make_unique<
-        Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::RGBSemanticsInstances>>>(
-        res_);
+    bonxai_ =
+        std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::RGBSemanticsInstances>>>(res_);
     publishAll<Bonxai::RGBSemanticsInstances>(rostime);
   }
 
@@ -433,8 +412,8 @@ bool BonxaiServer::resetSrv(const std::shared_ptr<ResetSrv::Request>,
 }
 
 void BonxaiServer::saveMapSrv(const std::shared_ptr<std_srvs::srv::Empty::Request>,
-                            const std::shared_ptr<std_srvs::srv::Empty::Response>){
-
+                              const std::shared_ptr<std_srvs::srv::Empty::Response>)
+{
   // Refine map (if necessary)
   BONXAI_INFO("Service working!");
 
@@ -465,9 +444,10 @@ void BonxaiServer::saveMapSrv(const std::shared_ptr<std_srvs::srv::Empty::Reques
     std::string json_filename = "map_cplusplus.json";
     std::ofstream outfile(json_filename);
 
-    if (!outfile.is_open()) {
-        std::cerr << "Cannot save .JSON file in: " << json_filename << std::endl;
-        return;
+    if (!outfile.is_open())
+    {
+      std::cerr << "Cannot save .JSON file in: " << json_filename << std::endl;
+      return;
     }
     outfile << json_data.dump(4);
     outfile.close();
@@ -481,9 +461,10 @@ void BonxaiServer::saveMapSrv(const std::shared_ptr<std_srvs::srv::Empty::Reques
     std::string json_filename = "map_cplusplus.json";
     std::ofstream outfile(json_filename);
 
-    if (!outfile.is_open()) {
-        std::cerr << "Cannot save .JSON file in: " << json_filename << std::endl;
-        return;
+    if (!outfile.is_open())
+    {
+      std::cerr << "Cannot save .JSON file in: " << json_filename << std::endl;
+      return;
     }
     outfile << json_data.dump(4);
     outfile.close();
@@ -492,20 +473,19 @@ void BonxaiServer::saveMapSrv(const std::shared_ptr<std_srvs::srv::Empty::Reques
   std::string ply_filename = "pointcloud_cplusplus.ply";
   std::ofstream outfile(ply_filename);
 
-  if (!outfile.is_open()) {
-      std::cerr << "Cannot save .PLY file in: " << ply_filename << std::endl;
-      return;
+  if (!outfile.is_open())
+  {
+    std::cerr << "Cannot save .PLY file in: " << ply_filename << std::endl;
+    return;
   }
   outfile << ply;
   outfile.close();
 
   // Save .PLY file (with instance_id, uncertainty_instances, uncertainty_categories)
 
-
   // Save .json file
 
   // [ToDo] Save two .PNG files: top-view uncertainty instances and top-view uncertainty_categories)
-
 }
 
 }  // namespace bonxai_server

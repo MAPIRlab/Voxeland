@@ -298,10 +298,7 @@ public:
   [[nodiscard]] CoordT posToCoord(double x, double y, double z);
 
   /// @brief posToCoord is used to convert real coordinates to CoordT indices.
-  [[nodiscard]] CoordT posToCoord(const Point3D& pos)
-  {
-    return posToCoord(pos.x, pos.y, pos.z);
-  }
+  [[nodiscard]] CoordT posToCoord(const Point3D& pos) { return posToCoord(pos.x, pos.y, pos.z); }
 
   /// @brief coordToPos converts CoordT indices to Point3D.
   [[nodiscard]] Point3D coordToPos(const CoordT& coord);
@@ -375,8 +372,7 @@ public:
      * @param create_if_missing   if true, create the Root, Inner and Leaf, if not
      * present.
      */
-    [[nodiscard]] LeafGrid* getLeafGrid(const CoordT& coord,
-                                        bool create_if_missing = false);
+    [[nodiscard]] LeafGrid* getLeafGrid(const CoordT& coord, bool create_if_missing = false);
 
   private:
     VoxelGrid& grid_;
@@ -503,7 +499,7 @@ inline bool CoordT::operator!=(const CoordT& other) const
 
 inline bool CoordT::operator<(const CoordT& other) const
 {
-  return x < other.x || (x == other.x && y < other.y) || (x == other.x && y == other.y && z < other.z); 
+  return x < other.x || (x == other.x && y < other.y) || (x == other.x && y == other.y && z < other.z);
 }
 
 inline CoordT CoordT::operator+(const CoordT& other) const
@@ -534,7 +530,7 @@ inline CoordT& CoordT::operator-=(const CoordT& other)
 
 inline CoordT CoordT::operator/(const int div)
 {
-  return {x / div, y / div, z / div};
+  return { x / div, y / div, z / div };
 }
 
 template <typename DataT>
@@ -565,14 +561,11 @@ inline Grid<DataT>::~Grid()
 template <typename DataT>
 inline size_t Grid<DataT>::memUsage() const
 {
-  return mask_.memUsage() + sizeof(uint8_t) + sizeof(uint32_t) + sizeof(DataT*) +
-         sizeof(DataT) * size_;
+  return mask_.memUsage() + sizeof(uint8_t) + sizeof(uint32_t) + sizeof(DataT*) + sizeof(DataT) * size_;
 }
 
 template <typename DataT>
-inline VoxelGrid<DataT>::VoxelGrid(double voxel_size,
-                                   uint8_t inner_bits,
-                                   uint8_t leaf_bits)
+inline VoxelGrid<DataT>::VoxelGrid(double voxel_size, uint8_t inner_bits, uint8_t leaf_bits)
   : INNER_BITS(inner_bits)
   , LEAF_BITS(leaf_bits)
   , Log2N(INNER_BITS + LEAF_BITS)
@@ -583,8 +576,7 @@ inline VoxelGrid<DataT>::VoxelGrid(double voxel_size,
 {
   if (LEAF_BITS < 1 || INNER_BITS < 1)
   {
-    throw std::runtime_error(
-        "The minimum value of the inner_bits and leaf_bits should be 1");
+    throw std::runtime_error("The minimum value of the inner_bits and leaf_bits should be 1");
   }
 }
 
@@ -639,8 +631,7 @@ inline uint32_t VoxelGrid<DataT>::getLeafIndex(const CoordT& coord)
 }
 
 template <typename DataT>
-inline bool VoxelGrid<DataT>::Accessor::setValue(const CoordT& coord,
-                                                 const DataT& value)
+inline bool VoxelGrid<DataT>::Accessor::setValue(const CoordT& coord, const DataT& value)
 {
   const CoordT inner_key = grid_.getInnerKey(coord);
   if (inner_key != prev_inner_coord_ || prev_leaf_ptr_ == nullptr)
@@ -657,8 +648,7 @@ inline bool VoxelGrid<DataT>::Accessor::setValue(const CoordT& coord,
 
 //----------------------------------
 template <typename DataT>
-inline DataT* VoxelGrid<DataT>::Accessor::value(const CoordT& coord,
-                                                bool create_if_missing)
+inline DataT* VoxelGrid<DataT>::Accessor::value(const CoordT& coord, bool create_if_missing)
 {
   const CoordT inner_key = grid_.getInnerKey(coord);
 
@@ -687,8 +677,7 @@ inline DataT* VoxelGrid<DataT>::Accessor::value(const CoordT& coord,
 
 //----------------------------------
 template <typename DataT>
-inline bool VoxelGrid<DataT>::Accessor::setCellOn(const CoordT& coord,
-                                                  const DataT& default_value)
+inline bool VoxelGrid<DataT>::Accessor::setCellOn(const CoordT& coord, const DataT& default_value)
 {
   const CoordT inner_key = grid_.getInnerKey(coord);
 
@@ -727,8 +716,8 @@ inline bool VoxelGrid<DataT>::Accessor::setCellOff(const CoordT& coord)
 
 //----------------------------------
 template <typename DataT>
-inline typename VoxelGrid<DataT>::LeafGrid*
-VoxelGrid<DataT>::Accessor::getLeafGrid(const CoordT& coord, bool create_if_missing)
+inline typename VoxelGrid<DataT>::LeafGrid* VoxelGrid<DataT>::Accessor::getLeafGrid(const CoordT& coord,
+                                                                                    bool create_if_missing)
 {
   InnerGrid* inner_ptr = prev_inner_ptr_;
   const CoordT root_key = grid_.getRootKey(coord);
@@ -883,10 +872,9 @@ inline uint32_t Mask::FindLowestOn(uint64_t v)
   return static_cast<uint32_t>(__builtin_ctzll(v));
 #else
   static const unsigned char DeBruijn[64] = {
-    0,  1,  2,  53, 3,  7,  54, 27, 4,  38, 41, 8,  34, 55, 48, 28,
-    62, 5,  39, 46, 44, 42, 22, 9,  24, 35, 59, 56, 49, 18, 29, 11,
-    63, 52, 6,  26, 37, 40, 33, 47, 61, 45, 43, 21, 23, 58, 17, 10,
-    51, 25, 36, 32, 60, 20, 57, 16, 50, 31, 19, 15, 30, 14, 13, 12,
+    0,  1,  2,  53, 3,  7,  54, 27, 4,  38, 41, 8,  34, 55, 48, 28, 62, 5,  39, 46, 44, 42,
+    22, 9,  24, 35, 59, 56, 49, 18, 29, 11, 63, 52, 6,  26, 37, 40, 33, 47, 61, 45, 43, 21,
+    23, 58, 17, 10, 51, 25, 36, 32, 60, 20, 57, 16, 50, 31, 19, 15, 30, 14, 13, 12,
   };
 // disable unary minus on unsigned warning
 #if defined(_MSC_VER) && !defined(__NVCC__)
@@ -915,9 +903,7 @@ inline uint32_t Mask::CountOn(uint64_t v)
   /// @warning evil bit twiddling ahead!
   v = v - ((v >> 1) & uint64_t(0x5555555555555555));
   v = (v & uint64_t(0x3333333333333333)) + ((v >> 2) & uint64_t(0x3333333333333333));
-  v = (((v + (v >> 4)) & uint64_t(0xF0F0F0F0F0F0F0F)) *
-       uint64_t(0x101010101010101)) >>
-      56;
+  v = (((v + (v >> 4)) & uint64_t(0xF0F0F0F0F0F0F0F)) * uint64_t(0x101010101010101)) >> 56;
 #endif
   return static_cast<uint32_t>(v);
 }
@@ -990,7 +976,7 @@ inline uint32_t Mask::findNextOn(uint32_t start) const
   while (!b && ++n < WORD_COUNT)
   {
     b = words_[n];
-  }                                                 // find next non-zero word
+  }  // find next non-zero word
   return (!b ? SIZE : (n << 6) + FindLowestOn(b));  // catch last word=0
 }
 

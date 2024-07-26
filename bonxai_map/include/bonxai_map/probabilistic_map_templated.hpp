@@ -37,9 +37,7 @@ public:
    * to compute a free space
    */
   template <typename PointT, typename allocatorT, typename OriginT>
-  void insertPointCloud(const std::vector<PointT, allocatorT>& points,
-                        const OriginT& origin,
-                        double max_range)
+  void insertPointCloud(const std::vector<PointT, allocatorT>& points, const OriginT& origin, double max_range)
   {
     const auto from = ConvertPoint<Vector3D>(origin);
     const double max_range_sqr = max_range * max_range;
@@ -52,8 +50,7 @@ public:
       if (squared_norm >= max_range_sqr)
       {
         // The new point will have distance == max_range from origin
-        const Vector3D new_point =
-            from + ((vect / std::sqrt(squared_norm)) * max_range);
+        const Vector3D new_point = from + ((vect / std::sqrt(squared_norm)) * max_range);
         addMissPoint(new_point);
       }
       else
@@ -79,8 +76,7 @@ public:
 
     if (cell->update_id != _update_count)
     {
-      cell->probability_log = std::min(cell->probability_log + _options.prob_hit_log,
-                                       _options.clamp_max_log);
+      cell->probability_log = std::min(cell->probability_log + _options.prob_hit_log, _options.clamp_max_log);
 
       cell->update_id = _update_count;
       _hit_coords.push_back(coord);
@@ -97,8 +93,7 @@ public:
 
     if (cell->update_id != _update_count)
     {
-      cell->probability_log = std::max(
-          cell->probability_log + _options.prob_miss_log, _options.clamp_min_log);
+      cell->probability_log = std::max(cell->probability_log + _options.prob_miss_log, _options.clamp_min_log);
 
       cell->update_id = _update_count;
       _miss_coords.push_back(coord);
@@ -106,8 +101,7 @@ public:
   }
 
   template <typename PointT>
-  void getOccupiedVoxels(std::vector<PointT>& cells_points,
-                         std::vector<DataT>& cells_data)
+  void getOccupiedVoxels(std::vector<PointT>& cells_points, std::vector<DataT>& cells_data)
   {
     std::vector<Bonxai::CoordT> coords;
     coords.clear();
@@ -119,8 +113,7 @@ public:
     }
   }
 
-  void getOccupiedVoxels(std::vector<Bonxai::CoordT>& coords,
-                         std::vector<DataT>& cells_data)
+  void getOccupiedVoxels(std::vector<Bonxai::CoordT>& coords, std::vector<DataT>& cells_data)
   {
     coords.clear();
     auto visitor = [&](ProbabilisticCell<DataT>& cell, const CoordT& coord) {
@@ -135,10 +128,7 @@ public:
 
   [[nodiscard]] VoxelGrid<ProbabilisticCell<DataT>>* grid() { return &_grid; }
 
-  [[nodiscard]] const VoxelGrid<ProbabilisticCell<DataT>>* grid() const
-  {
-    return &_grid;
-  }
+  [[nodiscard]] const VoxelGrid<ProbabilisticCell<DataT>>* grid() const { return &_grid; }
 
   [[nodiscard]] bool isOccupied(const Bonxai::CoordT& coord) const
   {
@@ -197,8 +187,7 @@ private:
       ProbabilisticCell<DataT>* cell = accessor.value(coord, true);
       if (cell->update_id != _update_count)
       {
-        cell->probability_log = std::max(
-            cell->probability_log + _options.prob_miss_log, _options.clamp_min_log);
+        cell->probability_log = std::max(cell->probability_log + _options.prob_miss_log, _options.clamp_min_log);
         cell->update_id = _update_count;
       }
       return true;

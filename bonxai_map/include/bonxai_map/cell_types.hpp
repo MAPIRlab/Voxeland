@@ -10,12 +10,12 @@
 namespace Bonxai
 {
 
-  struct Color;
+struct Color;
 
-  inline std::string XYZtoPLY(const Point3D& point);
-  inline std::string RGBtoPLY(const Color& rgb);
-  inline std::string getXYZheader();
-  inline std::string getRGBheader();
+inline std::string XYZtoPLY(const Point3D& point);
+inline std::string RGBtoPLY(const Color& rgb);
+inline std::string getXYZheader();
+inline std::string getRGBheader();
 
 struct Color
 {
@@ -41,13 +41,9 @@ struct Color
 
   Color toColor() { return Color(*this); }
 
-  std::string toPLY(const Bonxai::Point3D& point){
-    return fmt::format("{} {}\n", XYZtoPLY(point), RGBtoPLY(*this));
-  }
+  std::string toPLY(const Bonxai::Point3D& point) { return fmt::format("{} {}\n", XYZtoPLY(point), RGBtoPLY(*this)); }
 
-  static std::string getHeaderPLY(){
-    return fmt::format("{}\n{}", getXYZheader(), getRGBheader());
-  }
+  static std::string getHeaderPLY() { return fmt::format("{}\n{}", getXYZheader(), getRGBheader()); }
 };
 
 struct Empty
@@ -58,30 +54,29 @@ struct Empty
 
   Color toColor() { return Color(255, 255, 255); }
 
-  std::string toPLY(const Bonxai::Point3D& point){
-    return fmt::format("{}\n", XYZtoPLY(point));
-  }
+  std::string toPLY(const Bonxai::Point3D& point) { return fmt::format("{}\n", XYZtoPLY(point)); }
 
-  static std::string getHeaderPLY(){
-    return getXYZheader();
-  }
+  static std::string getHeaderPLY() { return getXYZheader(); }
 };
 
 struct Semantics
 {
   std::vector<double> probabilities;
 
-  Semantics() {};
+  Semantics(){};
 
-  void update(const pcl::PointXYZSemantics& pcl){
+  void update(const pcl::PointXYZSemantics& pcl)
+  {
     SemanticMap& semantics = SemanticMap::get_instance();
-    if (!probabilities.empty()) {
-      for (INSTANCEIDT i = 0; i < probabilities.size(); i++){
+    if (!probabilities.empty())
+    {
+      for (INSTANCEIDT i = 0; i < probabilities.size(); i++)
+      {
         probabilities[i] += semantics.lastLocalSemanticMap[pcl.instance_id].probabilities[i];
       }
-      
     }
-    else {
+    else
+    {
       probabilities = semantics.lastLocalSemanticMap[pcl.instance_id].probabilities;
     }
   }
@@ -90,8 +85,7 @@ struct Semantics
   {
     SemanticMap& semantics = SemanticMap::get_instance();
 
-    std::vector<double>::iterator it =
-        std::max_element(probabilities.begin(), probabilities.end());
+    std::vector<double>::iterator it = std::max_element(probabilities.begin(), probabilities.end());
 
     uint8_t mainObjectCategory = std::distance(probabilities.begin(), it);
 
@@ -105,13 +99,15 @@ struct Semantics
     return Color((hexColor >> 16) & 0xFF, (hexColor >> 8) & 0xFF, hexColor & 0xFF);
   }
 
-  std::string toPLY(const Bonxai::Point3D& point){
+  std::string toPLY(const Bonxai::Point3D& point)
+  {
     double uncertainty_categories = expected_shannon_entropy<double>(probabilities);
-    return fmt::format("{} {} {}\n", XYZtoPLY(point), RGBtoPLY(toColor()), uncertainty_categories); 
+    return fmt::format("{} {} {}\n", XYZtoPLY(point), RGBtoPLY(toColor()), uncertainty_categories);
   }
 
-  static std::string getHeaderPLY(){
-    return fmt::format("{}\n{}\nproperty float uncertainty_categories",getXYZheader(),getRGBheader());
+  static std::string getHeaderPLY()
+  {
+    return fmt::format("{}\n{}\nproperty float uncertainty_categories", getXYZheader(), getRGBheader());
   }
 };
 
@@ -120,18 +116,22 @@ struct RGBSemantics
   Color rgb;
   std::vector<double> probabilities;
 
-  RGBSemantics(): rgb() {}
+  RGBSemantics()
+    : rgb()
+  {}
 
-  void update(const pcl::PointXYZRGBSemantics& pcl){
-
+  void update(const pcl::PointXYZRGBSemantics& pcl)
+  {
     SemanticMap& semantics = SemanticMap::get_instance();
-    if (!probabilities.empty()) {
-      for (INSTANCEIDT i = 0; i < probabilities.size(); i++){
+    if (!probabilities.empty())
+    {
+      for (INSTANCEIDT i = 0; i < probabilities.size(); i++)
+      {
         probabilities[i] += semantics.lastLocalSemanticMap[pcl.instance_id].probabilities[i];
       }
-      
     }
-    else {
+    else
+    {
       probabilities = semantics.lastLocalSemanticMap[pcl.instance_id].probabilities;
     }
 
@@ -144,8 +144,7 @@ struct RGBSemantics
   {
     SemanticMap& semantics = SemanticMap::get_instance();
 
-    std::vector<double>::iterator it =
-        std::max_element(probabilities.begin(), probabilities.end());
+    std::vector<double>::iterator it = std::max_element(probabilities.begin(), probabilities.end());
 
     uint8_t mainObjectCategory = std::distance(probabilities.begin(), it);
 
@@ -153,19 +152,22 @@ struct RGBSemantics
 
     if (mainObjectCategory == (semantics.default_categories.size() - 1))
     {
-      hexColor = (static_cast<uint32_t>(rgb.r) << 16) | (static_cast<uint32_t>(rgb.g) << 8) | static_cast<uint32_t>(rgb.b);
+      hexColor =
+          (static_cast<uint32_t>(rgb.r) << 16) | (static_cast<uint32_t>(rgb.g) << 8) | static_cast<uint32_t>(rgb.b);
     }
 
     return Color((hexColor >> 16) & 0xFF, (hexColor >> 8) & 0xFF, hexColor & 0xFF);
   }
 
-  std::string toPLY(const Bonxai::Point3D& point){
+  std::string toPLY(const Bonxai::Point3D& point)
+  {
     double uncertainty_categories = expected_shannon_entropy<double>(probabilities);
-    return fmt::format("{} {} {}\n", XYZtoPLY(point), RGBtoPLY(toColor()), uncertainty_categories); 
+    return fmt::format("{} {} {}\n", XYZtoPLY(point), RGBtoPLY(toColor()), uncertainty_categories);
   }
 
-  static std::string getHeaderPLY(){
-    return fmt::format("{}\n{}\nproperty float uncertainty_categories",getXYZheader(),getRGBheader());
+  static std::string getHeaderPLY()
+  {
+    return fmt::format("{}\n{}\nproperty float uncertainty_categories", getXYZheader(), getRGBheader());
   }
 };
 
@@ -174,7 +176,7 @@ struct SemanticsInstances
   std::vector<INSTANCEIDT> instances_candidates;
   std::vector<uint32_t> instances_votes;
 
-  SemanticsInstances() {};
+  SemanticsInstances(){};
 
   void update(const pcl::PointXYZSemantics& pcl)
   {
@@ -183,13 +185,15 @@ struct SemanticsInstances
 
     auto it = std::find(instances_candidates.begin(), instances_candidates.end(), thisGlobalID);
 
-    if (it != instances_candidates.end()) {
-      //instances_votes[std::distance(instances_candidates.begin(), it)]+=1;
-      //if(thisGlobalID != 0){
-      instances_votes[std::distance(instances_candidates.begin(), it)]+=1;
+    if (it != instances_candidates.end())
+    {
+      // instances_votes[std::distance(instances_candidates.begin(), it)]+=1;
+      // if(thisGlobalID != 0){
+      instances_votes[std::distance(instances_candidates.begin(), it)] += 1;
       //}
     }
-    else{
+    else
+    {
       instances_candidates.push_back(thisGlobalID);
       instances_votes.push_back(0);
     }
@@ -203,114 +207,131 @@ struct SemanticsInstances
 
     auto itInstances = std::max_element(instances_votes.begin(), instances_votes.end());
     auto idxMaxVotes = std::distance(instances_votes.begin(), itInstances);
-    std::vector<double> probsBestInstance = semantics.globalSemanticMap[instances_candidates[idxMaxVotes]].probabilities;
+    std::vector<double> probsBestInstance =
+        semantics.globalSemanticMap[instances_candidates[idxMaxVotes]].probabilities;
 
     auto itProbs = std::max_element(probsBestInstance.begin(), probsBestInstance.end());
 
-    //INSTANCEIDT bestInstance = instances_candidates[idxMaxVotes];
+    // INSTANCEIDT bestInstance = instances_candidates[idxMaxVotes];
     INSTANCEIDT bestInstance = getMostRepresentativeInstance();
     // Set the color of the best object category of the most probable instance
-    //uint32_t hexColor = semantics.indexToHexColor(std::distance(probsBestInstance.begin(), itProbs));
+    // uint32_t hexColor = semantics.indexToHexColor(std::distance(probsBestInstance.begin(), itProbs));
     // Set a unique color for the most probable instance
     uint32_t hexColor = semantics.indexToHexColor(bestInstance);
 
-    if (bestInstance == 0){
+    if (bestInstance == 0)
+    {
       hexColor = 0xbcbcbc;
-    }/*
-    if (instances_candidates[std::distance(instances_votes.begin(), itInstances)] == 0){
-      hexColor = 0xbcbcbc;
-    }
-    if ((std::distance(probsBestInstance.begin(), itProbs) ==
-        (semantics.default_categories.size() - 1)) && !(instances_candidates[idxMaxVotes] == 0)){
-          hexColor = 0xbcbcbc;
-        }*/
+    } /*
+     if (instances_candidates[std::distance(instances_votes.begin(), itInstances)] == 0){
+       hexColor = 0xbcbcbc;
+     }
+     if ((std::distance(probsBestInstance.begin(), itProbs) ==
+         (semantics.default_categories.size() - 1)) && !(instances_candidates[idxMaxVotes] == 0)){
+           hexColor = 0xbcbcbc;
+         }*/
 
     return Color((hexColor >> 16) & 0xFF, (hexColor >> 8) & 0xFF, hexColor & 0xFF);
   }
 
-  void updateCandidatesAndVotes(){
-
+  void updateCandidatesAndVotes()
+  {
     SemanticMap& semantics = SemanticMap::get_instance();
 
     std::vector<INSTANCEIDT> candidates_temp;
     std::map<INSTANCEIDT, uint32_t> combining_instances;
 
-    for (INSTANCEIDT i = 0; i < instances_candidates.size(); i++){
-      if(semantics.globalSemanticMap[instances_candidates[i]].pointsTo == -1){
+    for (INSTANCEIDT i = 0; i < instances_candidates.size(); i++)
+    {
+      if (semantics.globalSemanticMap[instances_candidates[i]].pointsTo == -1)
+      {
         candidates_temp.push_back(instances_candidates[i]);
       }
-      else{
+      else
+      {
         candidates_temp.push_back(semantics.globalSemanticMap[instances_candidates[i]].pointsTo);
       }
     }
 
-    for (INSTANCEIDT i = 0; i < candidates_temp.size(); i++){
+    for (INSTANCEIDT i = 0; i < candidates_temp.size(); i++)
+    {
       combining_instances[candidates_temp[i]] += instances_votes[i];
     }
 
     instances_candidates.clear();
     instances_votes.clear();
 
-    for (const std::pair<INSTANCEIDT, uint32_t>& instance: combining_instances){
+    for (const std::pair<INSTANCEIDT, uint32_t>& instance : combining_instances)
+    {
       instances_candidates.push_back(instance.first);
       instances_votes.push_back(instance.second);
     }
   }
 
-  std::vector<double> getTotalProbability(){
-
+  std::vector<double> getTotalProbability()
+  {
     SemanticMap& semantics = SemanticMap::get_instance();
     std::vector<double> probabilities;
     size_t total_votes = 0;
 
-    for (INSTANCEIDT i = 0; i < instances_votes.size(); i++){
+    for (INSTANCEIDT i = 0; i < instances_votes.size(); i++)
+    {
       total_votes += instances_votes[i];
     }
 
-    for (INSTANCEIDT i = 0; i < instances_candidates.size(); i++){
-      
-      for (INSTANCEIDT j = 0; j < semantics.default_categories.size(); j++){
-        if (i==0){
-          probabilities.push_back(double(instances_votes[i]) / total_votes * semantics.globalSemanticMap[instances_candidates[i]].probabilities[j]);
+    for (INSTANCEIDT i = 0; i < instances_candidates.size(); i++)
+    {
+      for (INSTANCEIDT j = 0; j < semantics.default_categories.size(); j++)
+      {
+        if (i == 0)
+        {
+          probabilities.push_back(double(instances_votes[i]) / total_votes *
+                                  semantics.globalSemanticMap[instances_candidates[i]].probabilities[j]);
         }
-        else{
-          probabilities[j] += double(instances_votes[i]) / total_votes * semantics.globalSemanticMap[instances_candidates[i]].probabilities[j];
+        else
+        {
+          probabilities[j] += double(instances_votes[i]) / total_votes *
+                              semantics.globalSemanticMap[instances_candidates[i]].probabilities[j];
         }
       }
-
     }
 
     return probabilities;
   }
 
-  INSTANCEIDT getMostRepresentativeInstance(){
-
-    //auto itInstances = std::max_element(instances_votes.begin(), instances_votes.end());
-    //INSTANCEIDT idxMaxVotes = std::distance(instances_votes.begin(), itInstances);
+  INSTANCEIDT getMostRepresentativeInstance()
+  {
+    // auto itInstances = std::max_element(instances_votes.begin(), instances_votes.end());
+    // INSTANCEIDT idxMaxVotes = std::distance(instances_votes.begin(), itInstances);
 
     INSTANCEIDT idxMaxVotes1 = 0;
 
-    if (instances_votes.size() > 1){
-    
+    if (instances_votes.size() > 1)
+    {
       INSTANCEIDT idxMaxVotes2 = 0;
 
       INSTANCEIDT max1 = instances_votes[0];
       INSTANCEIDT max2 = std::numeric_limits<INSTANCEIDT>::min();
 
-      for (size_t i = 1; i < instances_votes.size(); ++i) {
-          if (instances_votes[i] > max1) {
-              // Update the second largest before updating the largest
-              max2 = max1;
-              idxMaxVotes2 = idxMaxVotes1;
-              max1 = instances_votes[i];
-              idxMaxVotes1 = i;
-          } else if (instances_votes[i] > max2) {
-              max2 = instances_votes[i];
-              idxMaxVotes2 = i;
-          }
+      for (size_t i = 1; i < instances_votes.size(); ++i)
+      {
+        if (instances_votes[i] > max1)
+        {
+          // Update the second largest before updating the largest
+          max2 = max1;
+          idxMaxVotes2 = idxMaxVotes1;
+          max1 = instances_votes[i];
+          idxMaxVotes1 = i;
+        }
+        else if (instances_votes[i] > max2)
+        {
+          max2 = instances_votes[i];
+          idxMaxVotes2 = i;
+        }
       }
 
-      if ((instances_candidates[idxMaxVotes1] == 0) && (max1*0.2 < max2)){
+      if ((instances_candidates[idxMaxVotes1] == 0) && (max1 * 0.2 < max2))
+      {
         idxMaxVotes1 = idxMaxVotes2;
       }
     }
@@ -318,19 +339,28 @@ struct SemanticsInstances
     return instances_candidates[idxMaxVotes1];
   }
 
-  std::string toPLY(const Bonxai::Point3D& point){
+  std::string toPLY(const Bonxai::Point3D& point)
+  {
     updateCandidatesAndVotes();
     std::vector<double> total_probability = getTotalProbability();
     INSTANCEIDT instanceid = getMostRepresentativeInstance();
     double uncertainty_instances = expected_shannon_entropy<uint32_t>(instances_votes);
     double uncertainty_categories = expected_shannon_entropy<double>(total_probability);
-    return fmt::format("{} {} {} {} {}\n", XYZtoPLY(point), RGBtoPLY(toColor()), instanceid, uncertainty_instances, uncertainty_categories); 
+    return fmt::format("{} {} {} {} {}\n",
+                       XYZtoPLY(point),
+                       RGBtoPLY(toColor()),
+                       instanceid,
+                       uncertainty_instances,
+                       uncertainty_categories);
   }
 
-  static std::string getHeaderPLY(){
-    return fmt::format("{}\n{}\nproperty int instanceid\nproperty float uncertainty_instances\nproperty float uncertainty_categories",getXYZheader(),getRGBheader());
+  static std::string getHeaderPLY()
+  {
+    return fmt::format(
+        "{}\n{}\nproperty int instanceid\nproperty float uncertainty_instances\nproperty float uncertainty_categories",
+        getXYZheader(),
+        getRGBheader());
   }
-
 };
 
 struct RGBSemanticsInstances
@@ -339,7 +369,7 @@ struct RGBSemanticsInstances
   std::vector<INSTANCEIDT> instances_candidates;
   std::vector<uint32_t> instances_votes;
 
-  RGBSemanticsInstances() {};
+  RGBSemanticsInstances(){};
 
   void update(const pcl::PointXYZRGBSemantics& pcl)
   {
@@ -348,13 +378,15 @@ struct RGBSemanticsInstances
 
     auto it = std::find(instances_candidates.begin(), instances_candidates.end(), thisGlobalID);
 
-    if (it != instances_candidates.end()) {
-      instances_votes[std::distance(instances_candidates.begin(), it)]+=1;
+    if (it != instances_candidates.end())
+    {
+      instances_votes[std::distance(instances_candidates.begin(), it)] += 1;
       /*if(thisGlobalID != 0){
         instances_votes[std::distance(instances_candidates.begin(), it)]+=1;
       }*/
     }
-    else{
+    else
+    {
       instances_candidates.push_back(thisGlobalID);
       instances_votes.push_back(0);
     }
@@ -372,118 +404,136 @@ struct RGBSemanticsInstances
 
     auto itInstances = std::max_element(instances_votes.begin(), instances_votes.end());
     auto idxMaxVotes = std::distance(instances_votes.begin(), itInstances);
-    std::vector<double> probsBestInstance = semantics.globalSemanticMap[instances_candidates[idxMaxVotes]].probabilities;
+    std::vector<double> probsBestInstance =
+        semantics.globalSemanticMap[instances_candidates[idxMaxVotes]].probabilities;
 
     auto itProbs = std::max_element(probsBestInstance.begin(), probsBestInstance.end());
 
-    //INSTANCEIDT bestInstance = instances_candidates[idxMaxVotes];
+    // INSTANCEIDT bestInstance = instances_candidates[idxMaxVotes];
     INSTANCEIDT bestInstance = getMostRepresentativeInstance();
     // Set the color of the best object category of the most probable instance
-    //uint32_t hexColor = semantics.indexToHexColor(std::distance(probsBestInstance.begin(), itProbs));
+    // uint32_t hexColor = semantics.indexToHexColor(std::distance(probsBestInstance.begin(), itProbs));
     // Set a unique color for the most probable instance
     uint32_t hexColor = semantics.indexToHexColor(bestInstance);
 
-    //hexColor = (static_cast<uint32_t>(rgb.r) << 16) | (static_cast<uint32_t>(rgb.g) << 8) | static_cast<uint32_t>(rgb.b);
+    // hexColor = (static_cast<uint32_t>(rgb.r) << 16) | (static_cast<uint32_t>(rgb.g) << 8) |
+    // static_cast<uint32_t>(rgb.b);
 
-    //if (std::distance(probsBestInstance.begin(), itProbs) == (semantics.default_categories.size() - 1)){
-      if (bestInstance == 0) {
-      hexColor = (static_cast<uint32_t>(rgb.r) << 16) | (static_cast<uint32_t>(rgb.g) << 8) | static_cast<uint32_t>(rgb.b);
-    }/*
-    if (instances_candidates[std::distance(instances_votes.begin(), itInstances)] == 0){
-      hexColor = 0xbcbcbc;
-    }
-    if ((std::distance(probsBestInstance.begin(), itProbs) ==
-        (semantics.default_categories.size() - 1)) && !(instances_candidates[idxMaxVotes] == 0)){
-          hexColor = 0xbcbcbc;
-        }*/
+    // if (std::distance(probsBestInstance.begin(), itProbs) == (semantics.default_categories.size() - 1)){
+    if (bestInstance == 0)
+    {
+      hexColor =
+          (static_cast<uint32_t>(rgb.r) << 16) | (static_cast<uint32_t>(rgb.g) << 8) | static_cast<uint32_t>(rgb.b);
+    } /*
+     if (instances_candidates[std::distance(instances_votes.begin(), itInstances)] == 0){
+       hexColor = 0xbcbcbc;
+     }
+     if ((std::distance(probsBestInstance.begin(), itProbs) ==
+         (semantics.default_categories.size() - 1)) && !(instances_candidates[idxMaxVotes] == 0)){
+           hexColor = 0xbcbcbc;
+         }*/
 
     return Color((hexColor >> 16) & 0xFF, (hexColor >> 8) & 0xFF, hexColor & 0xFF);
   }
 
-  void updateCandidatesAndVotes(){
-
+  void updateCandidatesAndVotes()
+  {
     SemanticMap& semantics = SemanticMap::get_instance();
 
     std::vector<INSTANCEIDT> candidates_temp;
     std::map<INSTANCEIDT, uint32_t> combining_instances;
 
-    for (INSTANCEIDT i = 0; i < instances_candidates.size(); i++){
-      if(semantics.globalSemanticMap[instances_candidates[i]].pointsTo == -1){
+    for (INSTANCEIDT i = 0; i < instances_candidates.size(); i++)
+    {
+      if (semantics.globalSemanticMap[instances_candidates[i]].pointsTo == -1)
+      {
         candidates_temp.push_back(instances_candidates[i]);
       }
-      else{
+      else
+      {
         candidates_temp.push_back(semantics.globalSemanticMap[instances_candidates[i]].pointsTo);
       }
     }
 
-    for (INSTANCEIDT i = 0; i < candidates_temp.size(); i++){
+    for (INSTANCEIDT i = 0; i < candidates_temp.size(); i++)
+    {
       combining_instances[candidates_temp[i]] += instances_votes[i];
     }
 
     instances_candidates.clear();
     instances_votes.clear();
 
-    for (const std::pair<INSTANCEIDT, uint32_t>& instance: combining_instances){
+    for (const std::pair<INSTANCEIDT, uint32_t>& instance : combining_instances)
+    {
       instances_candidates.push_back(instance.first);
       instances_votes.push_back(instance.second);
     }
-
   }
 
-  std::vector<double> getTotalProbability(){
-
+  std::vector<double> getTotalProbability()
+  {
     SemanticMap& semantics = SemanticMap::get_instance();
     std::vector<double> probabilities;
     size_t total_votes = 0;
 
-    for (INSTANCEIDT i = 0; i < instances_votes.size(); i++){
+    for (INSTANCEIDT i = 0; i < instances_votes.size(); i++)
+    {
       total_votes += instances_votes[i];
     }
 
-    for (INSTANCEIDT i = 0; i < instances_candidates.size(); i++){
-      
-      for (INSTANCEIDT j = 0; j < semantics.default_categories.size(); j++){
-        if (i==0){
-          probabilities.push_back(double(instances_votes[i]) / total_votes * semantics.globalSemanticMap[instances_candidates[i]].probabilities[j]);
+    for (INSTANCEIDT i = 0; i < instances_candidates.size(); i++)
+    {
+      for (INSTANCEIDT j = 0; j < semantics.default_categories.size(); j++)
+      {
+        if (i == 0)
+        {
+          probabilities.push_back(double(instances_votes[i]) / total_votes *
+                                  semantics.globalSemanticMap[instances_candidates[i]].probabilities[j]);
         }
-        else{
-          probabilities[j] += double(instances_votes[i]) / total_votes * semantics.globalSemanticMap[instances_candidates[i]].probabilities[j];
+        else
+        {
+          probabilities[j] += double(instances_votes[i]) / total_votes *
+                              semantics.globalSemanticMap[instances_candidates[i]].probabilities[j];
         }
       }
-
     }
 
     return probabilities;
   }
 
-  INSTANCEIDT getMostRepresentativeInstance(){
-
-    //auto itInstances = std::max_element(instances_votes.begin(), instances_votes.end());
-    //INSTANCEIDT idxMaxVotes = std::distance(instances_votes.begin(), itInstances);
+  INSTANCEIDT getMostRepresentativeInstance()
+  {
+    // auto itInstances = std::max_element(instances_votes.begin(), instances_votes.end());
+    // INSTANCEIDT idxMaxVotes = std::distance(instances_votes.begin(), itInstances);
 
     INSTANCEIDT idxMaxVotes1 = 0;
 
-    if (instances_votes.size() > 1){
-    
+    if (instances_votes.size() > 1)
+    {
       INSTANCEIDT idxMaxVotes2 = 0;
 
       INSTANCEIDT max1 = instances_votes[0];
       INSTANCEIDT max2 = std::numeric_limits<INSTANCEIDT>::min();
 
-      for (size_t i = 1; i < instances_votes.size(); ++i) {
-          if (instances_votes[i] > max1) {
-              // Update the second largest before updating the largest
-              max2 = max1;
-              idxMaxVotes2 = idxMaxVotes1;
-              max1 = instances_votes[i];
-              idxMaxVotes1 = i;
-          } else if (instances_votes[i] > max2) {
-              max2 = instances_votes[i];
-              idxMaxVotes2 = i;
-          }
+      for (size_t i = 1; i < instances_votes.size(); ++i)
+      {
+        if (instances_votes[i] > max1)
+        {
+          // Update the second largest before updating the largest
+          max2 = max1;
+          idxMaxVotes2 = idxMaxVotes1;
+          max1 = instances_votes[i];
+          idxMaxVotes1 = i;
+        }
+        else if (instances_votes[i] > max2)
+        {
+          max2 = instances_votes[i];
+          idxMaxVotes2 = i;
+        }
       }
 
-      if ((instances_candidates[idxMaxVotes1] == 0) && (max1*0.2 < max2)){
+      if ((instances_candidates[idxMaxVotes1] == 0) && (max1 * 0.2 < max2))
+      {
         idxMaxVotes1 = idxMaxVotes2;
       }
     }
@@ -491,36 +541,48 @@ struct RGBSemanticsInstances
     return instances_candidates[idxMaxVotes1];
   }
 
-  std::string toPLY(const Bonxai::Point3D& point){
+  std::string toPLY(const Bonxai::Point3D& point)
+  {
     updateCandidatesAndVotes();
     std::vector<double> total_probability = getTotalProbability();
     INSTANCEIDT instanceid = getMostRepresentativeInstance();
     double uncertainty_instances = expected_shannon_entropy<uint32_t>(instances_votes);
     double uncertainty_categories = expected_shannon_entropy<double>(total_probability);
-    return fmt::format("{} {} {} {} {}\n", XYZtoPLY(point), RGBtoPLY(toColor()), instanceid, uncertainty_instances, uncertainty_categories); 
+    return fmt::format("{} {} {} {} {}\n",
+                       XYZtoPLY(point),
+                       RGBtoPLY(toColor()),
+                       instanceid,
+                       uncertainty_instances,
+                       uncertainty_categories);
   }
 
-  static std::string getHeaderPLY(){
-    return fmt::format("{}\n{}\nproperty int instanceid\nproperty float uncertainty_instances\nproperty float uncertainty_categories",getXYZheader(),getRGBheader());
+  static std::string getHeaderPLY()
+  {
+    return fmt::format(
+        "{}\n{}\nproperty int instanceid\nproperty float uncertainty_instances\nproperty float uncertainty_categories",
+        getXYZheader(),
+        getRGBheader());
   }
-
 };
 
-  inline std::string XYZtoPLY(const Point3D& point){
-    return fmt::format("{} {} {}", point.x, point.y, point.z);
-  }
+inline std::string XYZtoPLY(const Point3D& point)
+{
+  return fmt::format("{} {} {}", point.x, point.y, point.z);
+}
 
-  inline std::string RGBtoPLY(const Color& rgb){
-    return fmt::format("{} {} {}", rgb.r, rgb.g, rgb.b);
-  }
+inline std::string RGBtoPLY(const Color& rgb)
+{
+  return fmt::format("{} {} {}", rgb.r, rgb.g, rgb.b);
+}
 
-  inline std::string getXYZheader(){
+inline std::string getXYZheader()
+{
+  return "property float x\nproperty float y\nproperty float z";
+}
 
-    return "property float x\nproperty float y\nproperty float z";
-  }
-
-  inline std::string getRGBheader(){
-    return "property uchar red\nproperty uchar green\nproperty uchar blue";
-  }
+inline std::string getRGBheader()
+{
+  return "property uchar red\nproperty uchar green\nproperty uchar blue";
+}
 
 }  // namespace Bonxai

@@ -24,9 +24,7 @@ static void Bonxai_Compress(benchmark::State& state)
     for (const auto& point : *cloud)
     {
       auto coord = grid.posToCoord(point.x, point.y, point.z);
-      uint16_t col = uint16_t(point.r >> 3) |
-                     (uint16_t(point.g >> 2 ) << 5 ) |
-                     (uint16_t(point.b >> 3 ) << 11 );
+      uint16_t col = uint16_t(point.r >> 3) | (uint16_t(point.g >> 2) << 5) | (uint16_t(point.b >> 3) << 11);
       accessor.setValue(coord, col);
     }
 
@@ -49,12 +47,11 @@ static void PCL_Compress(benchmark::State& state)
   {
     std::stringstream compressedData;
     pcl::io::OctreePointCloudCompression<pcl::PointXYZRGB> encoder(
-           pcl::io::MANUAL_CONFIGURATION, false, COMPRESSION_RES, COMPRESSION_RES, true, 20, true, 6);
+        pcl::io::MANUAL_CONFIGURATION, false, COMPRESSION_RES, COMPRESSION_RES, true, 20, true, 6);
 
-    encoder.encodePointCloud (cloud, compressedData);
+    encoder.encodePointCloud(cloud, compressedData);
   }
 }
-
 
 // Register the function as a benchmark
 BENCHMARK(Bonxai_Compress);

@@ -68,9 +68,7 @@ static void Bonxai_IterateAllCells(benchmark::State& state)
   long count = 0;
   for (auto _ : state)
   {
-    auto visitor = [&](uint32_t&, const CoordT&) {
-      benchmark::DoNotOptimize(count++);
-    };
+    auto visitor = [&](uint32_t&, const CoordT&) { benchmark::DoNotOptimize(count++); };
     grid.forEachCell(visitor);
   }
 }
@@ -79,7 +77,6 @@ static void Bonxai_IterateAllCells(benchmark::State& state)
 BENCHMARK(Bonxai_Create)->Arg(0)->Arg(1)->MinTime(1);
 BENCHMARK(Bonxai_Update)->Arg(0)->Arg(1)->MinTime(1);
 BENCHMARK(Bonxai_IterateAllCells)->Arg(0)->Arg(1)->MinTime(1);
-
 
 // Run the benchmark
 BENCHMARK_MAIN();

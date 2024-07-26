@@ -4,7 +4,6 @@
 #include <eigen3/Eigen/Geometry>
 #include <unordered_set>
 
-
 namespace Bonxai
 {
 
@@ -19,13 +18,9 @@ template <typename DataT>
 class ProbabilisticMapT;
 
 template <class Functor>
-void RayIterator(const CoordT& key_origin,
-                 const CoordT& key_end,
-                 const Functor& func);
+void RayIterator(const CoordT& key_origin, const CoordT& key_end, const Functor& func);
 
-inline void ComputeRay(const CoordT& key_origin,
-                       const CoordT& key_end,
-                       std::vector<CoordT>& ray)
+inline void ComputeRay(const CoordT& key_origin, const CoordT& key_end, std::vector<CoordT>& ray)
 {
   ray.clear();
   RayIterator(key_origin, key_end, [&ray](const CoordT& coord) {
@@ -102,9 +97,7 @@ struct ProbabilisticCell
 //--------------------------------------------------
 
 template <class Functor>
-inline void RayIterator(const CoordT& key_origin,
-                        const CoordT& key_end,
-                        const Functor& func)
+inline void RayIterator(const CoordT& key_origin, const CoordT& key_end, const Functor& func)
 {
   if (key_origin == key_end)
   {
@@ -118,13 +111,9 @@ inline void RayIterator(const CoordT& key_origin,
   CoordT error = { 0, 0, 0 };
   CoordT coord = key_origin;
   CoordT delta = (key_end - coord);
-  const CoordT step = { delta.x < 0 ? -1 : 1,
-                        delta.y < 0 ? -1 : 1,
-                        delta.z < 0 ? -1 : 1 };
+  const CoordT step = { delta.x < 0 ? -1 : 1, delta.y < 0 ? -1 : 1, delta.z < 0 ? -1 : 1 };
 
-  delta = { delta.x < 0 ? -delta.x : delta.x,
-            delta.y < 0 ? -delta.y : delta.y,
-            delta.z < 0 ? -delta.z : delta.z };
+  delta = { delta.x < 0 ? -delta.x : delta.x, delta.y < 0 ? -delta.y : delta.y, delta.z < 0 ? -delta.z : delta.z };
 
   const int max = std::max(std::max(delta.x, delta.y), delta.z);
 
