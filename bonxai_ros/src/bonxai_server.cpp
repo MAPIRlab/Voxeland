@@ -151,7 +151,7 @@ void BonxaiServer::initializeBonxaiObject()
   const double thres_max = declare_parameter("sensor_model.max", 0.97, prob_max_desc);
 
   // initialize bonxai object & params
-  RCLCPP_INFO(get_logger(), "Voxel resolution: {}m", res_);
+  BONXAI_INFO("Voxel resolution: {}m", res_);
   if (currentMode == DataMode::Empty)
     bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::Empty>>(res_);
   else if (currentMode == DataMode::RGB)
@@ -496,7 +496,7 @@ void BonxaiServer::getClassDistributionsSrv(GetClassDistributions::Request::Shar
   }
 
   //TODO
-  
+
 }
 
 }  // namespace bonxai_server
