@@ -1,49 +1,44 @@
 #ifndef BONXAI_SERVER__BONXAI_SERVER_HPP_
 #define BONXAI_SERVER__BONXAI_SERVER_HPP_
 
-#include "bonxai_map/pcl_utils.hpp"
-#include <bonxai_map/cell_types.hpp>
-#include "bonxai_map/probabilistic_map_templated.hpp"
-#include "bonxai/bonxai.hpp"
-
-#include <pcl/segmentation/sac_segmentation.h>
-#include <pcl/io/pcd_io.h>
+#include <pcl/common/transforms.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/passthrough.h>
-#include <pcl/common/transforms.h>
+#include <pcl/io/pcd_io.h>
+#include <pcl/segmentation/sac_segmentation.h>
 
+#include <bonxai_map/cell_types.hpp>
+#include <bonxai_map/data_modes.hpp>
+#include <bonxai_map/logging.hpp>
+#include <bonxai_map/semantics.hpp>
+#include <semantics_ros_wrapper.hpp>
+
+#include "bonxai/bonxai.hpp"
+#include "bonxai_map/pcl_utils.hpp"
+#include "bonxai_map/probabilistic_map_templated.hpp"
+#include "pcl_conversions/pcl_conversions.h"
 #include "rclcpp/rclcpp.hpp"
-#include "std_msgs/msg/color_rgba.hpp"
-
 #include "sensor_msgs/msg/point_cloud2.hpp"
+#include "std_msgs/msg/color_rgba.hpp"
 #include "std_srvs/srv/empty.hpp"
 
 /* Added by JL Matez */
-#include "segmentation_msgs/msg/semantic_point_cloud.hpp"
+#include <algorithm>
+#include <limits>
+#include <memory>
+#include <nlohmann/json.hpp>
+#include <string>
+#include <vector>
+
+#include "bonxai_ros/srv/get_class_distributions.hpp"
+#include "message_filters/subscriber.h"
 #include "segmentation_msgs/msg/instance_semantic_map.hpp"
-
-#include "pcl_conversions/pcl_conversions.h"
-
+#include "segmentation_msgs/msg/semantic_point_cloud.hpp"
+#include "tf2_eigen/tf2_eigen.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/create_timer_ros.h"
 #include "tf2_ros/message_filter.h"
 #include "tf2_ros/transform_listener.h"
-#include "message_filters/subscriber.h"
-#include "tf2_eigen/tf2_eigen.hpp"
-
-#include <algorithm>
-#include <limits>
-#include <memory>
-#include <string>
-#include <vector>
-
-#include <bonxai_map/semantics.hpp>
-#include <bonxai_map/data_modes.hpp>
-#include <semantics_ros_wrapper.hpp>
-
-#include <bonxai_map/logging.hpp>
-
-#include <nlohmann/json.hpp>
 
 namespace bonxai_server
 {
@@ -56,6 +51,7 @@ class BonxaiServer : public rclcpp::Node
 {
 public:
   using ResetSrv = std_srvs::srv::Empty;
+  using GetClassDistributions = bonxai_ros::srv::GetClassDistributions;
 
   DataMode currentMode = DataMode::Uninitialized;
 
@@ -73,8 +69,13 @@ public:
   void saveMapSrv(const std::shared_ptr<std_srvs::srv::Empty::Request> req,
                   const std::shared_ptr<std_srvs::srv::Empty::Response> resp);
 
+  void getClassDistributionsSrv(GetClassDistributions::Request::SharedPtr request,
+                                GetClassDistributions::Response::SharedPtr response);
+
   /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
   virtual void insertCloudCallback(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
+
+  bool hasSemantics(){return static_cast<int>(currentMode & DataMode::Semantics) != 0;}
 
   SemanticsROSWrapper semantics_ros_wrapper;
 
@@ -103,6 +104,7 @@ protected:
   rclcpp::Subscription<segmentation_msgs::msg::SemanticPointCloud>::SharedPtr point_cloud_sub_;
   rclcpp::Service<ResetSrv>::SharedPtr reset_srv_;
   rclcpp::Service<std_srvs::srv::Empty>::SharedPtr save_map_srv_;
+  rclcpp::Service<GetClassDistributions>::SharedPtr get_distributions_srv_;
 
   std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;
@@ -132,7 +134,6 @@ protected:
   bool semantics_as_instances_;
   u_int32_t number_iterations = 0;
 };
-
 
 // Method template definitions
 //----------------------------
@@ -238,7 +239,8 @@ void BonxaiServer::publishAllWithInstances(const rclcpp::Time& rostime)
 }
 
 template <typename PointCloudTypeT, typename DataT>
-pcl::PointXYZ BonxaiServer::transformPointCloudToGlobal(PointCloudTypeT& pc, geometry_msgs::msg::PoseWithCovariance pose)
+pcl::PointXYZ BonxaiServer::transformPointCloudToGlobal(PointCloudTypeT& pc,
+                                                        geometry_msgs::msg::PoseWithCovariance pose)
 {
   Eigen::Isometry3d sensor_to_world_iso;
   tf2::fromMsg(pose.pose, sensor_to_world_iso);
