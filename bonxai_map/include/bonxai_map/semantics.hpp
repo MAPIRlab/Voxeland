@@ -42,20 +42,20 @@ struct SemanticObject
   // need to be set with the instanceID of the main object, hence if pointsTo is not empty, it won't check
   // the data in this SemanticObject, but instead it will check the data in the instanceID set in pointsTo.
 
-  SemanticObject(size_t numCategories, INSTANCEIDT _instanceID)
+  SemanticObject(size_t numCategories, InstanceID_t _instanceID)
     : probabilities(numCategories, 0)
     , instanceID("obj" + std::to_string(_instanceID))
   {}
-  SemanticObject(const std::vector<double>& _probabilities, INSTANCEIDT _instanceID)
+  SemanticObject(const std::vector<double>& _probabilities, InstanceID_t _instanceID)
     : probabilities(_probabilities)
     , instanceID("obj" + std::to_string(_instanceID))
   {}
-  SemanticObject(size_t numCategories, INSTANCEIDT _instanceID, BoundingBox3D _bbox)
+  SemanticObject(size_t numCategories, InstanceID_t _instanceID, BoundingBox3D _bbox)
     : probabilities(numCategories, 0)
     , instanceID("obj" + std::to_string(_instanceID))
     , bbox(_bbox)
   {}
-  SemanticObject(const std::vector<double>& _probabilities, INSTANCEIDT _instanceID, BoundingBox3D _bbox)
+  SemanticObject(const std::vector<double>& _probabilities, InstanceID_t _instanceID, BoundingBox3D _bbox)
     : probabilities(_probabilities)
     , instanceID("obj" + std::to_string(_instanceID))
     , bbox(_bbox)
@@ -104,16 +104,16 @@ public:
                   Bonxai::DataMode mode);
   uint32_t getCurrentActiveInstances();
   void setLocalSemanticMap(const std::vector<SemanticObject>& localMap);
-  INSTANCEIDT localToGlobalInstance(INSTANCEIDT localInstance);
-  uint32_t indexToHexColor(INSTANCEIDT index);
+  InstanceID_t localToGlobalInstance(InstanceID_t localInstance);
+  uint32_t indexToHexColor(InstanceID_t index);
   void updateCategoryProbability(SemanticObject& semanticObject, const std::string& categoryName, double probability);
   bool checkBBoxIntersect(const BoundingBox3D& box1, const BoundingBox3D& box2);
   void updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D& update);
-  INSTANCEIDT getCategoryMaxProbability(INSTANCEIDT objID);
+  InstanceID_t getCategoryMaxProbability(InstanceID_t objID);
 
   template <typename DataT>
   double compute3DIoU(const BoundingBox3D& globalBbox,
-                      INSTANCEIDT globalID,
+                      InstanceID_t globalID,
                       const std::unordered_set<Bonxai::CoordT>& localVoxels)
   {
     std::vector<Bonxai::CoordT> voxels1 = listOfVoxelsInsideBBox<DataT>(globalBbox, globalID);
@@ -185,7 +185,7 @@ public:
 
   template <typename DataT>
   double
-  compute3DIoU(const BoundingBox3D& bBox1, INSTANCEIDT id1, const BoundingBox3D& bBox2, INSTANCEIDT id2, bool customIoU)
+  compute3DIoU(const BoundingBox3D& bBox1, InstanceID_t id1, const BoundingBox3D& bBox2, InstanceID_t id2, bool customIoU)
   {
     std::vector<Bonxai::CoordT> voxels1 = listOfVoxelsInsideBBox<DataT>(bBox1, id1);
     std::vector<Bonxai::CoordT> voxels2 = listOfVoxelsInsideBBox<DataT>(bBox2, id2);
@@ -257,7 +257,7 @@ public:
   }
 
   template <typename DataT>
-  std::vector<Bonxai::CoordT> listOfVoxelsInsideBBox(const BoundingBox3D& bbox, INSTANCEIDT id)
+  std::vector<Bonxai::CoordT> listOfVoxelsInsideBBox(const BoundingBox3D& bbox, InstanceID_t id)
   {
     std::vector<Bonxai::CoordT> cellsInside;
 
@@ -297,7 +297,7 @@ public:
   template <typename DataT>
   void refineGlobalSemanticMap(int nObservationsToRemove)
   {
-    for (INSTANCEIDT i = 1; i < globalSemanticMap.size(); i++)
+    for (InstanceID_t i = 1; i < globalSemanticMap.size(); i++)
     {
       SemanticObject& firstInstance = globalSemanticMap[i];
 
@@ -306,7 +306,7 @@ public:
         continue;
       }
 
-      for (INSTANCEIDT j = i + 1; j < globalSemanticMap.size(); j++)
+      for (InstanceID_t j = i + 1; j < globalSemanticMap.size(); j++)
       {
         SemanticObject& secondInstance = globalSemanticMap[j];
 
@@ -332,7 +332,7 @@ public:
       }
     }
 
-    for (INSTANCEIDT i = 1; i < globalSemanticMap.size(); i++)
+    for (InstanceID_t i = 1; i < globalSemanticMap.size(); i++)
     {
       if (globalSemanticMap[i].pointsTo == -1 && globalSemanticMap[i].numberObservations <= nObservationsToRemove)
       {
@@ -365,10 +365,10 @@ public:
     lastMapLocalToGlobal[0] = 0;
     // Further integration of unknown is required: bbox, probabilities, etc. but to be decided yet
 
-    const INSTANCEIDT currentInstancesNumber = globalSemanticMap.size();
+    const InstanceID_t currentInstancesNumber = globalSemanticMap.size();
 
     // Both loops start at 1 to skip "unknown" class
-    for (INSTANCEIDT localInstanceID = 1; localInstanceID < localMap.size(); localInstanceID++)
+    for (InstanceID_t localInstanceID = 1; localInstanceID < localMap.size(); localInstanceID++)
     {
       bool fused = false;
       const SemanticObject& localInstance = localMap[localInstanceID];
@@ -380,7 +380,7 @@ public:
           std::max_element(localInstance.probabilities.begin(), localInstance.probabilities.end());
       uint8_t localClassIdx = std::distance(localInstance.probabilities.begin(), itLocal);
 
-      for (INSTANCEIDT globalInstanceID = 1; globalInstanceID < currentInstancesNumber; globalInstanceID++)
+      for (InstanceID_t globalInstanceID = 1; globalInstanceID < currentInstancesNumber; globalInstanceID++)
       {
         SemanticObject& globalInstance = globalSemanticMap[globalInstanceID];
         std::vector<double>::iterator itGlobal =
@@ -459,14 +459,14 @@ public:
   }
 
   template <typename DataT>
-  std::set<INSTANCEIDT> getCurrentVisibleInstances(double minOccupancyZ, double maxOccupancyZ)
+  std::set<InstanceID_t> getCurrentVisibleInstances(double minOccupancyZ, double maxOccupancyZ)
   {
     std::vector<DataT> cell_data;
     std::vector<Bonxai::Point3D> cell_points;
     Bonxai::ProbabilisticMapT<DataT>* bonxai = BonxaiQuery<DataT>::getBonxai();
     bonxai->getOccupiedVoxels(cell_points, cell_data);
 
-    std::set<INSTANCEIDT> visibleInstances;
+    std::set<InstanceID_t> visibleInstances;
 
     for (size_t i = 0; i < cell_points.size(); i++)
     {
@@ -477,7 +477,7 @@ public:
       {
         auto itInstances = std::max_element(data.instances_votes.begin(), data.instances_votes.end());
         auto idxMaxVotes = std::distance(data.instances_votes.begin(), itInstances);
-        INSTANCEIDT bestInstanceID = data.instances_candidates[idxMaxVotes];
+        InstanceID_t bestInstanceID = data.instances_candidates[idxMaxVotes];
         if (globalSemanticMap[bestInstanceID].pointsTo == -1)
         {
           visibleInstances.insert(bestInstanceID);
@@ -517,7 +517,7 @@ public:
         data_json["instances"][globalSemanticMap[i].instanceID]["bbox"]["size"] = size;
 
         data_json["instances"][globalSemanticMap[i].instanceID]["results"] = {};
-        for (INSTANCEIDT j = 0; j < default_categories.size(); j++)
+        for (InstanceID_t j = 0; j < default_categories.size(); j++)
         {
           if (globalSemanticMap[i].probabilities[j] > 0)
           {
@@ -535,7 +535,7 @@ public:
   }
 
 private:
-  std::vector<INSTANCEIDT> lastMapLocalToGlobal;
+  std::vector<InstanceID_t> lastMapLocalToGlobal;
   std::vector<std::uint32_t> color_palette;
   bool initialized = false;
   double kld_threshold;

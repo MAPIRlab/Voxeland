@@ -36,7 +36,7 @@ public:
     std::vector<SemanticObject> localSemanticMap(instances.size(),
                                                  SemanticObject(semantics.default_categories.size(), 1));
 
-    for (INSTANCEIDT i = 0; i < instances.size(); i++)
+    for (InstanceID_t i = 0; i < instances.size(); i++)
     {
       // Note that, always the 0-index refers to the "unknown" class
       SemanticObject newObject = convertDetection2DToSemanticObject(instances[i]);
@@ -47,7 +47,7 @@ public:
   }
 
   segmentation_msgs::msg::InstanceSemanticMap getSemanticMapAsROSMessage(const rclcpp::Time& rostime,
-                                                                         const std::set<INSTANCEIDT> visibleInstances)
+                                                                         const std::set<InstanceID_t> visibleInstances)
   {
     segmentation_msgs::msg::InstanceSemanticMap map;
 

@@ -63,7 +63,7 @@ void SemanticMap::initialize(std::vector<std::string> dataset_categories,
 uint32_t SemanticMap::getCurrentActiveInstances()
 {
   uint32_t activeInstances = 0;
-  for (INSTANCEIDT i = 0; i < globalSemanticMap.size(); i++)
+  for (InstanceID_t i = 0; i < globalSemanticMap.size(); i++)
   {
     if (globalSemanticMap[i].pointsTo == -1)
     {
@@ -78,7 +78,7 @@ void SemanticMap::setLocalSemanticMap(const std::vector<SemanticObject>& localMa
   lastLocalSemanticMap = localMap;
 }
 
-INSTANCEIDT SemanticMap::localToGlobalInstance(INSTANCEIDT localInstance)
+InstanceID_t SemanticMap::localToGlobalInstance(InstanceID_t localInstance)
 {
   return lastMapLocalToGlobal[localInstance];
 }
@@ -126,7 +126,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
   }
 */
 
-uint32_t SemanticMap::indexToHexColor(INSTANCEIDT index)
+uint32_t SemanticMap::indexToHexColor(InstanceID_t index)
 {
   // if (index == (default_categories.size() - 1))
   //{
@@ -204,7 +204,7 @@ void SemanticMap::updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D&
   original.maxZ = std::max(update.maxZ, original.maxZ);
 }
 
-INSTANCEIDT SemanticMap::getCategoryMaxProbability(INSTANCEIDT objID)
+InstanceID_t SemanticMap::getCategoryMaxProbability(InstanceID_t objID)
 {
   auto itProbs =
       std::max_element(globalSemanticMap[objID].probabilities.begin(), globalSemanticMap[objID].probabilities.end());

@@ -10,6 +10,8 @@
 #include <pcl/point_cloud.h>
 #include <pcl/io/pcd_io.h>
 
+using InstanceID_t = int32_t;
+
 namespace Bonxai
 {
 
@@ -27,12 +29,11 @@ void WritePointsFromPCD(const std::string& filepath, const std::vector<Bonxai::C
 
 namespace pcl
 {
-#define INSTANCEIDT int32_t
 
 struct PointXYZSemantics
 {
   PCL_ADD_POINT4D;
-  INSTANCEIDT instance_id;
+  InstanceID_t instance_id;
 };
 
 struct PointXYZRGBSemantics
@@ -57,10 +58,10 @@ struct PointXYZRGBSemantics
   };
   uint32_t rgba;*/
 
-  INSTANCEIDT instance_id;
+  InstanceID_t instance_id;
 
   PointXYZRGBSemantics(){};
-  PointXYZRGBSemantics(float x_, float y_, float z_, float rgb_, INSTANCEIDT instance_id_)
+  PointXYZRGBSemantics(float x_, float y_, float z_, float rgb_, InstanceID_t instance_id_)
     : x(x_)
     , y(y_)
     , z(z_)
@@ -71,9 +72,9 @@ struct PointXYZRGBSemantics
 }  // namespace pcl
 
 POINT_CLOUD_REGISTER_POINT_STRUCT(pcl::PointXYZSemantics,
-                                  (float, x, x)(float, y, y)(float, z, z)(INSTANCEIDT, instance_id, instance_id))
+                                  (float, x, x)(float, y, y)(float, z, z)(InstanceID_t, instance_id, instance_id))
 
 POINT_CLOUD_REGISTER_POINT_STRUCT(pcl::PointXYZRGBSemantics,  // here we assume a XYZ + "test" (as fields)
-                                  (float, x, x)(float, y, y)(float, z, z)(float, rgb, rgb)(INSTANCEIDT,
+                                  (float, x, x)(float, y, y)(float, z, z)(float, rgb, rgb)(InstanceID_t,
                                                                                            instance_id,
                                                                                            instance_id))

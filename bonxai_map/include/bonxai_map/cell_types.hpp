@@ -70,7 +70,7 @@ struct Semantics
     SemanticMap& semantics = SemanticMap::get_instance();
     if (!probabilities.empty())
     {
-      for (INSTANCEIDT i = 0; i < probabilities.size(); i++)
+      for (InstanceID_t i = 0; i < probabilities.size(); i++)
       {
         probabilities[i] += semantics.lastLocalSemanticMap[pcl.instance_id].probabilities[i];
       }
@@ -125,7 +125,7 @@ struct RGBSemantics
     SemanticMap& semantics = SemanticMap::get_instance();
     if (!probabilities.empty())
     {
-      for (INSTANCEIDT i = 0; i < probabilities.size(); i++)
+      for (InstanceID_t i = 0; i < probabilities.size(); i++)
       {
         probabilities[i] += semantics.lastLocalSemanticMap[pcl.instance_id].probabilities[i];
       }
@@ -173,7 +173,7 @@ struct RGBSemantics
 
 struct SemanticsInstances
 {
-  std::vector<INSTANCEIDT> instances_candidates;
+  std::vector<InstanceID_t> instances_candidates;
   std::vector<uint32_t> instances_votes;
 
   SemanticsInstances(){};
@@ -181,7 +181,7 @@ struct SemanticsInstances
   void update(const pcl::PointXYZSemantics& pcl)
   {
     SemanticMap& semantics = SemanticMap::get_instance();
-    INSTANCEIDT thisGlobalID = semantics.localToGlobalInstance(pcl.instance_id);
+    InstanceID_t thisGlobalID = semantics.localToGlobalInstance(pcl.instance_id);
 
     auto it = std::find(instances_candidates.begin(), instances_candidates.end(), thisGlobalID);
 
@@ -212,8 +212,8 @@ struct SemanticsInstances
 
     auto itProbs = std::max_element(probsBestInstance.begin(), probsBestInstance.end());
 
-    // INSTANCEIDT bestInstance = instances_candidates[idxMaxVotes];
-    INSTANCEIDT bestInstance = getMostRepresentativeInstance();
+    // InstanceID_t bestInstance = instances_candidates[idxMaxVotes];
+    InstanceID_t bestInstance = getMostRepresentativeInstance();
     // Set the color of the best object category of the most probable instance
     // uint32_t hexColor = semantics.indexToHexColor(std::distance(probsBestInstance.begin(), itProbs));
     // Set a unique color for the most probable instance
@@ -238,10 +238,10 @@ struct SemanticsInstances
   {
     SemanticMap& semantics = SemanticMap::get_instance();
 
-    std::vector<INSTANCEIDT> candidates_temp;
-    std::map<INSTANCEIDT, uint32_t> combining_instances;
+    std::vector<InstanceID_t> candidates_temp;
+    std::map<InstanceID_t, uint32_t> combining_instances;
 
-    for (INSTANCEIDT i = 0; i < instances_candidates.size(); i++)
+    for (InstanceID_t i = 0; i < instances_candidates.size(); i++)
     {
       if (semantics.globalSemanticMap[instances_candidates[i]].pointsTo == -1)
       {
@@ -253,7 +253,7 @@ struct SemanticsInstances
       }
     }
 
-    for (INSTANCEIDT i = 0; i < candidates_temp.size(); i++)
+    for (InstanceID_t i = 0; i < candidates_temp.size(); i++)
     {
       combining_instances[candidates_temp[i]] += instances_votes[i];
     }
@@ -261,7 +261,7 @@ struct SemanticsInstances
     instances_candidates.clear();
     instances_votes.clear();
 
-    for (const std::pair<INSTANCEIDT, uint32_t>& instance : combining_instances)
+    for (const std::pair<InstanceID_t, uint32_t>& instance : combining_instances)
     {
       instances_candidates.push_back(instance.first);
       instances_votes.push_back(instance.second);
@@ -274,14 +274,14 @@ struct SemanticsInstances
     std::vector<double> probabilities;
     size_t total_votes = 0;
 
-    for (INSTANCEIDT i = 0; i < instances_votes.size(); i++)
+    for (InstanceID_t i = 0; i < instances_votes.size(); i++)
     {
       total_votes += instances_votes[i];
     }
 
-    for (INSTANCEIDT i = 0; i < instances_candidates.size(); i++)
+    for (InstanceID_t i = 0; i < instances_candidates.size(); i++)
     {
-      for (INSTANCEIDT j = 0; j < semantics.default_categories.size(); j++)
+      for (InstanceID_t j = 0; j < semantics.default_categories.size(); j++)
       {
         if (i == 0)
         {
@@ -299,21 +299,21 @@ struct SemanticsInstances
     return probabilities;
   }
 
-  INSTANCEIDT getMostRepresentativeInstance()
+  InstanceID_t getMostRepresentativeInstance()
   {
     // auto itInstances = std::max_element(instances_votes.begin(), instances_votes.end());
-    // INSTANCEIDT idxMaxVotes = std::distance(instances_votes.begin(), itInstances);
+    // InstanceID_t idxMaxVotes = std::distance(instances_votes.begin(), itInstances);
 
-    INSTANCEIDT idxMaxVotes1 = 0;
+    InstanceID_t idxMaxVotes1 = 0;
 
     if (instances_votes.size() > 1)
     {
-      INSTANCEIDT idxMaxVotes2 = 0;
+      InstanceID_t idxMaxVotes2 = 0;
 
-      INSTANCEIDT max1 = instances_votes[0];
-      INSTANCEIDT max2 = std::numeric_limits<INSTANCEIDT>::min();
+      uint32_t max1 = instances_votes[0];
+      uint32_t max2 = std::numeric_limits<uint32_t>::min();
 
-      for (size_t i = 1; i < instances_votes.size(); ++i)
+      for (InstanceID_t i = 1; i < instances_votes.size(); ++i)
       {
         if (instances_votes[i] > max1)
         {
@@ -343,7 +343,7 @@ struct SemanticsInstances
   {
     updateCandidatesAndVotes();
     std::vector<double> total_probability = getTotalProbability();
-    INSTANCEIDT instanceid = getMostRepresentativeInstance();
+    InstanceID_t instanceid = getMostRepresentativeInstance();
     double uncertainty_instances = expected_shannon_entropy<uint32_t>(instances_votes);
     double uncertainty_categories = expected_shannon_entropy<double>(total_probability);
     return fmt::format("{} {} {} {} {}\n",
@@ -366,7 +366,7 @@ struct SemanticsInstances
 struct RGBSemanticsInstances
 {
   Color rgb;
-  std::vector<INSTANCEIDT> instances_candidates;
+  std::vector<InstanceID_t> instances_candidates;
   std::vector<uint32_t> instances_votes;
 
   RGBSemanticsInstances(){};
@@ -374,7 +374,7 @@ struct RGBSemanticsInstances
   void update(const pcl::PointXYZRGBSemantics& pcl)
   {
     SemanticMap& semantics = SemanticMap::get_instance();
-    INSTANCEIDT thisGlobalID = semantics.localToGlobalInstance(pcl.instance_id);
+    InstanceID_t thisGlobalID = semantics.localToGlobalInstance(pcl.instance_id);
 
     auto it = std::find(instances_candidates.begin(), instances_candidates.end(), thisGlobalID);
 
@@ -409,8 +409,8 @@ struct RGBSemanticsInstances
 
     auto itProbs = std::max_element(probsBestInstance.begin(), probsBestInstance.end());
 
-    // INSTANCEIDT bestInstance = instances_candidates[idxMaxVotes];
-    INSTANCEIDT bestInstance = getMostRepresentativeInstance();
+    // InstanceID_t bestInstance = instances_candidates[idxMaxVotes];
+    InstanceID_t bestInstance = getMostRepresentativeInstance();
     // Set the color of the best object category of the most probable instance
     // uint32_t hexColor = semantics.indexToHexColor(std::distance(probsBestInstance.begin(), itProbs));
     // Set a unique color for the most probable instance
@@ -440,10 +440,10 @@ struct RGBSemanticsInstances
   {
     SemanticMap& semantics = SemanticMap::get_instance();
 
-    std::vector<INSTANCEIDT> candidates_temp;
-    std::map<INSTANCEIDT, uint32_t> combining_instances;
+    std::vector<InstanceID_t> candidates_temp;
+    std::map<InstanceID_t, uint32_t> combining_instances;
 
-    for (INSTANCEIDT i = 0; i < instances_candidates.size(); i++)
+    for (InstanceID_t i = 0; i < instances_candidates.size(); i++)
     {
       if (semantics.globalSemanticMap[instances_candidates[i]].pointsTo == -1)
       {
@@ -455,7 +455,7 @@ struct RGBSemanticsInstances
       }
     }
 
-    for (INSTANCEIDT i = 0; i < candidates_temp.size(); i++)
+    for (InstanceID_t i = 0; i < candidates_temp.size(); i++)
     {
       combining_instances[candidates_temp[i]] += instances_votes[i];
     }
@@ -463,7 +463,7 @@ struct RGBSemanticsInstances
     instances_candidates.clear();
     instances_votes.clear();
 
-    for (const std::pair<INSTANCEIDT, uint32_t>& instance : combining_instances)
+    for (const std::pair<InstanceID_t, uint32_t>& instance : combining_instances)
     {
       instances_candidates.push_back(instance.first);
       instances_votes.push_back(instance.second);
@@ -476,14 +476,14 @@ struct RGBSemanticsInstances
     std::vector<double> probabilities;
     size_t total_votes = 0;
 
-    for (INSTANCEIDT i = 0; i < instances_votes.size(); i++)
+    for (InstanceID_t i = 0; i < instances_votes.size(); i++)
     {
       total_votes += instances_votes[i];
     }
 
-    for (INSTANCEIDT i = 0; i < instances_candidates.size(); i++)
+    for (InstanceID_t i = 0; i < instances_candidates.size(); i++)
     {
-      for (INSTANCEIDT j = 0; j < semantics.default_categories.size(); j++)
+      for (InstanceID_t j = 0; j < semantics.default_categories.size(); j++)
       {
         if (i == 0)
         {
@@ -501,21 +501,21 @@ struct RGBSemanticsInstances
     return probabilities;
   }
 
-  INSTANCEIDT getMostRepresentativeInstance()
+  InstanceID_t getMostRepresentativeInstance()
   {
     // auto itInstances = std::max_element(instances_votes.begin(), instances_votes.end());
-    // INSTANCEIDT idxMaxVotes = std::distance(instances_votes.begin(), itInstances);
+    // InstanceID_t idxMaxVotes = std::distance(instances_votes.begin(), itInstances);
 
-    INSTANCEIDT idxMaxVotes1 = 0;
+    InstanceID_t idxMaxVotes1 = 0;
 
     if (instances_votes.size() > 1)
     {
-      INSTANCEIDT idxMaxVotes2 = 0;
+      InstanceID_t idxMaxVotes2 = 0;
 
-      INSTANCEIDT max1 = instances_votes[0];
-      INSTANCEIDT max2 = std::numeric_limits<INSTANCEIDT>::min();
+      uint32_t max1 = instances_votes[0];
+      uint32_t max2 = std::numeric_limits<uint32_t>::min();
 
-      for (size_t i = 1; i < instances_votes.size(); ++i)
+      for (InstanceID_t i = 1; i < instances_votes.size(); ++i)
       {
         if (instances_votes[i] > max1)
         {
@@ -545,7 +545,7 @@ struct RGBSemanticsInstances
   {
     updateCandidatesAndVotes();
     std::vector<double> total_probability = getTotalProbability();
-    INSTANCEIDT instanceid = getMostRepresentativeInstance();
+    InstanceID_t instanceid = getMostRepresentativeInstance();
     double uncertainty_instances = expected_shannon_entropy<uint32_t>(instances_votes);
     double uncertainty_categories = expected_shannon_entropy<double>(total_probability);
     return fmt::format("{} {} {} {} {}\n",

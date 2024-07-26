@@ -75,7 +75,7 @@ public:
   /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
   virtual void insertCloudCallback(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
 
-  bool hasSemantics(){return static_cast<int>(currentMode & DataMode::Semantics) != 0;}
+  bool modeHasSemantics() { return static_cast<int>(currentMode & DataMode::Semantics) != 0; }
 
   SemanticsROSWrapper semantics_ros_wrapper;
 
@@ -93,6 +93,9 @@ protected:
 
   template <typename DataT>
   std::string mapToPLY();
+
+  template <typename PointCloudTypeT, typename DataT>
+  void insertPointCloud(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
 
   OnSetParametersCallbackHandle::SharedPtr set_param_res_;
 
@@ -137,6 +140,15 @@ protected:
 
 // Method template definitions
 //----------------------------
+template <typename PointCloudTypeT, typename DataT>
+void BonxaiServer::insertPointCloud(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud)
+{
+  PointCloudTypeT pc;
+  pcl::fromROSMsg(cloud->cloud, pc);
+  pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudTypeT, DataT>(pc, cloud->pose);
+  bonxai_->With<DataT>()->insertPointCloud(pc.points, sensorPosition, 30.0);
+  publishAll<DataT>(cloud->header.stamp);
+}
 
 template <typename DataT>
 void BonxaiServer::publishAll(const rclcpp::Time& rostime)
@@ -223,7 +235,7 @@ void BonxaiServer::publishAllWithInstances(const rclcpp::Time& rostime)
                              (std::uint32_t)vizualization_color.b);
         auto itInstances = std::max_element(cell_data[i].instances_votes.begin(), cell_data[i].instances_votes.end());
         auto idxMaxVotes = std::distance(cell_data[i].instances_votes.begin(), itInstances);
-        INSTANCEIDT instanceID = cell_data[i].instances_candidates[idxMaxVotes];
+        InstanceID_t instanceID = cell_data[i].instances_candidates[idxMaxVotes];
         pcl_cloud.emplace_back(
             (float)voxel.x, (float)voxel.y, (float)voxel.z, *reinterpret_cast<float*>(&rgb), instanceID);
       }
