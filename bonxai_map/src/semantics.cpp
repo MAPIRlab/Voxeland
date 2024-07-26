@@ -192,3 +192,11 @@ void SemanticMap::updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D&
   original.maxZ = std::max(update.maxZ, original.maxZ);
 
 }
+
+INSTANCEIDT SemanticMap::getCategoryMaxProbability(INSTANCEIDT objID){
+  
+  auto itProbs = std::max_element(globalSemanticMap[objID].probabilities.begin(), globalSemanticMap[objID].probabilities.end());
+  
+  return std::distance(globalSemanticMap[objID].probabilities.begin(), itProbs);
+  
+}

@@ -87,20 +87,6 @@ class SemanticsROSWrapper
 
             semantics.addInstancesGeometryToLocalSemanticMap<DataT, PointCloudTypeT>(localMap, pc);
 
-            /*for (INSTANCEIDT i = 0; i < localMap.size(); i++){
-                if(!localMap[i].localGeometry.has_value()){
-                    localMap.erase(localMap.begin()+i);
-                    i--;
-                }
-            }*/
-
-            BONXAI_INFO("################# LOCAL MAP #################");
-            for(INSTANCEIDT j = 0; j < localMap.size(); j++){
-                if(localMap[j].localGeometry.has_value()){
-                    BONXAI_INFO("Local instance {}: with {} voxels", localMap[j].instanceID, localMap[j].localGeometry.value().size());
-                }
-            }
-
             semantics.integrateNewSemantics<DataT>(localMap);
 
         }

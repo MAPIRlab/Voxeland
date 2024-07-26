@@ -43,6 +43,8 @@
 
 #include <bonxai_map/logging.hpp>
 
+#include <nlohmann/json.hpp>
+
 namespace bonxai_server
 {
 
@@ -57,10 +59,20 @@ public:
 
   DataMode currentMode = DataMode::Uninitialized;
 
+  double data_association_time = 0.0f;
+  int data_association_k = 0;
+  double map_integration_time = 0.0f;
+  int map_integration_k = 0;
+  double map_refinement_time = 0.0f;
+  int map_refinement_k = 0;
+
   explicit BonxaiServer(const rclcpp::NodeOptions& node_options);
 
   bool resetSrv(const std::shared_ptr<ResetSrv::Request> req,
                 const std::shared_ptr<ResetSrv::Response> resp);
+
+  void saveMapSrv(const std::shared_ptr<std_srvs::srv::Empty::Request> req,
+                const std::shared_ptr<std_srvs::srv::Empty::Response> resp);
 
   /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
   virtual void insertCloudCallback(
@@ -225,6 +237,25 @@ protected:
 
   }
 
+  template <typename DataT>
+  std::string mapToPLY(){
+
+    std::vector<DataT> cell_data;
+    std::vector<Bonxai::Point3D> cell_points;
+
+    bonxai_->With<DataT>()->getOccupiedVoxels(cell_points, cell_data);
+
+    std::string ply = fmt::format("ply\nformat ascii 1.0\nelement vertex {}\n{}\nend_header\n", cell_points.size(), DataT::getHeaderPLY());
+
+    for (size_t i = 0; i < cell_points.size(); i++){
+
+      ply += cell_data[i].toPLY(cell_points[i]);
+    }
+
+    return ply;
+
+  }
+
   OnSetParametersCallbackHandle::SharedPtr set_param_res_;
 
   rcl_interfaces::msg::SetParametersResult
@@ -241,6 +272,7 @@ protected:
       tf_point_cloud_sub_;*/
   // rclcpp::Service<BBoxSrv>::SharedPtr clear_bbox_srv_;
   rclcpp::Service<ResetSrv>::SharedPtr reset_srv_;
+  rclcpp::Service<std_srvs::srv::Empty>::SharedPtr save_map_srv_;
   std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;
 

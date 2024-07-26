@@ -25,6 +25,7 @@ target_compile_definitions(bonxai_map PRIVATE
 
 target_include_directories(bonxai_map PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/3rdparty>
     $<INSTALL_INTERFACE:include>)
 
 target_link_libraries(bonxai_map

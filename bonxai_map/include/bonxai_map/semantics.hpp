@@ -15,6 +15,8 @@
 
 #include <bonxai_map/logging.hpp>
 
+#include <nlohmann/json.hpp>
+
 struct BoundingBox3D {
     float minX = std::numeric_limits<float>::infinity();
     float minY = std::numeric_limits<float>::infinity();
@@ -107,65 +109,24 @@ public:
                                  double probability);
   bool checkBBoxIntersect(const BoundingBox3D& box1, const BoundingBox3D& box2);
   void updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D& update);
+  INSTANCEIDT getCategoryMaxProbability(INSTANCEIDT objID);
 
   template <typename DataT>
   double compute3DIoU(const BoundingBox3D& globalBbox, INSTANCEIDT globalID, const std::unordered_set<Bonxai::CoordT>& localVoxels){
 
-    std::vector<Bonxai::CoordT> globalVoxels = listOfVoxelsInsideBBox<DataT>(globalBbox, globalID);
-    std::vector<Bonxai::CoordT> localVoxels_;
-    localVoxels_.assign(localVoxels.begin(), localVoxels.end());
+    std::vector<Bonxai::CoordT> voxels1 = listOfVoxelsInsideBBox<DataT>(globalBbox, globalID);
+    std::vector<Bonxai::CoordT> voxels2;
+    voxels2.assign(localVoxels.begin(), localVoxels.end());
 
-    if(globalVoxels.size() == 0 || localVoxels_.size() == 0){
-      BONXAI_INFO("Empty obj caso solved!");
-      std::vector<Bonxai::CoordT> globalVoxels = listOfVoxelsInsideBBox<DataT>(globalBbox, globalID);
+    std::set<Bonxai::CoordT> voxels1_coarse;
+    std::set<Bonxai::CoordT> voxels2_coarse;
+
+    for(size_t i = 0; i < voxels1.size(); i++){
+      voxels1_coarse.insert(voxels1[i] / 5);
     }
 
-    auto orderFunc = [](const Bonxai::CoordT& c1, const Bonxai::CoordT& c2)
-      {
-        return c1.x < c2.x || (c1.x == c2.x && c1.y < c2.y) || (c1.x == c2.x && c1.y == c2.y && c1.z < c2.z); 
-      };
-
-    //BONXAI_INFO("Global voxels size: {} / Local voxels size {}", globalVoxels.size(), localVoxels_.size());
-    std::sort(globalVoxels.begin(), globalVoxels.end(), orderFunc);
-    std::sort(localVoxels_.begin(), localVoxels_.end(), orderFunc);
-
-    std::vector<Bonxai::CoordT> intersection_;
-    std::vector<Bonxai::CoordT> union_;
-
-    std::set_intersection(globalVoxels.begin(), globalVoxels.end(), localVoxels_.begin(), localVoxels_.end(), std::back_inserter(intersection_), orderFunc);
-    std::set_union(globalVoxels.begin(), globalVoxels.end(), localVoxels_.begin(), localVoxels_.end(), std::back_inserter(union_), orderFunc);
-    
-    double iouLocal = 0.;
-    if (localVoxels_.size() > 0){
-      iouLocal = (double)intersection_.size() / localVoxels_.size();
-    }
-    double iouGlobal = 0.;
-    if (globalVoxels.size() > 0){
-      iouGlobal = (double)intersection_.size() / globalVoxels.size();
-    }
-    double iou = 0.;
-    if (union_.size() > 0){
-      iou = (double)intersection_.size() / union_.size();
-    }
-
-    //BONXAI_INFO("IoU --> Local: {} // Global: {} // Total: {}", iouLocal, iouGlobal, iou);
-    if(iouLocal > 0.5 || iouGlobal > 0.5 || iou > 0.3){
-      iou = 0.35;
-    }
-    
-    return iou;
-    
-  }
-
-  template <typename DataT>
-  double compute3DIoU(const BoundingBox3D& bBox1, INSTANCEIDT id1, const BoundingBox3D& bBox2, INSTANCEIDT id2){
-
-    std::vector<Bonxai::CoordT> voxels1 = listOfVoxelsInsideBBox<DataT>(bBox1, id1);
-    std::vector<Bonxai::CoordT> voxels2 = listOfVoxelsInsideBBox<DataT>(bBox2, id2);
-
-    if(voxels1.size() == 0 || voxels2.size() == 0){
-      BONXAI_INFO("Empty obj!");
-      std::vector<Bonxai::CoordT> voxels1 = listOfVoxelsInsideBBox<DataT>(bBox1, id1);
+    for(size_t i = 0; i < voxels2.size(); i++){
+      voxels2_coarse.insert(voxels2[i] / 5);
     }
 
     auto orderFunc = [](const Bonxai::CoordT& c1, const Bonxai::CoordT& c2)
@@ -174,32 +135,88 @@ public:
       };
 
     //BONXAI_INFO("Global voxels size: %d / Local voxels size %d", globalVoxels.size(), localVoxels_.size());
-    std::sort(voxels1.begin(), voxels1.end(), orderFunc);
-    std::sort(voxels2.begin(), voxels2.end(), orderFunc);
+    //std::sort(voxels1_coarse.begin(), voxels1_coarse.end(), orderFunc);
+    //std::sort(voxels2_coarse.begin(), voxels2_coarse.end(), orderFunc);
 
     std::vector<Bonxai::CoordT> intersection_;
     std::vector<Bonxai::CoordT> union_;
 
-    std::set_intersection(voxels1.begin(), voxels1.end(), voxels2.begin(), voxels2.end(), std::back_inserter(intersection_), orderFunc);
-    std::set_union(voxels1.begin(), voxels1.end(), voxels2.begin(), voxels2.end(), std::back_inserter(union_), orderFunc);
-    
-    //BONXAI_INFO("GLOBAL WITH GLOBAL: {} voxels en 1 y {} voxels en 2", voxels1.size(), voxels2.size());
+    std::set_intersection(voxels1_coarse.begin(), voxels1_coarse.end(), voxels2_coarse.begin(), voxels2_coarse.end(), std::back_inserter(intersection_), orderFunc);
+    std::set_union(voxels1_coarse.begin(), voxels1_coarse.end(), voxels2_coarse.begin(), voxels2_coarse.end(), std::back_inserter(union_), orderFunc);
+
     double iouLocal = 0.;
-    if (voxels1.size() > 0){
-      iouLocal = (double)intersection_.size() / voxels1.size();
+    if (voxels2_coarse.size() > 0){
+      iouLocal = (double)intersection_.size() / voxels2_coarse.size();
     }
     double iouGlobal = 0.;
-    if (voxels2.size() > 0){
-      iouGlobal = (double)intersection_.size() / voxels2.size();
+    if (voxels1_coarse.size() > 0){
+      iouGlobal = (double)intersection_.size() / voxels1_coarse.size();
     }
     double iou = 0.;
     if (union_.size() > 0){
       iou = (double)intersection_.size() / union_.size();
     }
 
-    if(iouLocal > 0.5 || iouGlobal > 0.5 || iou > 0.3){
+    //BONXAI_INFO("IoU --> Local: {} // Global: {} // Total: {}", iouLocal, iouGlobal, iou);
+    if(iouLocal > 0.3 || iouGlobal > 0.3 || iou > 0.3){
+    //if(iou > 0.3){
       iou = 0.35;
     }
+    
+    return iou;
+    
+  }
+
+  template <typename DataT>
+  double compute3DIoU(const BoundingBox3D& bBox1, INSTANCEIDT id1, const BoundingBox3D& bBox2, INSTANCEIDT id2, bool customIoU){
+
+    std::vector<Bonxai::CoordT> voxels1 = listOfVoxelsInsideBBox<DataT>(bBox1, id1);
+    std::vector<Bonxai::CoordT> voxels2 = listOfVoxelsInsideBBox<DataT>(bBox2, id2);
+
+    std::set<Bonxai::CoordT> voxels1_coarse;
+    std::set<Bonxai::CoordT> voxels2_coarse;
+
+    for(size_t i = 0; i < voxels1.size(); i++){
+      voxels1_coarse.insert(voxels1[i] / 5);
+    }
+
+    for(size_t i = 0; i < voxels2.size(); i++){
+      voxels2_coarse.insert(voxels2[i] / 5);
+    }
+
+    auto orderFunc = [](const Bonxai::CoordT& c1, const Bonxai::CoordT& c2)
+      {
+        return c1.x < c2.x || (c1.x == c2.x && c1.y < c2.y) || (c1.x == c2.x && c1.y == c2.y && c1.z < c2.z); 
+      };
+
+    //BONXAI_INFO("Global voxels size: %d / Local voxels size %d", globalVoxels.size(), localVoxels_.size());
+    //std::sort(voxels1_coarse.begin(), voxels1_coarse.end(), orderFunc);
+    //std::sort(voxels2_coarse.begin(), voxels2_coarse.end(), orderFunc);
+
+    std::vector<Bonxai::CoordT> intersection_;
+    std::vector<Bonxai::CoordT> union_;
+
+    std::set_intersection(voxels1_coarse.begin(), voxels1_coarse.end(), voxels2_coarse.begin(), voxels2_coarse.end(), std::back_inserter(intersection_), orderFunc);
+    std::set_union(voxels1_coarse.begin(), voxels1_coarse.end(), voxels2_coarse.begin(), voxels2_coarse.end(), std::back_inserter(union_), orderFunc);
+    
+    //BONXAI_INFO("GLOBAL WITH GLOBAL: {} voxels en 1 y {} voxels en 2", voxels1.size(), voxels2.size());
+    double iouLocal = 0.;
+    if (voxels1_coarse.size() > 0 && customIoU){
+      iouLocal = (double)intersection_.size() / voxels1_coarse.size();
+    }
+    double iouGlobal = 0.;
+    if (voxels2_coarse.size() > 0 && customIoU){
+      iouGlobal = (double)intersection_.size() / voxels2_coarse.size();
+    }
+    double iou = 0.;
+    if (union_.size() > 0){
+      iou = (double)intersection_.size() / union_.size();
+    }
+
+    if(iouLocal > 0.3 || iouGlobal > 0.3 || iou > 0.3){
+      iou = 0.35;
+    }
+    BONXAI_INFO("local: {}, global: {}, iou: {}", (double)intersection_.size() / voxels1_coarse.size(), (double)intersection_.size() / voxels2_coarse.size(), iou);
     
     return iou;
     
@@ -242,23 +259,28 @@ public:
   }
 
   template <typename DataT>
-  void refineGlobalSemanticMap(){
+  void refineGlobalSemanticMap(int nObservationsToRemove){
     for (INSTANCEIDT i = 1; i < globalSemanticMap.size(); i++){
 
       SemanticObject& firstInstance = globalSemanticMap[i];
+
       if (firstInstance.pointsTo != -1)
       {
-        break; 
+        continue; 
       }
 
       for (INSTANCEIDT j = i+1; j < globalSemanticMap.size(); j++){
         SemanticObject& secondInstance = globalSemanticMap[j];
+            
         if (secondInstance.pointsTo == -1 && checkBBoxIntersect(firstInstance.bbox, secondInstance.bbox)){
 
-            double iou = compute3DIoU<DataT>(firstInstance.bbox, i, secondInstance.bbox, j);
+            bool customIoU = false;
+            if(firstInstance.numberObservations > 5 && secondInstance.numberObservations > 5){
+              customIoU = true;
+            }
+            double iou = compute3DIoU<DataT>(firstInstance.bbox, i, secondInstance.bbox, j, true);
             if (iou > 0.3)
             {
-              
               secondInstance.pointsTo = i;
               for (size_t k = 0; k < firstInstance.probabilities.size(); k++)
               {
@@ -272,7 +294,7 @@ public:
     }
 
     for (INSTANCEIDT i = 1; i < globalSemanticMap.size(); i++){
-      if(globalSemanticMap[i].pointsTo == -1 && globalSemanticMap[i].numberObservations == 1)
+      if(globalSemanticMap[i].pointsTo == -1 && globalSemanticMap[i].numberObservations <= nObservationsToRemove)
       {
         globalSemanticMap[i].pointsTo = 0;
       }
@@ -310,7 +332,7 @@ public:
         bool fused = false;
         const SemanticObject& localInstance = localMap[localInstanceID];
 
-        if(!localInstance.localGeometry.has_value()) break;
+        if(!localInstance.localGeometry.has_value()) continue;
 
         std::vector<double>::const_iterator itLocal = std::max_element(localInstance.probabilities.begin(), localInstance.probabilities.end());
         uint8_t localClassIdx = std::distance(localInstance.probabilities.begin(), itLocal);
@@ -343,7 +365,7 @@ public:
               globalInstance.numberObservations += 1;
               fused = true;
               integrated += 1;
-              break;
+              continue;
             }
           }
           
@@ -414,7 +436,44 @@ public:
         }
       }
     return visibleInstances;
-  } 
+  }
+
+  nlohmann::json mapToJSON(){
+
+    nlohmann::json data_json;
+
+    data_json["instances"] = {};
+
+    for (size_t i=0; i < globalSemanticMap.size(); i++){
+      if (globalSemanticMap[i].pointsTo == -1){
+        data_json["instances"][globalSemanticMap[i].instanceID] = {};
+        data_json["instances"][globalSemanticMap[i].instanceID]["bbox"] = {};
+
+        nlohmann::json center = nlohmann::json::array();
+        center.push_back((globalSemanticMap[i].bbox.minX + globalSemanticMap[i].bbox.maxX) / 2.0);
+        center.push_back((globalSemanticMap[i].bbox.minY + globalSemanticMap[i].bbox.maxY) / 2.0);
+        center.push_back((globalSemanticMap[i].bbox.minZ + globalSemanticMap[i].bbox.maxZ) / 2.0);
+        data_json["instances"][globalSemanticMap[i].instanceID]["bbox"]["center"] = center;
+
+        nlohmann::json size = nlohmann::json::array();
+        size.push_back(globalSemanticMap[i].bbox.maxX - globalSemanticMap[i].bbox.minX);
+        size.push_back(globalSemanticMap[i].bbox.maxY - globalSemanticMap[i].bbox.minY);
+        size.push_back(globalSemanticMap[i].bbox.maxZ - globalSemanticMap[i].bbox.minZ);
+        data_json["instances"][globalSemanticMap[i].instanceID]["bbox"]["size"] = size;
+
+        data_json["instances"][globalSemanticMap[i].instanceID]["results"] = {};
+        for(INSTANCEIDT j = 0; j < default_categories.size(); j++){
+          if(globalSemanticMap[i].probabilities[j] > 0){
+            data_json["instances"][globalSemanticMap[i].instanceID]["results"][default_categories[j]] = globalSemanticMap[i].probabilities[j];
+          }
+        }
+
+        data_json["instances"][globalSemanticMap[i].instanceID]["n_observations"] = globalSemanticMap[i].numberObservations;
+      }
+    }
+
+    return data_json;
+}
 
 private:
 

@@ -81,6 +81,9 @@ BonxaiServer::BonxaiServer(const rclcpp::NodeOptions& node_options)
   reset_srv_ = create_service<ResetSrv>(
       "~/reset", std::bind(&BonxaiServer::resetSrv, this, _1, _2));
 
+  save_map_srv_ = create_service<ResetSrv>(
+      "~/save_map", std::bind(&BonxaiServer::saveMapSrv, this, _1, _2));
+  
   // set parameter callback
   set_param_res_ = this->add_on_set_parameters_callback(
       std::bind(&BonxaiServer::onParameter, this, _1));
@@ -279,10 +282,19 @@ void BonxaiServer::insertCloudCallback(
     PointCloudType pc;
     pcl::fromROSMsg(cloud->cloud, pc);
     pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, Bonxai::SemanticsInstances>(pc, cloud->pose);
+    const auto stime = rclcpp::Clock{}.now();
     semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, Bonxai::SemanticsInstances>(cloud->instances, pc);
+    data_association_time += (rclcpp::Clock{}.now() - stime).seconds();
+    data_association_k++;
+    const auto stime2 = rclcpp::Clock{}.now();
     bonxai_->With<Bonxai::SemanticsInstances>()->insertPointCloud(pc.points, sensorPosition, 30.0);
-    if (number_iterations % 30 == 0){
-      semantics.refineGlobalSemanticMap<Bonxai::SemanticsInstances>();
+    map_integration_time += (rclcpp::Clock{}.now() - stime2).seconds();
+    map_integration_k++;
+    if (number_iterations % 20 == 0){
+      const auto stime3 = rclcpp::Clock{}.now();
+      semantics.refineGlobalSemanticMap<Bonxai::SemanticsInstances>(5);
+      map_refinement_time += (rclcpp::Clock{}.now() - stime3).seconds();
+      map_refinement_k++;
     }
     publishAllWithInstances<Bonxai::SemanticsInstances>(cloud->header.stamp);
 
@@ -319,7 +331,7 @@ void BonxaiServer::insertCloudCallback(
     semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, Bonxai::RGBSemanticsInstances>(cloud->instances, pc);
     bonxai_->With<Bonxai::RGBSemanticsInstances>()->insertPointCloud(pc.points, sensorPosition, 30.0);
     if (number_iterations % 30 == 0){
-      semantics.refineGlobalSemanticMap<Bonxai::RGBSemanticsInstances>();
+      semantics.refineGlobalSemanticMap<Bonxai::RGBSemanticsInstances>(5);
     }    
     publishAllWithInstances<Bonxai::RGBSemanticsInstances>(cloud->header.stamp);
     std::set<INSTANCEIDT> visibleInstances = semantics.getCurrentVisibleInstances<Bonxai::RGBSemanticsInstances>(occupancy_min_z_, occupancy_max_z_);
@@ -330,6 +342,15 @@ void BonxaiServer::insertCloudCallback(
   double total_elapsed = (rclcpp::Clock{}.now() - start_time).seconds();
   RCLCPP_INFO(
       get_logger(), "Pointcloud insertion in Bonxai done, %f sec)", total_elapsed);
+
+  if(data_association_k > 0){
+    RCLCPP_INFO(
+      get_logger(), "Average data association time: %f ms)", 1000.*data_association_time / float(data_association_k));
+    RCLCPP_INFO(
+      get_logger(), "Average map integration time: %f ms)",  1000.*map_integration_time / float(map_integration_k));
+    RCLCPP_INFO(
+      get_logger(), "Average map refinement time: %f ms)",  1000.*map_refinement_time / float(map_refinement_k));
+  }
 }
 
 rcl_interfaces::msg::SetParametersResult
@@ -409,6 +430,82 @@ bool BonxaiServer::resetSrv(const std::shared_ptr<ResetSrv::Request>,
   RCLCPP_INFO(get_logger(), "Cleared Bonxai");
 
   return true;
+}
+
+void BonxaiServer::saveMapSrv(const std::shared_ptr<std_srvs::srv::Empty::Request>,
+                            const std::shared_ptr<std_srvs::srv::Empty::Response>){
+
+  // Refine map (if necessary)
+  BONXAI_INFO("Service working!");
+
+  std::string ply;
+
+  if (currentMode == DataMode::Empty)
+  {
+    ply = mapToPLY<Bonxai::Empty>();
+  }
+  else if (currentMode == DataMode::RGB)
+  {
+    ply = mapToPLY<Bonxai::Color>();
+  }
+  else if (currentMode == DataMode::Semantics)
+  {
+    ply = mapToPLY<Bonxai::Semantics>();
+  }
+  else if (currentMode == DataMode::RGBSemantics)
+  {
+    ply = mapToPLY<Bonxai::RGBSemantics>();
+  }
+  else if (currentMode == DataMode::SemanticsInstances)
+  {
+    semantics.refineGlobalSemanticMap<Bonxai::SemanticsInstances>(15);
+    ply = mapToPLY<Bonxai::SemanticsInstances>();
+    nlohmann::json json_data = semantics.mapToJSON();
+
+    std::string json_filename = "map_cplusplus.json";
+    std::ofstream outfile(json_filename);
+
+    if (!outfile.is_open()) {
+        std::cerr << "Cannot save .JSON file in: " << json_filename << std::endl;
+        return;
+    }
+    outfile << json_data.dump(4);
+    outfile.close();
+  }
+  else if (currentMode == DataMode::RGBSemanticsInstances)
+  {
+    semantics.refineGlobalSemanticMap<Bonxai::RGBSemanticsInstances>(15);
+    ply = mapToPLY<Bonxai::RGBSemanticsInstances>();
+    nlohmann::json json_data = semantics.mapToJSON();
+
+    std::string json_filename = "map_cplusplus.json";
+    std::ofstream outfile(json_filename);
+
+    if (!outfile.is_open()) {
+        std::cerr << "Cannot save .JSON file in: " << json_filename << std::endl;
+        return;
+    }
+    outfile << json_data.dump(4);
+    outfile.close();
+  }
+
+  std::string ply_filename = "pointcloud_cplusplus.ply";
+  std::ofstream outfile(ply_filename);
+
+  if (!outfile.is_open()) {
+      std::cerr << "Cannot save .PLY file in: " << ply_filename << std::endl;
+      return;
+  }
+  outfile << ply;
+  outfile.close();
+
+  // Save .PLY file (with instance_id, uncertainty_instances, uncertainty_categories)
+
+
+  // Save .json file
+
+  // [ToDo] Save two .PNG files: top-view uncertainty instances and top-view uncertainty_categories)
+
 }
 
 }  // namespace bonxai_server

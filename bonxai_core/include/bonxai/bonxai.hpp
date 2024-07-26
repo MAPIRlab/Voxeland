@@ -77,12 +77,15 @@ struct CoordT
 
   [[nodiscard]] bool operator==(const CoordT& other) const;
   [[nodiscard]] bool operator!=(const CoordT& other) const;
+  bool operator<(const CoordT& other) const;
 
   [[nodiscard]] CoordT operator+(const CoordT& other) const;
   [[nodiscard]] CoordT operator-(const CoordT& other) const;
 
   CoordT& operator+=(const CoordT& other);
   CoordT& operator-=(const CoordT& other);
+
+  CoordT operator/(const int div);
 };
 
 [[nodiscard]] inline CoordT PosToCoord(const Point3D& point, double inv_resolution)
@@ -498,6 +501,11 @@ inline bool CoordT::operator!=(const CoordT& other) const
   return !(*this == other);
 }
 
+inline bool CoordT::operator<(const CoordT& other) const
+{
+  return x < other.x || (x == other.x && y < other.y) || (x == other.x && y == other.y && z < other.z); 
+}
+
 inline CoordT CoordT::operator+(const CoordT& other) const
 {
   return { x + other.x, y + other.y, z + other.z };
@@ -522,6 +530,11 @@ inline CoordT& CoordT::operator-=(const CoordT& other)
   y -= other.y;
   z -= other.z;
   return *this;
+}
+
+inline CoordT CoordT::operator/(const int div)
+{
+  return {x / div, y / div, z / div};
 }
 
 template <typename DataT>
