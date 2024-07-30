@@ -1,0 +1,23 @@
+<launch>
+	<node pkg="voxeland" exec="voxeland_server_node" name="voxeland_server">
+	
+		<!-- fVoxelGrid Resolution -->
+		<param name="resolution" value="0.02" />
+
+		<!-- fixed map frame (set to 'map' if SLAM or localization running!) -->
+		<param name="frame_id" value="map" />
+
+		<!-- maximum range to integrate (speedup!) -->
+		<param name="sensor_model.max_range" value="4.0" />
+
+		<!-- data source to integrate (PointCloud2) -->
+		<!-- <remap from="cloud_in" to="cloud" /> -->
+
+		<!-- Publish Height colormap on Resulting VoxelGrid -->
+		<param name="use_height_map" value="true" />
+
+		<!-- SemanticBonxai Parameters-->
+		<param name="semantics_as_instances" value="true" />
+
+	</node>
+</launch>

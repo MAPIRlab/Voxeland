@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(Bonxai)
+project(voxeland)
 
 SET(CMAKE_BUILD_TYPE "Release")
 
@@ -51,11 +51,11 @@ find_package(rclcpp)
 find_package(ament_cmake QUIET)
 
 add_subdirectory(bonxai_core)
-add_subdirectory(bonxai_map)
+add_subdirectory(voxeland_map)
 
 if ( ament_cmake_FOUND )
 
-    project(bonxai_ros)
+    project(voxeland)
 
     # Add colcon-specific configuration here
     message(STATUS "Building with colcon")
@@ -67,39 +67,39 @@ if ( ament_cmake_FOUND )
     find_package(geometry_msgs REQUIRED)
     ament_auto_find_build_dependencies()
 
-    include_directories(bonxai_ros/include 3rdparty)
+    include_directories(voxeland/include 3rdparty)
 
-    ament_auto_add_library(bonxai_server SHARED
-      bonxai_ros/src/bonxai_server.cpp
+    ament_auto_add_library(voxeland_server SHARED
+      voxeland/src/voxeland_server.cpp
     )
 
-    target_link_libraries(bonxai_server
-      bonxai_map
+    target_link_libraries(voxeland_server
+      voxeland_map
       ${PCL_LIBRARIES}
     )
 
-    rclcpp_components_register_node(bonxai_server
-      PLUGIN "bonxai_server::BonxaiServer"
-      EXECUTABLE bonxai_server_node
+    rclcpp_components_register_node(voxeland_server
+      PLUGIN "voxeland_server::VoxelandServer"
+      EXECUTABLE voxeland_server_node
     )
 
     # Messages and services
     find_package(rosidl_default_generators REQUIRED)
     rosidl_generate_interfaces(${PROJECT_NAME}
-        bonxai_ros/msg/ClassDistribution.msg
-        bonxai_ros/srv/GetClassDistributions.srv
+        voxeland/msg/ClassDistribution.msg
+        voxeland/srv/GetClassDistributions.srv
         DEPENDENCIES geometry_msgs vision_msgs
     )
     ament_export_dependencies(rosidl_default_runtime)
     rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-    target_link_libraries(bonxai_server "${cpp_typesupport_target}") 
+    target_link_libraries(voxeland_server "${cpp_typesupport_target}") 
 
 
     ament_auto_package(
       INSTALL_TO_SHARE
-      bonxai_ros/launch 
-      bonxai_ros/rviz 
-      bonxai_ros/params 
+      voxeland/launch 
+      voxeland/rviz 
+      voxeland/params 
     )
 
 else()
