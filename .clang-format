@@ -1,7 +1,7 @@
 ---
 BasedOnStyle: Google
-AccessModifierOffset: -2
-ConstructorInitializerIndentWidth: 2
+AccessModifierOffset: -4
+ConstructorInitializerIndentWidth: 4
 AlignEscapedNewlinesLeft: false
 AlignTrailingComments: true
 AllowAllParametersOfDeclarationOnNextLine: false
@@ -22,7 +22,7 @@ PointerBindsToType: true
 ExperimentalAutoDetectBinPacking: false
 IndentCaseLabels: true
 MaxEmptyLinesToKeep: 1
-NamespaceIndentation: None
+NamespaceIndentation: All
 ObjCSpaceBeforeProtocolList: true
 PenaltyBreakBeforeFirstCallParameter: 19
 PenaltyBreakComment: 60
@@ -33,7 +33,7 @@ PenaltyReturnTypeOnItsOwnLine: 90
 SpacesBeforeTrailingComments: 2
 Cpp11BracedListStyle: false
 Standard: Auto
-IndentWidth: 2
+IndentWidth: 4
 TabWidth: 2
 UseTab: Never
 IndentFunctionDeclarationAfterType: false
