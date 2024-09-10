@@ -77,7 +77,7 @@ namespace voxeland_server
         save_map_srv_ = create_service<ResetSrv>("~/save_map", std::bind(&VoxelandServer::saveMapSrv, this, _1, _2));
 
         get_distributions_srv_ =
-            create_service<GetClassDistributions>("~/get_class_distributions", std::bind(&VoxelandServer::getClassDistributionsSrv, this, _1, _2));
+            create_service<GetClassDistributions>("voxeland/get_class_distributions", std::bind(&VoxelandServer::getClassDistributionsSrv, this, _1, _2));
 
         // set parameter callback
         set_param_res_ = this->add_on_set_parameters_callback(std::bind(&VoxelandServer::onParameter, this, _1));
