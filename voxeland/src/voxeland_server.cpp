@@ -463,7 +463,7 @@ namespace voxeland_server
 
         if (cell_points.size() <= 1)
         {
-            RCLCPP_WARN(get_logger(), "Nothing to publish, bonxai is empty");
+            VXL_WARN("Nothing to publish, bonxai is empty");
             return;
         }
 
@@ -493,7 +493,7 @@ namespace voxeland_server
             cloud.header.frame_id = world_frame_id_;
             cloud.header.stamp = rostime;
             point_cloud_pub_->publish(cloud);
-            RCLCPP_WARN(get_logger(), "Published occupancy grid with %ld voxels", pcl_cloud.points.size());
+            VXL_WARN("Published occupancy grid with {} voxels", pcl_cloud.points.size());
         }
     }
 
@@ -507,7 +507,7 @@ namespace voxeland_server
 
         if (cell_points.size() <= 1)
         {
-            RCLCPP_WARN(get_logger(), "Nothing to publish, bonxai is empty");
+            VXL_WARN("Nothing to publish, bonxai is empty");
             return;
         }
 
@@ -542,7 +542,7 @@ namespace voxeland_server
             cloud.header.frame_id = world_frame_id_;
             cloud.header.stamp = rostime;
             point_cloud_pub_->publish(cloud);
-            RCLCPP_WARN(get_logger(), "Published occupancy grid with %ld voxels", pcl_cloud.points.size());
+            VXL_WARN("Published occupancy grid with {} voxels", pcl_cloud.points.size());
         }
     }
 
