@@ -430,7 +430,8 @@ namespace voxeland_server
                 probabilities = cell->data.GetClassProbabilities();
             else
             {
-                // TODO cell has not been emplaced, return a prior or something
+                size_t numCategories = SemanticMap::get_instance().default_categories.size();
+                probabilities.resize(numCategories, 1./numCategories); //TODO give higher prob to background class
             }
 
             // retrieve the corresponding class name and fill in the response
