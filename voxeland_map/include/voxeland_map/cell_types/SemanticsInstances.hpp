@@ -2,10 +2,11 @@
 
 #include "Color.hpp"
 
-namespace Bonxai
+namespace voxeland
 {
     struct SemanticsInstances
     {
+        using PointCloudType = pcl::PointCloud<pcl::PointXYZSemantics>;
         std::vector<InstanceID_t> instances_candidates;
         std::vector<uint32_t> instances_votes;
 
@@ -158,4 +159,4 @@ namespace Bonxai
             }
         }
     };
-}  // namespace Bonxai
+}  // namespace voxeland

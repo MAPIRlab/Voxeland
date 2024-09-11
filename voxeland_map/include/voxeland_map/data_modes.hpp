@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Bonxai
+namespace voxeland
 {
 
     enum class DataMode
@@ -23,4 +23,4 @@ namespace Bonxai
     {
         return static_cast<DataMode>(static_cast<int>(a) & static_cast<int>(b));
     }
-};  // namespace Bonxai
+};  // namespace 

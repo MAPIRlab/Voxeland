@@ -1,10 +1,11 @@
 #pragma once
 #include "Color.hpp"
 
-namespace Bonxai
+namespace voxeland
 {
     struct Empty
     {
+        using PointCloudType = pcl::PointCloud<pcl::PointXYZ>;
         Empty() = default;
 
         void update(const pcl::PointXYZ& pcl) {}
@@ -15,4 +16,4 @@ namespace Bonxai
 
         static std::string getHeaderPLY() { return getXYZheader(); }
     };
-}  // namespace Bonxai
+}  // namespace voxeland

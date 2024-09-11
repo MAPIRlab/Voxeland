@@ -31,7 +31,7 @@ bool SemanticMap::is_initialized()
 
 void SemanticMap::initialize(std::vector<std::string> dataset_categories,
                              Bonxai::ProbabilisticMap& _bonxai,
-                             Bonxai::DataMode mode)
+                             voxeland::DataMode mode)
 {
     // Initialize objectInfoMap with SemanticObject for each object name
     for (size_t i = 0; i < dataset_categories.size(); ++i)
@@ -39,24 +39,8 @@ void SemanticMap::initialize(std::vector<std::string> dataset_categories,
         default_categories.push_back(dataset_categories[i]);
         categoryIndexMap[dataset_categories[i]] = i;
     }
-
-    if (mode == Bonxai::DataMode::Semantics)
-    {
-        BonxaiQuery<Bonxai::Semantics>::createAccessor(_bonxai.With<Bonxai::Semantics>());
-    }
-    else if (mode == Bonxai::DataMode::RGBSemantics)
-    {
-        BonxaiQuery<Bonxai::RGBSemantics>::createAccessor(_bonxai.With<Bonxai::RGBSemantics>());
-    }
-    else if (mode == Bonxai::DataMode::SemanticsInstances)
-    {
-        BonxaiQuery<Bonxai::SemanticsInstances>::createAccessor(_bonxai.With<Bonxai::SemanticsInstances>());
-    }
-    else if (mode == Bonxai::DataMode::RGBSemanticsInstances)
-    {
-        BonxaiQuery<Bonxai::RGBSemanticsInstances>::createAccessor(_bonxai.With<Bonxai::RGBSemanticsInstances>());
-    }
-
+    
+    AUTO_TEMPLATE_SEMANTICS_ONLY(mode, BonxaiQuery<DataT>::createAccessor(_bonxai.With<DataT>()));
     initialized = true;
 }
 

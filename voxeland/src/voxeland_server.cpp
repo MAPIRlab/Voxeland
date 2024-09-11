@@ -76,8 +76,8 @@ namespace voxeland_server
 
         save_map_srv_ = create_service<ResetSrv>("~/save_map", std::bind(&VoxelandServer::saveMapSrv, this, _1, _2));
 
-        get_distributions_srv_ =
-            create_service<GetClassDistributions>("voxeland/get_class_distributions", std::bind(&VoxelandServer::getClassDistributionsSrv, this, _1, _2));
+        get_distributions_srv_ = create_service<GetClassDistributions>("voxeland/get_class_distributions",
+                                                                       std::bind(&VoxelandServer::getClassDistributionsSrv, this, _1, _2));
 
         // set parameter callback
         set_param_res_ = this->add_on_set_parameters_callback(std::bind(&VoxelandServer::onParameter, this, _1));
@@ -150,19 +150,9 @@ namespace voxeland_server
 
         // initialize bonxai object & params
         VXL_INFO("Voxel resolution: {}m", res_);
-        if (currentMode == DataMode::Empty)
-            bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::Empty>>(res_);
-        else if (currentMode == DataMode::RGB)
-            bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::Color>>(res_);
-        else if (currentMode == DataMode::Semantics)
-            bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::Semantics>>(res_);
-        else if (currentMode == DataMode::RGBSemantics)
-            bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::RGBSemantics>>(res_);
-        else if (currentMode == DataMode::SemanticsInstances)
-            bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::SemanticsInstances>>(res_);
-        else if (currentMode == DataMode::RGBSemanticsInstances)
-            bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::RGBSemanticsInstances>>(res_);
-
+        AUTO_TEMPLATE(currentMode, 
+            bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<DataT>>(res_)
+        );
         Bonxai::ProbabilisticMap::Options options = {
             Bonxai::logodds(prob_miss), Bonxai::logodds(prob_hit), Bonxai::logodds(thres_min), Bonxai::logodds(thres_max)
         };
@@ -192,7 +182,7 @@ namespace voxeland_server
                 else if (cloud->cloud.fields[i].name == "instance_id")
                     currentMode = currentMode | DataMode::Semantics;
             }
-            if (semantics_as_instances_ && modeHasSemantics())
+            if (semantics_as_instances_ && modeHas(DataMode::Semantics))
             {
                 currentMode = currentMode | DataMode::SemanticsInstances;
             }
@@ -203,7 +193,7 @@ namespace voxeland_server
 
         // If semantics are included in the point cloud, the possible object categories are retrieved from the
         // first message.
-        if (modeHasSemantics() && !semantics.is_initialized())
+        if (modeHas(DataMode::Semantics) && !semantics.is_initialized())
         {
             semantics.initialize(cloud->categories, *bonxai_, currentMode);
             if (semantics_as_instances_)
@@ -212,30 +202,38 @@ namespace voxeland_server
             }
         }
 
+        // TemplateFromEnum(currentMode,
+        //[&]<typename DataT>()
+        //{
+        //     insertPointCloud<DataT::PointCloudType, DataT>(cloud);
+        // });
+
+        // AUTO_TEMPLATE(currentMode, insertPointCloud<DataT::PointCloudType, DataT>(cloud));
+
         // TODO move all this to a templated function to avoid repeating ourselves so much
         if (currentMode == DataMode::Empty)  // Mode XYZ
         {
             VXL_INFO("Mode Empty");
             using PointCloudType = pcl::PointCloud<pcl::PointXYZ>;
-            insertPointCloud<PointCloudType, Bonxai::Empty>(cloud);
+            insertPointCloud<PointCloudType, voxeland::Empty>(cloud);
         }
         else if (currentMode == DataMode::RGB)  // Mode XYZRGB
         {
             VXL_INFO("Mode RGB");
             using PointCloudType = pcl::PointCloud<pcl::PointXYZRGB>;
-            insertPointCloud<PointCloudType, Bonxai::Color>(cloud);
+            insertPointCloud<PointCloudType, voxeland::Color>(cloud);
         }
         else if (currentMode == DataMode::Semantics)  // Mode XYZSemantics
         {
             VXL_INFO("Mode Semantics");
             using PointCloudType = pcl::PointCloud<pcl::PointXYZSemantics>;
-            insertPointCloud<PointCloudType, Bonxai::Semantics>(cloud);
+            insertPointCloud<PointCloudType, voxeland::Semantics>(cloud);
         }
         else if (currentMode == DataMode::RGBSemantics)  // Mode XYZRGBSemantics
         {
             VXL_INFO("Mode RGBSemantics");
             using PointCloudType = pcl::PointCloud<pcl::PointXYZRGBSemantics>;
-            insertPointCloud<PointCloudType, Bonxai::RGBSemantics>(cloud);
+            insertPointCloud<PointCloudType, voxeland::RGBSemantics>(cloud);
         }
         else if (currentMode == DataMode::SemanticsInstances)  // Mode XYZSemanticsInstances
         {
@@ -243,26 +241,26 @@ namespace voxeland_server
             using PointCloudType = pcl::PointCloud<pcl::PointXYZSemantics>;
             PointCloudType pc;
             pcl::fromROSMsg(cloud->cloud, pc);
-            pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, Bonxai::SemanticsInstances>(pc, cloud->pose);
+            pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, voxeland::SemanticsInstances>(pc, cloud->pose);
             const auto stime = rclcpp::Clock{}.now();
-            semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, Bonxai::SemanticsInstances>(cloud->instances, pc);
+            semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, voxeland::SemanticsInstances>(cloud->instances, pc);
             data_association_time += (rclcpp::Clock{}.now() - stime).seconds();
             data_association_k++;
             const auto stime2 = rclcpp::Clock{}.now();
-            bonxai_->With<Bonxai::SemanticsInstances>()->insertPointCloud(pc.points, sensorPosition, 30.0);
+            bonxai_->With<voxeland::SemanticsInstances>()->insertPointCloud(pc.points, sensorPosition, 30.0);
             map_integration_time += (rclcpp::Clock{}.now() - stime2).seconds();
             map_integration_k++;
             if (number_iterations % 20 == 0)
             {
                 const auto stime3 = rclcpp::Clock{}.now();
-                semantics.refineGlobalSemanticMap<Bonxai::SemanticsInstances>(5);
+                semantics.refineGlobalSemanticMap<voxeland::SemanticsInstances>(5);
                 map_refinement_time += (rclcpp::Clock{}.now() - stime3).seconds();
                 map_refinement_k++;
             }
-            publishAllWithInstances<Bonxai::SemanticsInstances>(cloud->header.stamp);
+            publishAllWithInstances<voxeland::SemanticsInstances>(cloud->header.stamp);
 
             std::set<InstanceID_t> visibleInstances =
-                semantics.getCurrentVisibleInstances<Bonxai::SemanticsInstances>(occupancy_min_z_, occupancy_max_z_);
+                semantics.getCurrentVisibleInstances<voxeland::SemanticsInstances>(occupancy_min_z_, occupancy_max_z_);
             semantic_map_pub_->publish(semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp, visibleInstances));
             /*RCLCPP_INFO(get_logger(), "############### MAP AFTER UPDATE ################");
             for(InstanceID_t idx = 0; idx < semantics.globalSemanticMap.size(); idx++){
@@ -294,16 +292,16 @@ namespace voxeland_server
             using PointCloudType = pcl::PointCloud<pcl::PointXYZRGBSemantics>;
             PointCloudType pc;
             pcl::fromROSMsg(cloud->cloud, pc);
-            pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, Bonxai::RGBSemanticsInstances>(pc, cloud->pose);
-            semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, Bonxai::RGBSemanticsInstances>(cloud->instances, pc);
-            bonxai_->With<Bonxai::RGBSemanticsInstances>()->insertPointCloud(pc.points, sensorPosition, 30.0);
+            pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, voxeland::RGBSemanticsInstances>(pc, cloud->pose);
+            semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, voxeland::RGBSemanticsInstances>(cloud->instances, pc);
+            bonxai_->With<voxeland::RGBSemanticsInstances>()->insertPointCloud(pc.points, sensorPosition, 30.0);
             if (number_iterations % 30 == 0)
             {
-                semantics.refineGlobalSemanticMap<Bonxai::RGBSemanticsInstances>(5);
+                semantics.refineGlobalSemanticMap<voxeland::RGBSemanticsInstances>(5);
             }
-            publishAllWithInstances<Bonxai::RGBSemanticsInstances>(cloud->header.stamp);
+            publishAllWithInstances<voxeland::RGBSemanticsInstances>(cloud->header.stamp);
             std::set<InstanceID_t> visibleInstances =
-                semantics.getCurrentVisibleInstances<Bonxai::RGBSemanticsInstances>(occupancy_min_z_, occupancy_max_z_);
+                semantics.getCurrentVisibleInstances<voxeland::RGBSemanticsInstances>(occupancy_min_z_, occupancy_max_z_);
             semantic_map_pub_->publish(semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp, visibleInstances));
             VXL_INFO("Global map: {} visible and {} active instances", visibleInstances.size(), semantics.globalSemanticMap.size());
         }
@@ -350,36 +348,11 @@ namespace voxeland_server
     bool VoxelandServer::resetSrv(const std::shared_ptr<ResetSrv::Request>, const std::shared_ptr<ResetSrv::Response>)
     {
         const auto rostime = now();
-        if (currentMode == DataMode::Empty)
+        AUTO_TEMPLATE(currentMode,
         {
-            bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Empty>>>(res_);
-            publishAll<Bonxai::Empty>(rostime);
-        }
-        else if (currentMode == DataMode::RGB)
-        {
-            bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Color>>>(res_);
-            publishAll<Bonxai::Color>(rostime);
-        }
-        else if (currentMode == DataMode::Semantics)
-        {
-            bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::Semantics>>>(res_);
-            publishAll<Bonxai::Semantics>(rostime);
-        }
-        else if (currentMode == DataMode::RGBSemantics)
-        {
-            bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::RGBSemantics>>>(res_);
-            publishAll<Bonxai::RGBSemantics>(rostime);
-        }
-        else if (currentMode == DataMode::SemanticsInstances)
-        {
-            bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::SemanticsInstances>>>(res_);
-            publishAll<Bonxai::SemanticsInstances>(rostime);
-        }
-        else if (currentMode == DataMode::RGBSemanticsInstances)
-        {
-            bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<Bonxai::RGBSemanticsInstances>>>(res_);
-            publishAll<Bonxai::RGBSemanticsInstances>(rostime);
-        }
+            bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<DataT>>>(res_);
+            publishAll<DataT>(rostime);
+        });
 
         VXL_INFO("Cleared Bonxai");
 
@@ -391,58 +364,28 @@ namespace voxeland_server
         // Refine map (if necessary)
         VXL_INFO("Service working!");
 
+        if(modeHas(DataMode::SemanticsInstances))
+        {
+            AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, semantics.refineGlobalSemanticMap<DataT>(15));
+            nlohmann::json json_data = semantics.mapToJSON();
+
+            std::string json_filename = "map_cplusplus.json";
+            std::ofstream outfile(json_filename);
+
+            if (!outfile.is_open())
+            {
+                std::cerr << "Cannot save .JSON file in: " << json_filename << std::endl;
+                return;
+            }
+            outfile << json_data.dump(4);
+            outfile.close();
+        }
+
         std::string ply;
 
-        if (currentMode == DataMode::Empty)
-        {
-            ply = mapToPLY<Bonxai::Empty>();
-        }
-        else if (currentMode == DataMode::RGB)
-        {
-            ply = mapToPLY<Bonxai::Color>();
-        }
-        else if (currentMode == DataMode::Semantics)
-        {
-            ply = mapToPLY<Bonxai::Semantics>();
-        }
-        else if (currentMode == DataMode::RGBSemantics)
-        {
-            ply = mapToPLY<Bonxai::RGBSemantics>();
-        }
-        else if (currentMode == DataMode::SemanticsInstances)
-        {
-            semantics.refineGlobalSemanticMap<Bonxai::SemanticsInstances>(15);
-            ply = mapToPLY<Bonxai::SemanticsInstances>();
-            nlohmann::json json_data = semantics.mapToJSON();
-
-            std::string json_filename = "map_cplusplus.json";
-            std::ofstream outfile(json_filename);
-
-            if (!outfile.is_open())
-            {
-                std::cerr << "Cannot save .JSON file in: " << json_filename << std::endl;
-                return;
-            }
-            outfile << json_data.dump(4);
-            outfile.close();
-        }
-        else if (currentMode == DataMode::RGBSemanticsInstances)
-        {
-            semantics.refineGlobalSemanticMap<Bonxai::RGBSemanticsInstances>(15);
-            ply = mapToPLY<Bonxai::RGBSemanticsInstances>();
-            nlohmann::json json_data = semantics.mapToJSON();
-
-            std::string json_filename = "map_cplusplus.json";
-            std::ofstream outfile(json_filename);
-
-            if (!outfile.is_open())
-            {
-                std::cerr << "Cannot save .JSON file in: " << json_filename << std::endl;
-                return;
-            }
-            outfile << json_data.dump(4);
-            outfile.close();
-        }
+        AUTO_TEMPLATE(currentMode, 
+            ply = mapToPLY<DataT>()
+        );
 
         std::string ply_filename = "pointcloud_cplusplus.ply";
         std::ofstream outfile(ply_filename);
@@ -454,31 +397,18 @@ namespace voxeland_server
         }
         outfile << ply;
         outfile.close();
-
-        // Save .PLY file (with instance_id, uncertainty_instances, uncertainty_categories)
-
-        // Save .json file
-
-        // [ToDo] Save two .PNG files: top-view uncertainty instances and top-view uncertainty_categories)
     }
 
     void VoxelandServer::getClassDistributionsSrv(GetClassDistributions::Request::SharedPtr request,
                                                   GetClassDistributions::Response::SharedPtr response)
     {
-        if (!modeHasSemantics())
+        if (!modeHas(DataMode::Semantics))
         {
             VXL_ERROR("Tried to get class distributions through service, but current mode does not have semantic information!");
             return;
         }
-
-        else if (currentMode == DataMode::Semantics)
-            fillClassSrvResponse<Bonxai::Semantics>(request, response);
-        else if (currentMode == DataMode::RGBSemantics)
-            fillClassSrvResponse<Bonxai::RGBSemantics>(request, response);
-        else if (currentMode == DataMode::SemanticsInstances)
-            fillClassSrvResponse<Bonxai::SemanticsInstances>(request, response);
-        else if (currentMode == DataMode::RGBSemanticsInstances)
-            fillClassSrvResponse<Bonxai::RGBSemanticsInstances>(request, response);
+        
+        AUTO_TEMPLATE_SEMANTICS_ONLY(currentMode, fillClassSrvResponse<DataT>(request, response));
     }
 
     template <typename DataT>
@@ -487,15 +417,23 @@ namespace voxeland_server
         auto grid = bonxai_->With<DataT>()->grid();
         auto accessor = grid->createAccessor();
 
-        //query each point to get the probabilities vector
+        // query each point to get the probabilities vector
         for (size_t i = 0; i < request->query_points.size(); i++)
         {
+            // TODO should the probability of occupancy be included in this calculation?
             geometry_msgs::msg::Point point = request->query_points[i];
             Bonxai::CoordT coord = grid->posToCoord(point.x, point.y, point.z);
             Bonxai::ProbabilisticCell<DataT>* cell = accessor.value(coord);
-            std::vector<double> probabilities = cell->data.GetClassProbabilities();
 
-            //retrieve the corresponding class name and fill in the response
+            std::vector<double> probabilities;
+            if (cell)
+                probabilities = cell->data.GetClassProbabilities();
+            else
+            {
+                // TODO cell has not been emplaced, return a prior or something
+            }
+
+            // retrieve the corresponding class name and fill in the response
             for (size_t class_id = 0; class_id < probabilities.size(); class_id++)
             {
                 vision_msgs::msg::ObjectHypothesis& hypothesis = response->distributions[i].probabilities.emplace_back();
@@ -544,7 +482,7 @@ namespace voxeland_server
 
                 if (voxel.z >= occupancy_min_z_ && voxel.z <= occupancy_max_z_)
                 {
-                    Bonxai::Color vizualization_color = cell_data[i].toColor();
+                    voxeland::Color vizualization_color = cell_data[i].toColor();
                     pcl_cloud.emplace_back(
                         (float)voxel.x, (float)voxel.y, (float)voxel.z, vizualization_color.r, vizualization_color.g, vizualization_color.b);
                 }
@@ -589,7 +527,7 @@ namespace voxeland_server
 
                 if (voxel.z >= occupancy_min_z_ && voxel.z <= occupancy_max_z_)
                 {
-                    Bonxai::Color vizualization_color = cell_data[i].toColor();
+                    voxeland::Color vizualization_color = cell_data[i].toColor();
                     std::uint32_t rgb = ((std::uint32_t)vizualization_color.r << 16 | (std::uint32_t)vizualization_color.g << 8 |
                                          (std::uint32_t)vizualization_color.b);
                     auto itInstances = std::max_element(cell_data[i].instances_votes.begin(), cell_data[i].instances_votes.end());

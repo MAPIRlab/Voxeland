@@ -1,10 +1,11 @@
 #pragma once
 #include "SemanticsInstances.hpp"
 
-namespace Bonxai
+namespace voxeland
 {
     struct RGBSemanticsInstances : public SemanticsInstances
     {
+        using PointCloudType = pcl::PointCloud<pcl::PointXYZRGBSemantics>;
         Color rgb;
 
         RGBSemanticsInstances(){};

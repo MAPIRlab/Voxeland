@@ -1,10 +1,11 @@
 #pragma once
 #include "Common.hpp"
 
-namespace Bonxai
+namespace voxeland
 {
     struct Color
     {
+        using PointCloudType = pcl::PointCloud<pcl::PointXYZRGB>;
         uint8_t r;
         uint8_t g;
         uint8_t b;
@@ -39,4 +40,4 @@ namespace Bonxai
         return fmt::format("{} {} {}", rgb.r, rgb.g, rgb.b);
     }
 
-}  // namespace Bonxai
+}  // namespace voxeland

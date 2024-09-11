@@ -102,7 +102,7 @@ public:
     bool is_initialized();
     void initialize(std::vector<std::string> dataset_categories,
                     Bonxai::ProbabilisticMap& _bonxai,
-                    Bonxai::DataMode mode);
+                    voxeland::DataMode mode);
     uint32_t getCurrentActiveInstances();
     void setLocalSemanticMap(const std::vector<SemanticObject>& localMap);
     InstanceID_t localToGlobalInstance(InstanceID_t localInstance);

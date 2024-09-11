@@ -1,10 +1,11 @@
 #pragma once
 #include "Color.hpp"
 
-namespace Bonxai
+namespace voxeland
 {
     struct Semantics
     {
+        using PointCloudType = pcl::PointCloud<pcl::PointXYZSemantics>;
         std::vector<double> probabilities;
 
         Semantics(){};

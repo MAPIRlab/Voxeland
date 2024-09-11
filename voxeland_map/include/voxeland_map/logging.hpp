@@ -4,9 +4,9 @@
 
 #if USING_ROS
 #include <rclcpp/logging.hpp>
-#define VXL_INFO(...) RCLCPP_INFO(rclcpp::get_logger("Bonxai"), "%s", fmt::format(__VA_ARGS__).c_str())
-#define VXL_WARN(...) RCLCPP_WARN(rclcpp::get_logger("Bonxai"), "%s", fmt::format(__VA_ARGS__).c_str())
-#define VXL_ERROR(...) RCLCPP_ERROR(rclcpp::get_logger("Bonxai"), "%s", fmt::format(__VA_ARGS__).c_str())
+#define VXL_INFO(...) RCLCPP_INFO(rclcpp::get_logger("VXL"), "%s", fmt::format(__VA_ARGS__).c_str())
+#define VXL_WARN(...) RCLCPP_WARN(rclcpp::get_logger("VXL"), "%s", fmt::format(__VA_ARGS__).c_str())
+#define VXL_ERROR(...) RCLCPP_ERROR(rclcpp::get_logger("VXL"), "%s", fmt::format(__VA_ARGS__).c_str())
 #else
 #include <fmt/color.h>
 #define VXL_INFO(...) fmt::print("[Info] {}", fmt::format(__VA_ARGS__))

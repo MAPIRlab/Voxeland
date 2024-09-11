@@ -45,7 +45,7 @@ namespace voxeland_server
 
     using sensor_msgs::msg::PointCloud2;
 
-    using DataMode = Bonxai::DataMode;
+    using DataMode = voxeland::DataMode;
 
     class VoxelandServer : public rclcpp::Node
     {
@@ -73,7 +73,7 @@ namespace voxeland_server
         /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
         virtual void insertCloudCallback(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
 
-        bool modeHasSemantics() { return static_cast<int>(currentMode & DataMode::Semantics) != 0; }
+        bool modeHas(DataMode mode) { return static_cast<int>(currentMode & mode) != 0; }
 
         SemanticsROSWrapper semantics_ros_wrapper;
 
