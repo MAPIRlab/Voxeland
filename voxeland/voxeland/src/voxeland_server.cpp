@@ -242,49 +242,17 @@ namespace voxeland_server
             PointCloudType pc;
             pcl::fromROSMsg(cloud->cloud, pc);
             pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, voxeland::SemanticsInstances>(pc, cloud->pose);
-            const auto stime = rclcpp::Clock{}.now();
             semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, voxeland::SemanticsInstances>(cloud->instances, pc);
-            data_association_time += (rclcpp::Clock{}.now() - stime).seconds();
-            data_association_k++;
-            const auto stime2 = rclcpp::Clock{}.now();
             bonxai_->With<voxeland::SemanticsInstances>()->insertPointCloud(pc.points, sensorPosition, 30.0);
-            map_integration_time += (rclcpp::Clock{}.now() - stime2).seconds();
-            map_integration_k++;
             if (number_iterations % 20 == 0)
             {
-                const auto stime3 = rclcpp::Clock{}.now();
                 semantics.refineGlobalSemanticMap<voxeland::SemanticsInstances>(5);
-                map_refinement_time += (rclcpp::Clock{}.now() - stime3).seconds();
-                map_refinement_k++;
             }
             publishAllWithInstances<voxeland::SemanticsInstances>(cloud->header.stamp);
 
             std::set<InstanceID_t> visibleInstances =
                 semantics.getCurrentVisibleInstances<voxeland::SemanticsInstances>(occupancy_min_z_, occupancy_max_z_);
             semantic_map_pub_->publish(semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp, visibleInstances));
-            /*RCLCPP_INFO(get_logger(), "############### MAP AFTER UPDATE ################");
-            for(InstanceID_t idx = 0; idx < semantics.globalSemanticMap.size(); idx++){
-              if(semantics.listOfVoxelsInsideBBox<Bonxai::SemanticsInstances>(semantics.globalSemanticMap[idx].bbox,
-            idx).size()
-            == 1){ VXL_INFO("aqui 1 voxel solo");
-              }
-              VXL_INFO("{} with: {} voxels", semantics.globalSemanticMap[idx].instanceID,
-            semantics.listOfVoxelsInsideBBox<Bonxai::SemanticsInstances>(semantics.globalSemanticMap[idx].bbox,
-            idx).size());
-            }
-            uint32_t oneObservationInstances = 0;
-            uint32_t activeInstances = 0;
-            for(InstanceID_t i = 0; i < semantics.globalSemanticMap.size(); i++){
-              if(semantics.globalSemanticMap[i].pointsTo == -1 && semantics.globalSemanticMap[i].numberObservations <
-            2){ oneObservationInstances += 1;
-              }
-              if(semantics.globalSemanticMap[i].pointsTo == -1){
-                activeInstances += 1;
-              }
-            }
-            VXL_INFO("Single observation instances / Total active instances: {} / {}", oneObservationInstances,
-            activeInstances); RCLCPP_INFO(get_logger(), "Global map: %ld visible and %ld active instances",
-            visibleInstances.size(), semantics.globalSemanticMap.size());*/
         }
         else if (currentMode == DataMode::RGBSemanticsInstances)  // Mode XYZRGBSemanticsInstances
         {
@@ -295,7 +263,7 @@ namespace voxeland_server
             pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, voxeland::RGBSemanticsInstances>(pc, cloud->pose);
             semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, voxeland::RGBSemanticsInstances>(cloud->instances, pc);
             bonxai_->With<voxeland::RGBSemanticsInstances>()->insertPointCloud(pc.points, sensorPosition, 30.0);
-            if (number_iterations % 30 == 0)
+            if (number_iterations % 20 == 0)
             {
                 semantics.refineGlobalSemanticMap<voxeland::RGBSemanticsInstances>(5);
             }
@@ -309,12 +277,6 @@ namespace voxeland_server
         double total_elapsed = (rclcpp::Clock{}.now() - start_time).seconds();
         VXL_INFO("Pointcloud insertion in Bonxai done, {} sec)", total_elapsed);
 
-        if (data_association_k > 0)
-        {
-            VXL_INFO("Average data association time: {} ms)", 1000. * data_association_time / float(data_association_k));
-            VXL_INFO("Average map integration time: {} ms)", 1000. * map_integration_time / float(map_integration_k));
-            VXL_INFO("Average map refinement time: {} ms)", 1000. * map_refinement_time / float(map_refinement_k));
-        }
     }
 
     rcl_interfaces::msg::SetParametersResult VoxelandServer::onParameter(const std::vector<rclcpp::Parameter>& parameters)
