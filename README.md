@@ -16,4 +16,17 @@ This will download the code for voxeland and some third party libraries. You wil
 Once you have everything downloaded, compile with `colcon build --symlink-install` as usual.
 
 ## Usage
-TODO
+
+First, run the instance segmentation network (e.g., Mask R-CNN). A ROS2 implementation can be found at: [Detectron2](https://github.com/MAPIRlab/Detectron2_ros). To run detectron2 framework:
+
+`ros2 run detectron2 detectron2_ros_node`
+
+Next, run the robot perception node as follows:
+
+`ros2 launch voxeland_robot_perception robot_perception_node.py`
+
+Finally, execute Voxeland to start the mapping session:
+
+`ros2 launch voxeland bonxai_mapping.launch.xml`
+
+(Now, everything is ready for the semantic mapping session, as soon as you play your dataset.)
