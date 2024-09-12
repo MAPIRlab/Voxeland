@@ -1,3 +1,6 @@
 [submodule "voxeland_map/3rdparty/fmt"]
 	path = voxeland_map/3rdparty/fmt
 	url = git@github.com:fmtlib/fmt.git
+[submodule "voxeland_robot_perception"]
+	path = voxeland_robot_perception
+	url = git@github.com:MAPIRlab/voxeland_robot_perception.git
