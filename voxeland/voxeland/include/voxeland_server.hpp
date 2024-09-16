@@ -92,8 +92,14 @@ namespace voxeland_server
         template <typename DataT>
         std::string mapToPLY();
 
-        template <typename PointCloudTypeT, typename DataT>
-        void insertPointCloud(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
+        template <typename DataT>
+        void insertPointCloudBasic(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
+
+        template <typename DataT>
+        void insertPointCloudSemantics(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
+
+        template <typename DataT>
+        void insertPointCloudSemanticInstances(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
 
         template <typename DataT>
         void fillClassSrvResponse(GetClassDistributions::Request::SharedPtr request, GetClassDistributions::Response::SharedPtr response);

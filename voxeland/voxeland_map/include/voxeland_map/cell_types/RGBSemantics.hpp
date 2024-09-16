@@ -7,7 +7,6 @@ namespace voxeland
     {
         using PointCloudType = pcl::PointCloud<pcl::PointXYZRGBSemantics>;
         Color rgb;
-        std::vector<double> probabilities;
 
         RGBSemantics()
             : rgb()
