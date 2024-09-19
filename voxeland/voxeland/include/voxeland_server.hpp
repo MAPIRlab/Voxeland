@@ -10,7 +10,7 @@
 #include <semantics_ros_wrapper.hpp>
 #include <voxeland_map/cell_types.hpp>
 #include <voxeland_map/data_modes.hpp>
-#include <voxeland_map/logging.hpp>
+#include <voxeland_map/Utils/logging.hpp>
 #include <voxeland_map/semantics.hpp>
 
 #include "bonxai/bonxai.hpp"

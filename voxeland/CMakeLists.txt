@@ -39,7 +39,7 @@ endif()
 
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wpedantic -fno-omit-frame-pointer)
+add_compile_options(-Wpedantic -fno-omit-frame-pointer)
 endif()
 
 add_compile_definitions(USING_ROS=1)
@@ -49,6 +49,7 @@ add_compile_definitions(USING_ROS=1)
 # Default behavior
 find_package(rclcpp)
 find_package(ament_cmake QUIET)
+find_package(OpenMP REQUIRED)
 
 add_subdirectory(bonxai_core)
 add_subdirectory(voxeland_map)
@@ -76,6 +77,7 @@ if ( ament_cmake_FOUND )
     target_link_libraries(voxeland_server
       voxeland_map
       ${PCL_LIBRARIES}
+      OpenMP::OpenMP_CXX
     )
 
     rclcpp_components_register_node(voxeland_server

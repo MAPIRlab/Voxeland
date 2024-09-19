@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <vector>
 #include <voxeland_map/data_modes.hpp>
-#include <voxeland_map/logging.hpp>
+#include <voxeland_map/Utils/logging.hpp>
 #include <voxeland_map/pcl_utils.hpp>
 #include <voxeland_map/probabilistic_map_templated.hpp>
 
@@ -65,7 +65,7 @@ class SemanticMap
 public:
     SemanticMap();
 
-    std::vector<std::string> default_categories;
+    std::vector<std::string> default_categories; //list of category names. The last one is always "background"
     std::unordered_map<std::string, size_t> categoryIndexMap;
     std::vector<SemanticObject> globalSemanticMap;
     std::vector<SemanticObject> lastLocalSemanticMap;

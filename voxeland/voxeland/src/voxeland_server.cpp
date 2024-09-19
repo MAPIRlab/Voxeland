@@ -1,4 +1,5 @@
 #include <voxeland_server.hpp>
+#include <voxeland_map/Utils/Stopwatch.hpp>
 
 namespace
 {
@@ -78,9 +79,6 @@ namespace voxeland_server
         reset_srv_ = create_service<ResetSrv>("~/reset", std::bind(&VoxelandServer::resetSrv, this, _1, _2));
 
         save_map_srv_ = create_service<ResetSrv>("~/save_map", std::bind(&VoxelandServer::saveMapSrv, this, _1, _2));
-
-        get_distributions_srv_ = create_service<GetClassDistributions>("voxeland/get_class_distributions",
-                                 std::bind(&VoxelandServer::getClassDistributionsSrv, this, _1, _2));
 
         // set parameter callback
         set_param_res_ = this->add_on_set_parameters_callback(std::bind(&VoxelandServer::onParameter, this, _1));
@@ -190,6 +188,9 @@ namespace voxeland_server
             {
                 currentMode = currentMode | DataMode::SemanticsInstances;
             }
+
+            get_distributions_srv_ = create_service<GetClassDistributions>("voxeland/get_class_distributions",
+                                     std::bind(&VoxelandServer::getClassDistributionsSrv, this, std::placeholders::_1, std::placeholders::_2));
         }
 
         if (bonxai_.get() == nullptr)
@@ -337,7 +338,10 @@ namespace voxeland_server
             return;
         }
 
+        VXL_INFO("Received class distribution request");
+        Stopwatch watch;
         AUTO_TEMPLATE_SEMANTICS_ONLY(currentMode, fillClassSrvResponse<DataT>(request, response));
+        VXL_INFO("Took {}s to process the service", watch.ellapsed());
     }
 
     template <typename DataT>
@@ -346,29 +350,55 @@ namespace voxeland_server
         auto grid = bonxai_->With<DataT>()->grid();
         auto accessor = grid->createAccessor();
 
+        auto setDefaultClassDistribution = [&](std::vector<double>& dist)
+        {
+            size_t numCategories = SemanticMap::get_instance().default_categories.size();
+            dist.resize(numCategories, 1. / numCategories);
+        };
+
+        response->distributions.resize(request->query_points.size());
+
         // query each point to get the probabilities vector
         for (size_t i = 0; i < request->query_points.size(); i++)
         {
-            // TODO should the probability of occupancy be included in this calculation?
             geometry_msgs::msg::Point point = request->query_points[i];
             Bonxai::CoordT coord = grid->posToCoord(point.x, point.y, point.z);
             Bonxai::ProbabilisticCell<DataT>* cell = accessor.value(coord);
 
-            std::vector<double> probabilities;
+            //get p(class | occupied) and p(occupied) from the cell
+            std::vector<double> classProbabilities;
+            float occupancyProb;
             if (cell)
-                probabilities = cell->data.GetClassProbabilities();
+            {
+                occupancyProb = Bonxai::prob(cell->probability_log);
+                classProbabilities = cell->data.GetClassProbabilities();
+                if(classProbabilities.size() == 0) // the cell exists but has only ever been observed to be empty, give it the default class distribution
+                    setDefaultClassDistribution(classProbabilities);  
+            }
             else
             {
-                size_t numCategories = SemanticMap::get_instance().default_categories.size();
-                probabilities.resize(numCategories, 1. / numCategories); //TODO give higher prob to background class
+                //the cell does not exist! this means we've never even had a ray pass through it
+                occupancyProb = 0.5f;
+                setDefaultClassDistribution(classProbabilities);  
             }
 
-            // retrieve the corresponding class name and fill in the response
-            for (size_t class_id = 0; class_id < probabilities.size(); class_id++)
+            // combine both probs into p(class)
+            // this computation implicitly considers that p(class | !occupied) = 1 for the background and = 0 for every other class
             {
-                vision_msgs::msg::ObjectHypothesis& hypothesis = response->distributions[i].probabilities.emplace_back();
+                for (size_t classIndex = 0; classIndex < classProbabilities.size() - 1; classIndex++)
+                    classProbabilities[classIndex] = classProbabilities[classIndex] * occupancyProb;
+
+                classProbabilities.back() = classProbabilities.back() * occupancyProb + (1 - occupancyProb);
+            }
+
+
+            // retrieve the corresponding class names and fill in the response
+            voxeland::msg::ClassDistribution distribution = response->distributions[i];
+            for (size_t class_id = 0; class_id < classProbabilities.size(); class_id++)
+            {
+                vision_msgs::msg::ObjectHypothesis& hypothesis = distribution.probabilities.emplace_back();
                 hypothesis.class_id = SemanticMap::get_instance().default_categories[class_id];
-                hypothesis.score = probabilities[class_id];
+                hypothesis.score = classProbabilities[class_id];
             }
         }
     }
@@ -460,7 +490,7 @@ namespace voxeland_server
             cloud.header.frame_id = world_frame_id_;
             cloud.header.stamp = rostime;
             point_cloud_pub_->publish(cloud);
-            VXL_WARN("Published occupancy grid with {} voxels", pcl_cloud.points.size());
+            VXL_INFO("Published occupancy grid with {} voxels", pcl_cloud.points.size());
         }
     }
 
@@ -509,7 +539,7 @@ namespace voxeland_server
             cloud.header.frame_id = world_frame_id_;
             cloud.header.stamp = rostime;
             point_cloud_pub_->publish(cloud);
-            VXL_WARN("Published occupancy grid with {} voxels", pcl_cloud.points.size());
+            VXL_INFO("Published occupancy grid with {} voxels", pcl_cloud.points.size());
         }
     }
 

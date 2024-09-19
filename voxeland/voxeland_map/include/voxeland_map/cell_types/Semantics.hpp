@@ -20,6 +20,7 @@ namespace voxeland
             uint8_t mainObjectCategory = std::distance(probabilities.begin(), it);
             uint32_t hexColor = semantics.indexToHexColor(mainObjectCategory);
 
+            // the last one is the background category, which always gets this grey color
             if (mainObjectCategory == (semantics.default_categories.size() - 1))
                 hexColor = 0xbcbcbc;
 

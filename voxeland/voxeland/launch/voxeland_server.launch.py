@@ -19,7 +19,7 @@ def launch_setup(context, *args, **kwargs):
     node = Node(
         package="voxeland",
         executable="voxeland_server_node",
-        prefix ="xterm -hold -e",
+        prefix ="xterm -hold -e ",
         parameters=[
            {"frame_id":parse_substitution("$(var fixed_frame)")},
            {"resolution":parse_substitution("$(var resolution)")},

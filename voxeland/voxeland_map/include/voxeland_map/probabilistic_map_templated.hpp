@@ -1,7 +1,7 @@
 #pragma once
 
 #include "probabilistic_map.hpp"
-#include "voxeland_map/logging.hpp"
+#include "voxeland_map/Utils/logging.hpp"
 
 namespace Bonxai
 {
