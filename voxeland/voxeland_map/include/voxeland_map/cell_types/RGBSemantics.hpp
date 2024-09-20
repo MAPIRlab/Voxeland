@@ -25,8 +25,8 @@ namespace voxeland
         {
             SemanticMap& semantics = SemanticMap::get_instance();
 
-            std::vector<double>::iterator it = std::max_element(probabilities.begin(), probabilities.end());
-            uint8_t mainObjectCategory = std::distance(probabilities.begin(), it);
+            std::vector<double>::iterator it = std::max_element(alphasDirichlet.begin(), alphasDirichlet.end());
+            uint8_t mainObjectCategory = std::distance(alphasDirichlet.begin(), it);
             
             if (mainObjectCategory == (semantics.default_categories.size() - 1))
                 return rgb;

@@ -71,11 +71,11 @@ public:
                     semantics.globalSemanticMap[i].bbox.maxZ - semantics.globalSemanticMap[i].bbox.minZ;
                 for (size_t j = 0; j < semantics.default_categories.size(); j++)
                 {
-                    if (semantics.globalSemanticMap[i].probabilities[j] > 0)
+                    if (semantics.globalSemanticMap[i].alphaParamsCategories[j] > 0)
                     {
                         vision_msgs::msg::ObjectHypothesisWithPose instanceHypothesis;
                         instanceHypothesis.hypothesis.class_id = semantics.default_categories[j];
-                        instanceHypothesis.hypothesis.score = semantics.globalSemanticMap[i].probabilities[j];
+                        instanceHypothesis.hypothesis.score = semantics.globalSemanticMap[i].alphaParamsCategories[j];
                         instance.results.push_back(instanceHypothesis);
                     }
                 }

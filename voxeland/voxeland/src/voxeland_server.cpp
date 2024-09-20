@@ -189,8 +189,10 @@ namespace voxeland_server
                 currentMode = currentMode | DataMode::SemanticsInstances;
             }
 
+            rmw_qos_profile_t qos{.reliability = RMW_QOS_POLICY_RELIABILITY_RELIABLE};
             get_distributions_srv_ = create_service<GetClassDistributions>("voxeland/get_class_distributions",
-                                     std::bind(&VoxelandServer::getClassDistributionsSrv, this, std::placeholders::_1, std::placeholders::_2));
+                                     std::bind(&VoxelandServer::getClassDistributionsSrv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+                                     qos);
         }
 
         if (bonxai_.get() == nullptr)
@@ -329,19 +331,22 @@ namespace voxeland_server
         outfile.close();
     }
 
-    void VoxelandServer::getClassDistributionsSrv(GetClassDistributions::Request::SharedPtr request,
-            GetClassDistributions::Response::SharedPtr response)
+    bool VoxelandServer::getClassDistributionsSrv(
+        const std::shared_ptr<rmw_request_id_t> requestHeader,
+        GetClassDistributions::Request::SharedPtr request,
+        GetClassDistributions::Response::SharedPtr response)
     {
         if (!modeHas(DataMode::Semantics))
         {
             VXL_ERROR("Tried to get class distributions through service, but current mode does not have semantic information!");
-            return;
+            return false;
         }
 
-        VXL_INFO("Received class distribution request");
+        VXL_WARN("Received class distribution request {}", requestHeader->sequence_number);
         Stopwatch watch;
         AUTO_TEMPLATE_SEMANTICS_ONLY(currentMode, fillClassSrvResponse<DataT>(request, response));
-        VXL_INFO("Took {}s to process the service", watch.ellapsed());
+        VXL_WARN("Took {}s to process the service", watch.ellapsed());
+        return true;
     }
 
     template <typename DataT>
@@ -372,14 +377,14 @@ namespace voxeland_server
             {
                 occupancyProb = Bonxai::prob(cell->probability_log);
                 classProbabilities = cell->data.GetClassProbabilities();
-                if(classProbabilities.size() == 0) // the cell exists but has only ever been observed to be empty, give it the default class distribution
-                    setDefaultClassDistribution(classProbabilities);  
+                if (classProbabilities.size() == 0) // the cell exists but has only ever been observed to be empty, give it the default class distribution
+                    setDefaultClassDistribution(classProbabilities);
             }
             else
             {
                 //the cell does not exist! this means we've never even had a ray pass through it
                 occupancyProb = 0.5f;
-                setDefaultClassDistribution(classProbabilities);  
+                setDefaultClassDistribution(classProbabilities);
             }
 
             // combine both probs into p(class)
@@ -393,7 +398,7 @@ namespace voxeland_server
 
 
             // retrieve the corresponding class names and fill in the response
-            voxeland::msg::ClassDistribution distribution = response->distributions[i];
+            voxeland::msg::ClassDistribution& distribution = response->distributions[i];
             for (size_t class_id = 0; class_id < classProbabilities.size(); class_id++)
             {
                 vision_msgs::msg::ObjectHypothesis& hypothesis = distribution.probabilities.emplace_back();

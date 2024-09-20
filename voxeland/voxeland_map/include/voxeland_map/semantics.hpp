@@ -30,7 +30,7 @@ struct SemanticObject
     // Note: For now, it is supposed that in the globalSemanticMap, instances are not going to disappear.
     // Otherwise, it should be considered, as the instanceID cannot be the globalSemanticMap.size()+1
     std::string instanceID;
-    std::vector<double> probabilities;
+    std::vector<double> alphaParamsCategories; // concentration parameters for the Dirichlet distribution
     uint32_t numberObservations = 1;
     BoundingBox3D bbox;
 
@@ -41,20 +41,20 @@ struct SemanticObject
     // the data in this SemanticObject, but instead it will check the data in the instanceID set in pointsTo.
 
     SemanticObject(size_t numCategories, InstanceID_t _instanceID)
-        : probabilities(numCategories, 0)
+        : alphaParamsCategories(numCategories, 0)
         , instanceID("obj" + std::to_string(_instanceID))
     {}
-    SemanticObject(const std::vector<double>& _probabilities, InstanceID_t _instanceID)
-        : probabilities(_probabilities)
+    SemanticObject(const std::vector<double>& alphas, InstanceID_t _instanceID)
+        : alphaParamsCategories(alphas)
         , instanceID("obj" + std::to_string(_instanceID))
     {}
     SemanticObject(size_t numCategories, InstanceID_t _instanceID, BoundingBox3D _bbox)
-        : probabilities(numCategories, 0)
+        : alphaParamsCategories(numCategories, 0)
         , instanceID("obj" + std::to_string(_instanceID))
         , bbox(_bbox)
     {}
-    SemanticObject(const std::vector<double>& _probabilities, InstanceID_t _instanceID, BoundingBox3D _bbox)
-        : probabilities(_probabilities)
+    SemanticObject(const std::vector<double>& alphas, InstanceID_t _instanceID, BoundingBox3D _bbox)
+        : alphaParamsCategories(alphas)
         , instanceID("obj" + std::to_string(_instanceID))
         , bbox(_bbox)
     {}
@@ -326,9 +326,9 @@ public:
                     if (iou > 0.3)
                     {
                         secondInstance.pointsTo = i;
-                        for (size_t k = 0; k < firstInstance.probabilities.size(); k++)
+                        for (size_t k = 0; k < firstInstance.alphaParamsCategories.size(); k++)
                         {
-                            firstInstance.probabilities[k] += secondInstance.probabilities[k];
+                            firstInstance.alphaParamsCategories[k] += secondInstance.alphaParamsCategories[k];
                         }
                         updateBBoxBounds(firstInstance.bbox, secondInstance.bbox);
                         firstInstance.numberObservations += secondInstance.numberObservations;
@@ -355,13 +355,13 @@ public:
         lastMapLocalToGlobal.resize(localMap.size());
         if (globalSemanticMap.empty())
         {
-            globalSemanticMap.push_back(SemanticObject(localMap[0].probabilities, 0, localMap[0].bbox));
+            globalSemanticMap.push_back(SemanticObject(localMap[0].alphaParamsCategories, 0, localMap[0].bbox));
         }
         else
         {
-            for (size_t i = 0; i < localMap[0].probabilities.size(); i++)
+            for (size_t i = 0; i < localMap[0].alphaParamsCategories.size(); i++)
             {
-                globalSemanticMap[0].probabilities[i] += localMap[0].probabilities[i];
+                globalSemanticMap[0].alphaParamsCategories[i] += localMap[0].alphaParamsCategories[i];
             }
             updateBBoxBounds(globalSemanticMap[0].bbox, localMap[0].bbox);
         }
@@ -382,15 +382,15 @@ public:
                 continue;
 
             std::vector<double>::const_iterator itLocal =
-                std::max_element(localInstance.probabilities.begin(), localInstance.probabilities.end());
-            uint8_t localClassIdx = std::distance(localInstance.probabilities.begin(), itLocal);
+                std::max_element(localInstance.alphaParamsCategories.begin(), localInstance.alphaParamsCategories.end());
+            uint8_t localClassIdx = std::distance(localInstance.alphaParamsCategories.begin(), itLocal);
 
             for (InstanceID_t globalInstanceID = 1; globalInstanceID < currentInstancesNumber; globalInstanceID++)
             {
                 SemanticObject& globalInstance = globalSemanticMap[globalInstanceID];
                 std::vector<double>::iterator itGlobal =
-                    std::max_element(globalInstance.probabilities.begin(), globalInstance.probabilities.end());
-                uint8_t globalClassIdx = std::distance(globalInstance.probabilities.begin(), itGlobal);
+                    std::max_element(globalInstance.alphaParamsCategories.begin(), globalInstance.alphaParamsCategories.end());
+                uint8_t globalClassIdx = std::distance(globalInstance.alphaParamsCategories.begin(), itGlobal);
 
                 if (globalInstance.pointsTo == -1 && checkBBoxIntersect(localInstance.bbox, globalInstance.bbox))
                 {
@@ -402,9 +402,9 @@ public:
                     {
                         // VXL_INFO("Integrando {} local con {} global con IoU de {}",
                         // default_categories[localClassIdx].c_str(), default_categories[globalClassIdx].c_str(), iou);
-                        for (size_t i = 0; i < globalInstance.probabilities.size(); i++)
+                        for (size_t i = 0; i < globalInstance.alphaParamsCategories.size(); i++)
                         {
-                            globalInstance.probabilities[i] += localInstance.probabilities[i];
+                            globalInstance.alphaParamsCategories[i] += localInstance.alphaParamsCategories[i];
                         }
                         lastMapLocalToGlobal[localInstanceID] = globalInstanceID;
                         // int before_update = listOfVoxelsInsideBBox<DataT>(globalInstance.bbox,
@@ -425,7 +425,7 @@ public:
             {
                 lastMapLocalToGlobal[localInstanceID] = globalSemanticMap.size();
                 globalSemanticMap.push_back(
-                    SemanticObject(localInstance.probabilities, globalSemanticMap.size(), localInstance.bbox));
+                    SemanticObject(localInstance.alphaParamsCategories, globalSemanticMap.size(), localInstance.bbox));
                 added += 1;
             }
         }
@@ -526,10 +526,10 @@ public:
                 data_json["instances"][globalSemanticMap[i].instanceID]["results"] = {};
                 for (InstanceID_t j = 0; j < default_categories.size(); j++)
                 {
-                    if (globalSemanticMap[i].probabilities[j] > 0)
+                    if (globalSemanticMap[i].alphaParamsCategories[j] > 0)
                     {
                         data_json["instances"][globalSemanticMap[i].instanceID]["results"][default_categories[j]] =
-                            globalSemanticMap[i].probabilities[j];
+                            globalSemanticMap[i].alphaParamsCategories[j];
                     }
                 }
 

@@ -1,5 +1,4 @@
 #pragma once
-
 #include "Color.hpp"
 
 namespace voxeland
@@ -10,7 +9,7 @@ namespace voxeland
         std::vector<InstanceID_t> instances_candidates;
         std::vector<uint32_t> instances_votes;
 
-        SemanticsInstances(){};
+        SemanticsInstances() {};
 
         void update(const pcl::PointXYZSemantics& pcl)
         {
@@ -46,19 +45,19 @@ namespace voxeland
         static std::string getHeaderPLY()
         {
             return fmt::format(
-                "{}\n"
-                "{}\n"
-                "property int instanceid\n"
-                "property float uncertainty_instances\n"
-                "property float uncertainty_categories",
-                getXYZheader(),
-                getRGBheader());
+                       "{}\n"
+                       "{}\n"
+                       "property int instanceid\n"
+                       "property float uncertainty_instances\n"
+                       "property float uncertainty_categories",
+                       getXYZheader(),
+                       getRGBheader());
         }
 
         std::vector<double> GetClassProbabilities()
         {
             SemanticMap& semantics = SemanticMap::get_instance();
-            std::vector<double> probabilities;
+            std::vector<double> alphasDirichlet;
             size_t total_votes = 0;
 
             for (InstanceID_t i = 0; i < instances_votes.size(); i++)
@@ -69,15 +68,21 @@ namespace voxeland
                 for (InstanceID_t j = 0; j < semantics.default_categories.size(); j++)
                 {
                     if (i == 0)
-                        probabilities.push_back(double(instances_votes[i]) / total_votes *
-                                                semantics.globalSemanticMap[instances_candidates[i]].probabilities[j]);
+                        alphasDirichlet.push_back(double(instances_votes[i]) / total_votes *
+                                                  semantics.globalSemanticMap[instances_candidates[i]].alphaParamsCategories[j]);
                     else
-                        probabilities[j] +=
-                            double(instances_votes[i]) / total_votes * semantics.globalSemanticMap[instances_candidates[i]].probabilities[j];
+                        alphasDirichlet[j] +=
+                            double(instances_votes[i]) / total_votes * semantics.globalSemanticMap[instances_candidates[i]].alphaParamsCategories[j];
                 }
             }
+            double sum = std::accumulate(alphasDirichlet.begin(), alphasDirichlet.end(), 0.);
+            std::vector<double> probabilities(alphasDirichlet.size());
+
+            for (size_t i = 0; i < alphasDirichlet.size(); i++)
+                probabilities[i] = alphasDirichlet[i] / sum;
 
             return probabilities;
+            return alphasDirichlet;
         }
 
     protected:
@@ -159,4 +164,4 @@ namespace voxeland
             }
         }
     };
-}  // namespace voxeland
+} // namespace voxeland
