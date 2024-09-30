@@ -9,7 +9,7 @@ TODO
 ## Installation
 Move to your colcon workspace and run:
 
-```git clone --recursive git@github.com:MAPIRlab/Voxeland.git src/voxeland```
+```git clone --recurse-submodules git@github.com:MAPIRlab/Voxeland.git src/voxeland```
 
 This will download the code for voxeland and some third party libraries. You will also need the `segmentation_msgs` package, available [here](https://github.com/MAPIRlab/instance_segmentation).
 
