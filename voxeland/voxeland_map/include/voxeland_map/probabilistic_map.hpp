@@ -50,7 +50,7 @@ namespace Bonxai
     public:
         using Vector3D = Eigen::Vector3d;
 
-        static constexpr int32_t UnknownProbability = logodds(0.5f);
+        static inline int32_t UnknownProbability = logodds(0.5f);
         /// These default values are the same as OctoMap
         struct Options
         {

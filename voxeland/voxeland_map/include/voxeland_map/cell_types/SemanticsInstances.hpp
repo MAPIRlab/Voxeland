@@ -57,7 +57,7 @@ namespace voxeland
         std::vector<double> GetClassProbabilities()
         {
             SemanticMap& semantics = SemanticMap::get_instance();
-            std::vector<double> alphasDirichlet;
+            std::vector<double> alphasDirichlet(instances_candidates.size(), 0.0);
             size_t total_votes = 0;
 
             for (InstanceID_t i = 0; i < instances_votes.size(); i++)
@@ -67,12 +67,8 @@ namespace voxeland
             {
                 for (InstanceID_t j = 0; j < semantics.default_categories.size(); j++)
                 {
-                    if (i == 0)
-                        alphasDirichlet.push_back(double(instances_votes[i]) / total_votes *
-                                                  semantics.globalSemanticMap[instances_candidates[i]].alphaParamsCategories[j]);
-                    else
-                        alphasDirichlet[j] +=
-                            double(instances_votes[i]) / total_votes * semantics.globalSemanticMap[instances_candidates[i]].alphaParamsCategories[j];
+                    alphasDirichlet[j] +=
+                        double(instances_votes[i]) / total_votes * semantics.globalSemanticMap[instances_candidates[i]].alphaParamsCategories[j];
                 }
             }
             double sum = std::accumulate(alphasDirichlet.begin(), alphasDirichlet.end(), 0.);
@@ -82,7 +78,6 @@ namespace voxeland
                 probabilities[i] = alphasDirichlet[i] / sum;
 
             return probabilities;
-            return alphasDirichlet;
         }
 
     protected:

@@ -66,6 +66,7 @@ if ( ament_cmake_FOUND )
     find_package(sensor_msgs REQUIRED)
     find_package(vision_msgs REQUIRED)
     find_package(geometry_msgs REQUIRED)
+    find_package(voxeland_msgs REQUIRED)
     ament_auto_find_build_dependencies()
 
     include_directories(voxeland/include 3rdparty)
@@ -84,18 +85,6 @@ if ( ament_cmake_FOUND )
       PLUGIN "voxeland_server::VoxelandServer"
       EXECUTABLE voxeland_server_node
     )
-
-    # Messages and services
-    find_package(rosidl_default_generators REQUIRED)
-    rosidl_generate_interfaces(${PROJECT_NAME}
-        voxeland/msg/ClassDistribution.msg
-        voxeland/srv/GetClassDistributions.srv
-        DEPENDENCIES geometry_msgs vision_msgs
-    )
-    ament_export_dependencies(rosidl_default_runtime)
-    rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-    target_link_libraries(voxeland_server "${cpp_typesupport_target}") 
-
 
     ament_auto_package(
       INSTALL_TO_SHARE

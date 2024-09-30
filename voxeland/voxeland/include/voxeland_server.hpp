@@ -23,22 +23,14 @@
 #include "voxeland_map/probabilistic_map_templated.hpp"
 
 /* Added by JL Matez */
-#include <algorithm>
-#include <limits>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
 
-#include "message_filters/subscriber.h"
-#include "segmentation_msgs/msg/instance_semantic_map.hpp"
-#include "segmentation_msgs/msg/semantic_point_cloud.hpp"
-#include "tf2_eigen/tf2_eigen.hpp"
 #include "tf2_ros/buffer.h"
-#include "tf2_ros/create_timer_ros.h"
-#include "tf2_ros/message_filter.h"
 #include "tf2_ros/transform_listener.h"
-#include "voxeland/srv/get_class_distributions.hpp"
+#include <voxeland_msgs/srv/get_class_distributions.hpp>
 
 namespace voxeland_server
 {
@@ -51,7 +43,7 @@ namespace voxeland_server
     {
     public:
         using ResetSrv = std_srvs::srv::Empty;
-        using GetClassDistributions = voxeland::srv::GetClassDistributions;
+        using GetClassDistributions = voxeland_msgs::srv::GetClassDistributions;
 
         DataMode currentMode = DataMode::Uninitialized;
 

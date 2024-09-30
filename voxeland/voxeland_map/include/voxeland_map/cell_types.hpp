@@ -44,8 +44,8 @@ namespace voxeland
                 return f.template operator()<SemanticsInstances>();
             case DataMode::RGBSemanticsInstances:
                 return f.template operator()<RGBSemanticsInstances>();
-            case DataMode::Uninitialized:
-                VXL_ERROR("Tried to auto-template a function with an uninitialized enum!");
+            default:
+                VXL_ERROR("Tried to auto-template a semantics function with non-semantic enum value!");
         };
     }
 
@@ -62,8 +62,8 @@ namespace voxeland
                 return f.template operator()<SemanticsInstances>();
             case DataMode::RGBSemanticsInstances:
                 return f.template operator()<RGBSemanticsInstances>();
-            case DataMode::Uninitialized:
-                VXL_ERROR("Tried to auto-template a function with an uninitialized enum!");
+            default:
+                VXL_ERROR("Tried to auto-template a semantics function with non-semantic enum value!");
         };
     }
 

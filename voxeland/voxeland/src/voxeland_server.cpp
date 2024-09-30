@@ -1,3 +1,4 @@
+#include <tf2_ros/create_timer_ros.h>
 #include <voxeland_server.hpp>
 #include <voxeland_map/Utils/Stopwatch.hpp>
 
@@ -393,12 +394,12 @@ namespace voxeland_server
                 for (size_t classIndex = 0; classIndex < classProbabilities.size() - 1; classIndex++)
                     classProbabilities[classIndex] = classProbabilities[classIndex] * occupancyProb;
 
-                classProbabilities.back() = classProbabilities.back() * occupancyProb + (1 - occupancyProb);
+                classProbabilities.back() = classProbabilities.back() * occupancyProb + (1 - occupancyProb); // the last element is always the background class
             }
 
 
             // retrieve the corresponding class names and fill in the response
-            voxeland::msg::ClassDistribution& distribution = response->distributions[i];
+            voxeland_msgs::msg::ClassDistribution& distribution = response->distributions[i];
             for (size_t class_id = 0; class_id < classProbabilities.size(); class_id++)
             {
                 vision_msgs::msg::ObjectHypothesis& hypothesis = distribution.probabilities.emplace_back();
