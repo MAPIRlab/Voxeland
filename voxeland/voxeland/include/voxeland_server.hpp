@@ -28,6 +28,7 @@
 #include <string>
 #include <vector>
 
+#include "tf2_eigen/tf2_eigen.hpp" // IWYU pragma: keep
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
 #include <voxeland_msgs/srv/get_class_distributions.hpp>
