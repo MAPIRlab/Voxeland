@@ -1,14 +1,14 @@
 #include <tf2_ros/create_timer_ros.h>
-#include <voxeland_server.hpp>
+
 #include <voxeland_map/Utils/Stopwatch.hpp>
+#include <voxeland_server.hpp>
 
 namespace
 {
     template <typename T>
     bool update_param(const std::vector<rclcpp::Parameter>& p, const std::string& name, T& value)
     {
-        auto it = std::find_if(p.cbegin(), p.cend(), [&name](const rclcpp::Parameter & parameter)
-        {
+        auto it = std::find_if(p.cbegin(), p.cend(), [&name](const rclcpp::Parameter& parameter) {
             return parameter.get_name() == name;
         });
         if (it != p.cend())
@@ -18,7 +18,7 @@ namespace
         }
         return false;
     }
-} // namespace
+}  // namespace
 
 namespace voxeland_server
 {
@@ -153,10 +153,8 @@ namespace voxeland_server
         // initialize bonxai object & params
         VXL_INFO("Voxel resolution: {}m", res_);
         AUTO_TEMPLATE(currentMode,
-                      bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<DataT>>(res_)
-                     );
-        Bonxai::ProbabilisticMap::Options options =
-        {
+                      bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<DataT>>(res_));
+        Bonxai::ProbabilisticMap::Options options = {
             Bonxai::logodds(prob_miss), Bonxai::logodds(prob_hit), Bonxai::logodds(thres_min), Bonxai::logodds(thres_max)
         };
         bonxai_->setOptions(options);
@@ -190,10 +188,10 @@ namespace voxeland_server
                 currentMode = currentMode | DataMode::SemanticsInstances;
             }
 
-            rmw_qos_profile_t qos{.reliability = RMW_QOS_POLICY_RELIABILITY_RELIABLE};
+            rmw_qos_profile_t qos{ .reliability = RMW_QOS_POLICY_RELIABILITY_RELIABLE };
             get_distributions_srv_ = create_service<GetClassDistributions>("voxeland/get_class_distributions",
-                                     std::bind(&VoxelandServer::getClassDistributionsSrv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
-                                     qos);
+                                                                           std::bind(&VoxelandServer::getClassDistributionsSrv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+                                                                           qos);
         }
 
         if (bonxai_.get() == nullptr)
@@ -210,36 +208,36 @@ namespace voxeland_server
             }
         }
 
-        if (currentMode == DataMode::Empty) // Mode XYZ
+        if (currentMode == DataMode::Empty)  // Mode XYZ
         {
             VXL_INFO("Mode Empty");
             insertPointCloudBasic<voxeland::Empty>(cloud);
         }
-        else if (currentMode == DataMode::RGB) // Mode XYZRGB
+        else if (currentMode == DataMode::RGB)  // Mode XYZRGB
         {
             VXL_INFO("Mode RGB");
             insertPointCloudBasic<voxeland::Color>(cloud);
         }
 
         // Semantics - No instances
-        else if (currentMode == DataMode::Semantics) // Mode XYZSemantics
+        else if (currentMode == DataMode::Semantics)  // Mode XYZSemantics
         {
             VXL_INFO("Mode Semantics");
             insertPointCloudSemantics<voxeland::Semantics>(cloud);
         }
-        else if (currentMode == DataMode::RGBSemantics) // Mode XYZRGBSemantics
+        else if (currentMode == DataMode::RGBSemantics)  // Mode XYZRGBSemantics
         {
             VXL_INFO("Mode RGBSemantics");
             insertPointCloudSemantics<voxeland::RGBSemantics>(cloud);
         }
 
         // Semantics with instances
-        else if (currentMode == DataMode::SemanticsInstances) // Mode XYZSemanticsInstances
+        else if (currentMode == DataMode::SemanticsInstances)  // Mode XYZSemanticsInstances
         {
             VXL_INFO("Mode SemanticsInstances");
             insertPointCloudSemanticInstances<voxeland::SemanticsInstances>(cloud);
         }
-        else if (currentMode == DataMode::RGBSemanticsInstances) // Mode XYZRGBSemanticsInstances
+        else if (currentMode == DataMode::RGBSemanticsInstances)  // Mode XYZRGBSemanticsInstances
         {
             VXL_INFO("Mode RGBSemanticsInstances");
             insertPointCloudSemanticInstances<voxeland::RGBSemanticsInstances>(cloud);
@@ -282,10 +280,10 @@ namespace voxeland_server
     {
         const auto rostime = now();
         AUTO_TEMPLATE(currentMode,
-        {
-            bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<DataT>>>(res_);
-            publishAll<DataT>(rostime);
-        });
+                      {
+                          bonxai_ = std::make_unique<Bonxai::ProbabilisticMapT<Bonxai::ProbabilisticCell<DataT>>>(res_);
+                          publishAll<DataT>(rostime);
+                      });
 
         VXL_INFO("Cleared Bonxai");
 
@@ -317,8 +315,7 @@ namespace voxeland_server
         std::string ply;
 
         AUTO_TEMPLATE(currentMode,
-                      ply = mapToPLY<DataT>()
-                     );
+                      ply = mapToPLY<DataT>());
 
         std::string ply_filename = "pointcloud_cplusplus.ply";
         std::ofstream outfile(ply_filename);
@@ -356,8 +353,7 @@ namespace voxeland_server
         auto grid = bonxai_->With<DataT>()->grid();
         auto accessor = grid->createAccessor();
 
-        auto setDefaultClassDistribution = [&](std::vector<double>& dist)
-        {
+        auto setDefaultClassDistribution = [&](std::vector<double>& dist) {
             size_t numCategories = SemanticMap::get_instance().default_categories.size();
             dist.resize(numCategories, 1. / numCategories);
         };
@@ -371,19 +367,19 @@ namespace voxeland_server
             Bonxai::CoordT coord = grid->posToCoord(point.x, point.y, point.z);
             Bonxai::ProbabilisticCell<DataT>* cell = accessor.value(coord);
 
-            //get p(class | occupied) and p(occupied) from the cell
+            // get p(class | occupied) and p(occupied) from the cell
             std::vector<double> classProbabilities;
             float occupancyProb;
             if (cell)
             {
                 occupancyProb = Bonxai::prob(cell->probability_log);
                 classProbabilities = cell->data.GetClassProbabilities();
-                if (classProbabilities.size() == 0) // the cell exists but has only ever been observed to be empty, give it the default class distribution
+                if (classProbabilities.size() == 0)  // the cell exists but has only ever been observed to be empty, give it the default class distribution
                     setDefaultClassDistribution(classProbabilities);
             }
             else
             {
-                //the cell does not exist! this means we've never even had a ray pass through it
+                // the cell does not exist! this means we've never even had a ray pass through it
                 occupancyProb = 0.5f;
                 setDefaultClassDistribution(classProbabilities);
             }
@@ -392,11 +388,10 @@ namespace voxeland_server
             // this computation implicitly considers that p(class | !occupied) = 1 for the background and = 0 for every other class
             {
                 for (size_t classIndex = 0; classIndex < classProbabilities.size() - 1; classIndex++)
-                    classProbabilities[classIndex] = classProbabilities[classIndex] * occupancyProb;
+                    classProbabilities[classIndex] = std::lerp(0, classProbabilities[classIndex], occupancyProb);
 
-                classProbabilities.back() = classProbabilities.back() * occupancyProb + (1 - occupancyProb); // the last element is always the background class
+                classProbabilities.back() = std::lerp(1, classProbabilities.back(), occupancyProb);  // the last element is always the background class
             }
-
 
             // retrieve the corresponding class names and fill in the response
             voxeland_msgs::msg::ClassDistribution& distribution = response->distributions[i];
@@ -583,7 +578,7 @@ namespace voxeland_server
         return ply;
     }
 
-} // namespace voxeland_server
+}  // namespace voxeland_server
 
 #include <rclcpp_components/register_node_macro.hpp>
 
