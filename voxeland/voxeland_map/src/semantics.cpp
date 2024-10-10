@@ -120,7 +120,7 @@ void SemanticMap::updateCategoryProbability(SemanticObject& semanticObject,
                                             double probability)
 {
     semanticObject.alphaParamsCategories[categoryIndexMap[categoryName]] += probability;
-};
+}
 
 double SemanticMap::computeKLD(const std::vector<double>& P, const std::vector<double>& Q)
 {

@@ -407,7 +407,7 @@ namespace voxeland_server
     template <typename DataT>
     void VoxelandServer::insertPointCloudBasic(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud)
     {
-        using PointCloudType = DataT::PointCloudType;
+        using PointCloudType = typename DataT::PointCloudType;
         PointCloudType pc;
         pcl::fromROSMsg(cloud->cloud, pc);
         pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, DataT>(pc, cloud->pose);
@@ -418,7 +418,7 @@ namespace voxeland_server
     template <typename DataT>
     void VoxelandServer::insertPointCloudSemantics(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud)
     {
-        using PointCloudType = DataT::PointCloudType;
+        using PointCloudType = typename DataT::PointCloudType;
         PointCloudType pc;
         pcl::fromROSMsg(cloud->cloud, pc);
         pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, DataT>(pc, cloud->pose);
@@ -432,7 +432,7 @@ namespace voxeland_server
     template <typename DataT>
     void VoxelandServer::insertPointCloudSemanticInstances(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud)
     {
-        using PointCloudType = DataT::PointCloudType;
+        using PointCloudType = typename DataT::PointCloudType;
         PointCloudType pc;
         pcl::fromROSMsg(cloud->cloud, pc);
         pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, DataT>(pc, cloud->pose);

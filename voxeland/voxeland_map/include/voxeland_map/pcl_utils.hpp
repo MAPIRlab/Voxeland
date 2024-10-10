@@ -1,4 +1,10 @@
 #pragma once
+
+//Some of the PCL macros apparently use language extensions that are not part of the c++ standard
+//this is not really part of our code, so we would rather not get a wall of warnings about it every time we compile with -Wpedantic
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wpedantic"
+
 #include <eigen3/Eigen/Core>
 #include <string>
 
@@ -79,3 +85,4 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(pcl::PointXYZRGBSemantics,  // here we assume 
                                   (float, x, x)(float, y, y)(float, z, z)(float, rgb, rgb)(InstanceID_t,
                                                                                            instance_id,
                                                                                            instance_id))
+#pragma clang diagnostic pop

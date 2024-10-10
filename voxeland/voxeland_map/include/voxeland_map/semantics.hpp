@@ -394,8 +394,6 @@ public:
 
                 if (globalInstance.pointsTo == -1 && checkBBoxIntersect(localInstance.bbox, globalInstance.bbox))
                 {
-                    // Compute 3D IoU... To Do... meanwhile, check if the best category of each one is the same
-                    // if (localClassIdx == globalClassIdx)
                     double iou =
                         compute3DIoU<DataT>(globalInstance.bbox, globalInstanceID, localInstance.localGeometry.value());
                     if (iou > 0.3)
