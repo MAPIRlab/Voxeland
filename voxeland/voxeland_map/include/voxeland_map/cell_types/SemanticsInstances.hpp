@@ -57,7 +57,7 @@ namespace voxeland
         std::vector<double> GetClassProbabilities()
         {
             SemanticMap& semantics = SemanticMap::get_instance();
-            std::vector<double> alphasDirichlet(instances_candidates.size(), 0.0);
+            std::vector<double> alphasDirichlet(instances_candidates.size(), 1);
             size_t total_votes = 0;
 
             for (InstanceID_t i = 0; i < instances_votes.size(); i++)

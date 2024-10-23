@@ -1,4 +1,6 @@
 #pragma once
+#include <voxeland_map/Utils/Math.hpp>
+
 #include "Color.hpp"
 
 namespace voxeland
@@ -39,20 +41,27 @@ namespace voxeland
         static std::string getHeaderPLY()
         {
             return fmt::format(
-                       "{}\n"
-                       "{}\n"
-                       "property float uncertainty_categories",
-                       getXYZheader(),
-                       getRGBheader());
+                "{}\n"
+                "{}\n"
+                "property float uncertainty_categories",
+                getXYZheader(),
+                getRGBheader());
         }
 
         std::vector<double> GetClassProbabilities()
         {
-            double sum = std::accumulate(alphasDirichlet.begin(), alphasDirichlet.end(), 0.);
-            std::vector<double> probabilities(alphasDirichlet.size());
-            
-            for(size_t i = 0; i < alphasDirichlet.size(); i++)
-                probabilities[i] = alphasDirichlet[i] / sum;
+            // give a small weight to every class to avoid 0 probabilities
+            std::vector<double> alphasDirichlet_local = alphasDirichlet;
+            for (size_t i = 0; i < alphasDirichlet.size(); i++)
+                alphasDirichlet_local[i] = std::max(alphasDirichlet_local[i], 1.);
+
+            double sum = std::accumulate(alphasDirichlet_local.begin(), alphasDirichlet_local.end(), 0.);
+            std::vector<double> probabilities(alphasDirichlet_local.size());
+
+            for (size_t i = 0; i < alphasDirichlet_local.size(); i++)
+                probabilities[i] = alphasDirichlet_local[i] / sum;
+            VXL_ASSERT_MSG(probabilities.size() == 0 || Utils::approx(std::accumulate(probabilities.begin(), probabilities.end(), 0.), 1),
+                           "Class probabilities are not normalized!");
 
             return probabilities;
         }
@@ -70,4 +79,4 @@ namespace voxeland
                 alphasDirichlet = semantics.lastLocalSemanticMap[id].alphaParamsCategories;
         }
     };
-} // namespace Bonxai
+}  // namespace voxeland

@@ -23,29 +23,24 @@ set(CMAKE_CXX_FLAGS_DEBUG "-fno-omit-frame-pointer -O0 -g")
 set(CMAKE_CONFIG_PATH ${CMAKE_MODULE_PATH}  "${CMAKE_CURRENT_LIST_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CONFIG_PATH}")
 
-find_package(PCL REQUIRED COMPONENTS common io)
-
-#find_package(benchmark QUIET)
-find_package(octomap QUIET)
-find_package(LZ4 QUIET)
-find_package(Eigen3 QUIET)
-
-#---- Use Address sanitizer if compiled in Debug mode ----
-option(BONXAI_SANITIZE "Add address sanitizer when compiling in Debug mode" ON)
-
-if(BONXAI_SANITIZE)
-    set (CMAKE_CXX_DEBUG_FLAGS "${CMAKE_CXX_DEBUG_FLAGS}  -fsanitize=address")
-    set (CMAKE_LINKER_DEBUG_FLAGS "${CMAKE_LINKER_DEBUG_FLAGS}  -fsanitize=address")
-endif()
-
-
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 add_compile_options(-Wpedantic -fno-omit-frame-pointer)
 endif()
 
 add_compile_definitions(USING_ROS=1)
 
+if(CMAKE_BUILD_TYPE MATCHES "Debug")
+    add_compile_definitions(VXL_ENABLE_ASSERTS=1)
+endif()
+
 ####################################################
+
+find_package(PCL REQUIRED COMPONENTS common io)
+
+#find_package(benchmark QUIET)
+find_package(octomap QUIET)
+find_package(LZ4 QUIET)
+find_package(Eigen3 QUIET)
 
 # Default behavior
 find_package(rclcpp)
