@@ -3,6 +3,8 @@
 #include <voxeland_map/Utils/Stopwatch.hpp>
 #include <voxeland_server.hpp>
 
+#include "voxeland_map/Utils/logging.hpp"
+
 namespace
 {
     template <typename T>
@@ -388,9 +390,10 @@ namespace voxeland_server
             // this computation implicitly considers that p(class | !occupied) = 1 for the background and = 0 for every other class
             {
                 for (size_t classIndex = 0; classIndex < classProbabilities.size() - 1; classIndex++)
-                    classProbabilities[classIndex] = std::lerp(0, classProbabilities[classIndex], occupancyProb);
+                    classProbabilities[classIndex] = std::lerp(0., classProbabilities[classIndex], occupancyProb);
 
-                classProbabilities.back() = std::lerp(1, classProbabilities.back(), occupancyProb);  // the last element is always the background class
+                classProbabilities.back() = std::lerp(1., classProbabilities.back(), occupancyProb);  // the last element is always the background class
+                VXL_ASSERT(classProbabilities.back() < 1);
             }
 
             // retrieve the corresponding class names and fill in the response
