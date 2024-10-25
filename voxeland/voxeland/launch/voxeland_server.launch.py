@@ -15,8 +15,8 @@ def launch_arguments():
 
         DeclareLaunchArgument("pHit", default_value="0.6"),                 # p (occupancy | hit)
         DeclareLaunchArgument("pMiss", default_value="0.4"),                # p (occupancy | miss)
-        DeclareLaunchArgument("clampOccupancyMax", default_value="0.12"),   # value at which the occupancy prob gets clamped
-        DeclareLaunchArgument("clampOccupancyMin", default_value="0.97"),   # value at which the occupancy prob gets clamped
+        DeclareLaunchArgument("clampOccupancyMin", default_value="0.12"),   # value at which the occupancy prob gets clamped
+        DeclareLaunchArgument("clampOccupancyMax", default_value="0.97"),   # value at which the occupancy prob gets clamped
    ]
 #==========================
 
@@ -33,8 +33,8 @@ def launch_setup(context, *args, **kwargs):
            
            {"sensor_model.hit": parse_substitution("$(var pHit)")},
            {"sensor_model.miss": parse_substitution("$(var pMiss)")},
-           {"sensor_model.min": parse_substitution("$(var clampOccupancyMax)")},
-           {"sensor_model.max": parse_substitution("$(var clampOccupancyMin)")},
+           {"sensor_model.min": parse_substitution("$(var clampOccupancyMin)")},
+           {"sensor_model.max": parse_substitution("$(var clampOccupancyMax)")},
         ],
     )
     return [
