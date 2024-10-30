@@ -9,7 +9,7 @@
 
 ### Citation
 <pre><code>@ARTICLE{matez_voxeland,
-  author={Matez-Bandera, Jose-Luis and Monroy, Javier and Gonzalez-Jimenez, Javier},
+  author={Matez-Bandera, Jose-Luis and Ojeda, Pepe and Monroy, Javier and Gonzalez-Jimenez, Javier and Ruiz-Sarmiento, Jose-Raul},
   journal={Robotics and Autonomous Systems}, 
   title={Voxeland: Probabilistic Instance-Aware Semantic Mapping with Evidence-based Uncertainty Quantification}, 
   year={2024},
