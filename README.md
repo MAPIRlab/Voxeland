@@ -27,6 +27,6 @@ Next, run the robot perception node as follows:
 
 Finally, execute Voxeland to start the mapping session:
 
-`ros2 launch voxeland voxeland_mapping.launch.xml`
+`ros2 launch voxeland bonxai_mapping.launch.xml`
 
 (Now, everything is ready for the semantic mapping session, as soon as you play your dataset.)
