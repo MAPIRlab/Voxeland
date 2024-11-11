@@ -1,5 +1,6 @@
 #include <tf2_ros/create_timer_ros.h>
 
+#include <filesystem>
 #include <voxeland_map/Utils/Stopwatch.hpp>
 #include <voxeland_server.hpp>
 
@@ -294,20 +295,19 @@ namespace voxeland_server
 
     void VoxelandServer::saveMapSrv(const std::shared_ptr<std_srvs::srv::Empty::Request>, const std::shared_ptr<std_srvs::srv::Empty::Response>)
     {
-        // Refine map (if necessary)
-        VXL_INFO("Service working!");
+        VXL_INFO("Saving map files");
 
         if (modeHas(DataMode::SemanticsInstances))
         {
             AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, semantics.refineGlobalSemanticMap<DataT>(15));
             nlohmann::json json_data = semantics.mapToJSON();
 
-            std::string json_filename = "map_cplusplus.json";
+            std::string json_filename = "voxeland_instanceMap.json";
             std::ofstream outfile(json_filename);
 
             if (!outfile.is_open())
             {
-                std::cerr << "Cannot save .JSON file in: " << json_filename << std::endl;
+                VXL_ERROR("Cannot save .JSON file in: {}/{}", std::filesystem::current_path().string(), json_filename);
                 return;
             }
             outfile << json_data.dump(4);
@@ -319,12 +319,12 @@ namespace voxeland_server
         AUTO_TEMPLATE(currentMode,
                       ply = mapToPLY<DataT>());
 
-        std::string ply_filename = "pointcloud_cplusplus.ply";
+        std::string ply_filename = "voxeland_pointcloud.ply";
         std::ofstream outfile(ply_filename);
 
         if (!outfile.is_open())
         {
-            std::cerr << "Cannot save .PLY file in: " << ply_filename << std::endl;
+            VXL_ERROR("Cannot save .PLY file in: {}/{}", std::filesystem::current_path().string(), ply_filename);
             return;
         }
         outfile << ply;
