@@ -28,6 +28,7 @@ def launch_setup(context, *args, **kwargs):
         parameters=[
            {"frame_id":parse_substitution("$(var fixed_frame)")},
            {"resolution":parse_substitution("$(var resolution)")},
+           {"latch": False},
            {"semantics_as_instances": False},
            {"sensor_model.max_range": 4.0},
            

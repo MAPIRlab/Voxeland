@@ -54,7 +54,7 @@ namespace voxeland_server
                 "will only be re-published on map change");
         }
 
-        auto qos = latched_topics_ ? rclcpp::QoS{ 1 }.transient_local() : rclcpp::QoS{ 1 };
+        auto qos = rclcpp::QoS{ 1 };
         point_cloud_pub_ = create_publisher<PointCloud2>("bonxai_point_cloud_centers", qos);
 
         tf2_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
