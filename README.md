@@ -1,6 +1,6 @@
 # <p align="center"> Voxeland: Probabilistic Instance-Aware Semantic Mapping with Evidence-based Uncertainty Quantification </p>
 
-<p align="center"> <a href="https://mapir.isa.uma.es/mapirwebsite/?p=1792">Jose-Luis Matez-Bandera</a><sup>1</sup>, <a href="https://mapir.isa.uma.es/mapirwebsite/?p=1792">Pepe Ojeda</a><sup>1</sup>, <a href="https://mapir.isa.uma.es/mapirwebsite/?p=1438">Javier Monroy</a><sup>1</sup>, <a href="http://mapir.isa.uma.es/jgonzalez">Javier Gonzalez-Jimenez</a><sup>1</sup> and <a href="https://mapir.isa.uma.es/mapirwebsite/?p=1366">Jose-Raul Ruiz-Sarmiento</a><sup>1</sup></p>
+<p align="center"> <a href="https://mapir.isa.uma.es/mapirwebsite/?p=1792">Jose-Luis Matez-Bandera</a><sup>1</sup>, <a href="https://mapir.isa.uma.es/mapirwebsite/?p=1638">Pepe Ojeda</a><sup>1</sup>, <a href="https://mapir.isa.uma.es/mapirwebsite/?p=1438">Javier Monroy</a><sup>1</sup>, <a href="http://mapir.isa.uma.es/jgonzalez">Javier Gonzalez-Jimenez</a><sup>1</sup> and <a href="https://mapir.isa.uma.es/mapirwebsite/?p=1366">Jose-Raul Ruiz-Sarmiento</a><sup>1</sup></p>
 
 <p align="center"> <sup>1</sup> Machine Perception and Intelligent Robotics (MAPIR) Group,<br/> Malaga Institute for Mechatronics Engineering and Cyber-Physical Systems (IMECH.UMA).<br/> University of Malaga. Spain. </p>
 
