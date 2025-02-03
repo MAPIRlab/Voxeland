@@ -1,7 +1,7 @@
 #pragma once
 
 #include "probabilistic_map.hpp"
-#include "voxeland_map/logging.hpp"
+#include "voxeland_map/Utils/logging.hpp"
 
 namespace Bonxai
 {
@@ -125,7 +125,7 @@ namespace Bonxai
 
         if (cell->update_id != _update_count)
         {
-            cell->probability_log = std::min(cell->probability_log + _options.prob_hit_log, _options.clamp_max_log);
+            cell->probability_log = std::min(cell->probability_log + _options.prob_hit_log - ProbabilisticMap::UnknownProbability, _options.clamp_max_log);
 
             cell->update_id = _update_count;
             _hit_coords.push_back(coord);
@@ -140,7 +140,7 @@ namespace Bonxai
 
         if (cell->update_id != _update_count)
         {
-            cell->probability_log = std::max(cell->probability_log + _options.prob_miss_log, _options.clamp_min_log);
+            cell->probability_log = std::max(cell->probability_log + _options.prob_miss_log - ProbabilisticMap::UnknownProbability, _options.clamp_min_log);
 
             cell->update_id = _update_count;
             _miss_coords.push_back(coord);
@@ -230,7 +230,7 @@ namespace Bonxai
             if (cell->update_id != _update_count)
             {
                 cell->probability_log =
-                    std::max(cell->probability_log + _options.prob_miss_log, _options.clamp_min_log);
+                    std::max(cell->probability_log + _options.prob_miss_log - ProbabilisticMap::UnknownProbability, _options.clamp_min_log);
                 cell->update_id = _update_count;
             }
             return true;

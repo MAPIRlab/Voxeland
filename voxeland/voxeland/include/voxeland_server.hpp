@@ -10,7 +10,7 @@
 #include <semantics_ros_wrapper.hpp>
 #include <voxeland_map/cell_types.hpp>
 #include <voxeland_map/data_modes.hpp>
-#include <voxeland_map/logging.hpp>
+#include <voxeland_map/Utils/logging.hpp>
 #include <voxeland_map/semantics.hpp>
 
 #include "bonxai/bonxai.hpp"
@@ -23,22 +23,15 @@
 #include "voxeland_map/probabilistic_map_templated.hpp"
 
 /* Added by JL Matez */
-#include <algorithm>
-#include <limits>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
 
-#include "message_filters/subscriber.h"
-#include "segmentation_msgs/msg/instance_semantic_map.hpp"
-#include "segmentation_msgs/msg/semantic_point_cloud.hpp"
-#include "tf2_eigen/tf2_eigen.hpp"
+#include "tf2_eigen/tf2_eigen.hpp" // IWYU pragma: keep
 #include "tf2_ros/buffer.h"
-#include "tf2_ros/create_timer_ros.h"
-#include "tf2_ros/message_filter.h"
 #include "tf2_ros/transform_listener.h"
-#include "voxeland/srv/get_class_distributions.hpp"
+#include <voxeland_msgs/srv/get_class_distributions.hpp>
 
 namespace voxeland_server
 {
@@ -51,7 +44,7 @@ namespace voxeland_server
     {
     public:
         using ResetSrv = std_srvs::srv::Empty;
-        using GetClassDistributions = voxeland::srv::GetClassDistributions;
+        using GetClassDistributions = voxeland_msgs::srv::GetClassDistributions;
 
         DataMode currentMode = DataMode::Uninitialized;
 
@@ -68,12 +61,15 @@ namespace voxeland_server
 
         void saveMapSrv(const std::shared_ptr<std_srvs::srv::Empty::Request> req, const std::shared_ptr<std_srvs::srv::Empty::Response> resp);
 
-        void getClassDistributionsSrv(GetClassDistributions::Request::SharedPtr request, GetClassDistributions::Response::SharedPtr response);
+        bool getClassDistributionsSrv(const std::shared_ptr<rmw_request_id_t> requestHeader, GetClassDistributions::Request::SharedPtr request, GetClassDistributions::Response::SharedPtr response);
 
         /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
         virtual void insertCloudCallback(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
 
-        bool modeHas(DataMode mode) { return static_cast<int>(currentMode & mode) != 0; }
+        bool modeHas(DataMode mode)
+        {
+            return static_cast<int>(currentMode & mode) != 0;
+        }
 
         SemanticsROSWrapper semantics_ros_wrapper;
 
@@ -92,8 +88,14 @@ namespace voxeland_server
         template <typename DataT>
         std::string mapToPLY();
 
-        template <typename PointCloudTypeT, typename DataT>
-        void insertPointCloud(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
+        template <typename DataT>
+        void insertPointCloudBasic(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
+
+        template <typename DataT>
+        void insertPointCloudSemantics(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
+
+        template <typename DataT>
+        void insertPointCloudSemanticInstances(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
 
         template <typename DataT>
         void fillClassSrvResponse(GetClassDistributions::Request::SharedPtr request, GetClassDistributions::Response::SharedPtr response);
@@ -118,8 +120,8 @@ namespace voxeland_server
         std::vector<Bonxai::CoordT> key_ray_;
 
         double max_range_;
-        std::string world_frame_id_;  // the map frame
-        std::string base_frame_id_;   // base of the robot for ground plane filtering
+        std::string world_frame_id_; // the map frame
+        std::string base_frame_id_; // base of the robot for ground plane filtering
 
         bool latched_topics_;
 
@@ -139,6 +141,6 @@ namespace voxeland_server
         u_int32_t number_iterations = 0;
     };
 
-}  // namespace voxeland_server
+} // namespace voxeland_server
 
 #endif  // voxeland_server__voxeland_server_HPP_

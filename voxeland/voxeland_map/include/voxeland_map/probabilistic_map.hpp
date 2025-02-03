@@ -50,7 +50,7 @@ namespace Bonxai
     public:
         using Vector3D = Eigen::Vector3d;
 
-        static constexpr int32_t UnknownProbability = logodds(0.5f);
+        static inline int32_t UnknownProbability = logodds(0.5f);
         /// These default values are the same as OctoMap
         struct Options
         {
@@ -73,6 +73,8 @@ namespace Bonxai
             return dynamic_cast<ProbabilisticMapT<DataT>*>(this);
         }
 
+        virtual ~ProbabilisticMap() {}
+
     protected:
         virtual void updateFreeCells(const Vector3D& origin) = 0;
         virtual Point3D coordToPos(CoordT coord) = 0;
@@ -92,7 +94,7 @@ namespace Bonxai
 
         ProbabilisticCell()
             : update_id(0)
-            , probability_log(ProbabilisticMap::UnknownProbability) {};
+            , probability_log(ProbabilisticMap::UnknownProbability){};
     };
 
     //--------------------------------------------------

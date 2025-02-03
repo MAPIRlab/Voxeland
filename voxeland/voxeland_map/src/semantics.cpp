@@ -112,11 +112,6 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
 
 uint32_t SemanticMap::indexToHexColor(InstanceID_t index)
 {
-    // if (index == (default_categories.size() - 1))
-    //{
-    //   return 0xbcbcbc;
-    // }
-
     return color_palette[index % color_palette.size()];
 }
 
@@ -124,8 +119,8 @@ void SemanticMap::updateCategoryProbability(SemanticObject& semanticObject,
                                             const std::string& categoryName,
                                             double probability)
 {
-    semanticObject.probabilities[categoryIndexMap[categoryName]] += probability;
-};
+    semanticObject.alphaParamsCategories[categoryIndexMap[categoryName]] += probability;
+}
 
 double SemanticMap::computeKLD(const std::vector<double>& P, const std::vector<double>& Q)
 {
@@ -191,7 +186,7 @@ void SemanticMap::updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D&
 InstanceID_t SemanticMap::getCategoryMaxProbability(InstanceID_t objID)
 {
     auto itProbs =
-        std::max_element(globalSemanticMap[objID].probabilities.begin(), globalSemanticMap[objID].probabilities.end());
+        std::max_element(globalSemanticMap[objID].alphaParamsCategories.begin(), globalSemanticMap[objID].alphaParamsCategories.end());
 
-    return std::distance(globalSemanticMap[objID].probabilities.begin(), itProbs);
+    return std::distance(globalSemanticMap[objID].alphaParamsCategories.begin(), itProbs);
 }
