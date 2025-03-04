@@ -82,6 +82,21 @@ if ( ament_cmake_FOUND )
       EXECUTABLE voxeland_server_node
     )
 
+    ament_auto_add_library(voxeland_disambiguation SHARED
+    voxeland/src/voxeland_disambiguation.cpp
+    )
+
+    target_link_libraries(voxeland_disambiguation
+      voxeland_map
+      ${PCL_LIBRARIES}
+      OpenMP::OpenMP_CXX
+    )
+
+    rclcpp_components_register_node(voxeland_disambiguation
+      PLUGIN "voxeland_disambiguation::VoxelandDisambiguation"
+      EXECUTABLE voxeland_disambiguation_node
+    )
+    
     ament_auto_package(
       INSTALL_TO_SHARE
       voxeland/launch 
