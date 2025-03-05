@@ -1,8 +1,11 @@
+#include <iostream>
 #include <rclcpp/node.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <ament_index_cpp/get_package_share_directory.hpp>
 
 #include <string>
 #include <voxeland_disambiguation.hpp>
+#include "voxeland_map/dirichlet.hpp"
 #include "voxeland_map/Utils/logging.hpp"
 
 namespace voxeland_disambiguation {
@@ -10,22 +13,36 @@ namespace voxeland_disambiguation {
         : Node("voxeland_disambiguation_node", node_options)
     {
         json_file = declare_parameter("json_map", "voxeland_instanceMap.json");
-        load_map();
+        VXL_INFO("json_map parameter defined, value : {}", json_file);
+
+        semantic_map = JsonSemanticMap::load_map(json_file);
+        VXL_INFO("Semantic map loaded");
+        std::cout << semantic_map.to_string() << std::endl;
+
+        VXL_INFO("Checking uncertain instances...");
+        find_uncertain_instances();
+
     }
 
-    void VoxelandDisambiguation::load_map()
-    {
-        VXL_INFO("Loading dededd from {} json file", json_file);
+    void VoxelandDisambiguation::find_uncertain_instances(){
+        for (JsonSemanticObject& instance : *semantic_map.get_instances()){
+            
+            // Retrieve all alphas from the results
+            std::vector<double> alphas;
+            for (auto results_pair : instance.results){
+                alphas.push_back(results_pair.second);
+            }
+            
+            // Compute the entropy
+            double entropy = expected_shannon_entropy(alphas);
+            std::cout << "Entropy for instance " << instance.InstanceID << " : " << entropy << std::endl;
+
+            if(entropy > 0.5){
+                uncertain_instances.push_back(&instance);
+            }
+        }
     }
 
-    // int main(int argc, char* argv[])
-    // {
-    //     rclcpp::init(argc, argv);
-    //     auto node = std::make_shared<voxeland_disambiguation::VoxelandDisambiguation>();
-    //     rclcpp::spin(node);
-    //     rclcpp::shutdown();
-    //     return 0;
-    // }
 }
 
 #include <rclcpp_components/register_node_macro.hpp>
