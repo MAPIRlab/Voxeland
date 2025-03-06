@@ -1,8 +1,10 @@
 #include "json_semantics.hpp"
 #include <ament_index_cpp/get_package_share_directory.hpp>
+#include <cstdint>
 #include <exception>
 #include <fstream>
 #include <map>
+#include <set>
 #include <string>
 #include "voxeland_map/Utils/logging.hpp"
 #include "voxeland_map/semantics.hpp"
@@ -41,6 +43,7 @@ JsonSemanticMap JsonSemanticMap::load_map(const std::string& json_file){
 
         instance.InstanceID = object_it.key();
         instance.bbox = parse_bbox(object_value["bbox"]);
+        instance.appearances_timestamps = parse_appearances_timestamps(object_value["appearances_timestamps"]);
         instance.n_observations = object_value["n_observations"];
         instance.results = parse_results(object_value["results"]);
 
@@ -70,6 +73,11 @@ const std::string JsonSemanticMap::to_string(){
         str += "Instance: " + instance.InstanceID + "\n";
         str += "BBox: " + std::to_string(instance.bbox.minX) + ", " + std::to_string(instance.bbox.minY) + ", " + std::to_string(instance.bbox.minZ) + "\n";
         str += "       " + std::to_string(instance.bbox.maxX) + ", " + std::to_string(instance.bbox.maxY) + ", " + std::to_string(instance.bbox.maxZ) + "\n";
+        str += "Appearances timestamps: ";
+        for (uint32_t timestamp : instance.appearances_timestamps){
+            str += std::to_string(timestamp) + ", ";
+        }
+        str += "\n";
         str += "n_observations: " + std::to_string(instance.n_observations) + "\n";
         str += "Results: \n";
         for (std::pair<std::string, double> result : instance.results){
@@ -113,4 +121,12 @@ std::map<std::string, double> JsonSemanticMap::parse_results(json& results){
         results_map[category] = probability;
     }
     return results_map;
+}
+
+std::set<uint32_t> JsonSemanticMap::parse_appearances_timestamps(json& appearances_timestamps){
+    std::set<uint32_t> timestamps;
+    for (json::iterator timestamp_it = appearances_timestamps.begin(); timestamp_it != appearances_timestamps.end(); ++timestamp_it) {
+        timestamps.insert(static_cast<uint32_t>(timestamp_it.value()));
+    }
+    return timestamps;
 }

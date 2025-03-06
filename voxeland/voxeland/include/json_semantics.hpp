@@ -1,6 +1,8 @@
 
 #include <sys/types.h>
+#include <cstdint>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 #include "voxeland_map/semantics.hpp"
@@ -11,6 +13,7 @@ using json = nlohmann::json;
 struct JsonSemanticObject{
     std::string InstanceID;
     BoundingBox3D bbox;
+    std::set<uint32_t> appearances_timestamps;
     uint32_t n_observations;
     std::map<std::string, double> results;
 };
@@ -25,5 +28,6 @@ class JsonSemanticMap{
         std::vector<JsonSemanticObject> instances;
     private:
         static BoundingBox3D parse_bbox(json& bbox);
+        static std::set<uint32_t> parse_appearances_timestamps(json& appearances_timestamps);
         static std::map<std::string, double> parse_results(json& results);
 };
