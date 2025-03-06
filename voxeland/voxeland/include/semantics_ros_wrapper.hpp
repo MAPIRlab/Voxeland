@@ -19,6 +19,7 @@ public:
     SemanticObject convertDetection2DToSemanticObject(const vision_msgs::msg::Detection2D& instance)
     {
         SemanticObject semanticObject(semantics.default_categories.size(), semantics.globalSemanticMap.size() + 1);
+        semanticObject.appearancesTimestamps.insert(instance.header.stamp.sec);
 
         for (const auto& result : instance.results)
         {

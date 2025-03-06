@@ -330,12 +330,9 @@ public:
                     double iou = compute3DIoU<DataT>(firstInstance.bbox, i, secondInstance.bbox, j, true);
                     if (iou > 0.3)
                     {
+                        // Fuse the second instance with the first one
                         secondInstance.pointsTo = i;
-                        for (size_t k = 0; k < firstInstance.alphaParamsCategories.size(); k++)
-                        {
-                            firstInstance.alphaParamsCategories[k] += secondInstance.alphaParamsCategories[k];
-                        }
-                        updateBBoxBounds(firstInstance.bbox, secondInstance.bbox);
+                        fuseSemanticObjects(firstInstance, secondInstance);
                         firstInstance.numberObservations += secondInstance.numberObservations;
                     }
                 }
@@ -360,16 +357,14 @@ public:
         lastMapLocalToGlobal.resize(localMap.size());
         if (globalSemanticMap.empty())
         {
-            globalSemanticMap.push_back(SemanticObject(localMap[0].alphaParamsCategories, 0, localMap[0].bbox));
+            SemanticObject unknown = SemanticObject(localMap[0].alphaParamsCategories, 0, localMap[0].bbox);
+            updateApearancesTimestamps(unknown, localMap[0]);
+
+            globalSemanticMap.push_back(unknown);
         }
         else
         {
-            for (size_t i = 0; i < localMap[0].alphaParamsCategories.size(); i++)
-            {
-                globalSemanticMap[0].alphaParamsCategories[i] += localMap[0].alphaParamsCategories[i];
-            }
             fuseSemanticObjects(globalSemanticMap[0], localMap[0]);
-            updateBBoxBounds(globalSemanticMap[0].bbox, localMap[0].bbox);
         }
 
         // First, integrate local "unknown" with global "unknown". They are always the 0-index
@@ -404,20 +399,10 @@ public:
                         compute3DIoU<DataT>(globalInstance.bbox, globalInstanceID, localInstance.localGeometry.value());
                     if (iou > 0.3)
                     {
-                        // VXL_INFO("Integrando {} local con {} global con IoU de {}",
-                        // default_categories[localClassIdx].c_str(), default_categories[globalClassIdx].c_str(), iou);
-                        for (size_t i = 0; i < globalInstance.alphaParamsCategories.size(); i++)
-                        {
-                            globalInstance.alphaParamsCategories[i] += localInstance.alphaParamsCategories[i];
-                        }
+                        fuseSemanticObjects(globalInstance, localInstance);
+
                         lastMapLocalToGlobal[localInstanceID] = globalInstanceID;
-                        // int before_update = listOfVoxelsInsideBBox<DataT>(globalInstance.bbox,
-                        // globalInstanceID).size();
-                        updateBBoxBounds(globalInstance.bbox, localInstance.bbox);
-                        // int after_update = listOfVoxelsInsideBBox<DataT>(globalInstance.bbox,
-                        // globalInstanceID).size(); if (before_update > after_update){
-                        //   VXL_INFO("Bounding box updated wrongly!");
-                        // }
+
                         globalInstance.numberObservations += 1;
                         fused = true;
                         integrated += 1;
@@ -428,8 +413,12 @@ public:
             if (!fused)
             {
                 lastMapLocalToGlobal[localInstanceID] = globalSemanticMap.size();
-                globalSemanticMap.push_back(
-                    SemanticObject(localInstance.alphaParamsCategories, globalSemanticMap.size(), localInstance.bbox));
+                // Create new object integrating localMap information
+                SemanticObject newObject = SemanticObject(localInstance.alphaParamsCategories, globalSemanticMap.size(), localInstance.bbox);
+                updateApearancesTimestamps(newObject, localInstance);
+                
+                // Add it to the global map
+                globalSemanticMap.push_back(newObject);
                 added += 1;
             }
         }
@@ -526,6 +515,13 @@ public:
                 size.push_back(globalSemanticMap[i].bbox.maxY - globalSemanticMap[i].bbox.minY);
                 size.push_back(globalSemanticMap[i].bbox.maxZ - globalSemanticMap[i].bbox.minZ);
                 data_json["instances"][globalSemanticMap[i].instanceID]["bbox"]["size"] = size;
+
+                nlohmann::json appearances_timestamps = nlohmann::json::array();
+                for (const auto& timestamp : globalSemanticMap[i].appearancesTimestamps)
+                {
+                    appearances_timestamps.push_back(timestamp);
+                }
+                data_json["instances"][globalSemanticMap[i].instanceID]["appearances_timestamps"] = appearances_timestamps;
 
                 data_json["instances"][globalSemanticMap[i].instanceID]["results"] = {};
                 for (InstanceID_t j = 0; j < default_categories.size(); j++)
