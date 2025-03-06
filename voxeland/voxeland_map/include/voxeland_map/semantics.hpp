@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <cstdint>
 #include <eigen3/Eigen/Core>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -31,6 +32,7 @@ struct SemanticObject
     // Otherwise, it should be considered, as the instanceID cannot be the globalSemanticMap.size()+1
     std::string instanceID;
     std::vector<double> alphaParamsCategories; // concentration parameters for the Dirichlet distribution
+    std::set<uint32_t> appearancesTimestamps;
     uint32_t numberObservations = 1;
     BoundingBox3D bbox;
 
@@ -109,7 +111,10 @@ public:
     uint32_t indexToHexColor(InstanceID_t index);
     void updateCategoryProbability(SemanticObject& semanticObject, const std::string& categoryName, double probability);
     bool checkBBoxIntersect(const BoundingBox3D& box1, const BoundingBox3D& box2);
+    void updateAlphaCategories(SemanticObject& original, const SemanticObject& update);
     void updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D& update);
+    void updateApearancesTimestamps(SemanticObject& original, const SemanticObject& update);
+    void fuseSemanticObjects(SemanticObject& firstInstance, const SemanticObject& secondInstance);
     InstanceID_t getCategoryMaxProbability(InstanceID_t objID);
 
     template <typename DataT>
@@ -363,6 +368,7 @@ public:
             {
                 globalSemanticMap[0].alphaParamsCategories[i] += localMap[0].alphaParamsCategories[i];
             }
+            fuseSemanticObjects(globalSemanticMap[0], localMap[0]);
             updateBBoxBounds(globalSemanticMap[0].bbox, localMap[0].bbox);
         }
 
