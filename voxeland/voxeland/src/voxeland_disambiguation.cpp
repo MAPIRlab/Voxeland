@@ -12,7 +12,7 @@ namespace voxeland_disambiguation {
     VoxelandDisambiguation::VoxelandDisambiguation(const rclcpp::NodeOptions& node_options)
         : Node("voxeland_disambiguation_node", node_options)
     {
-        json_file = declare_parameter("json_map", "voxeland_instanceMap.json");
+        json_file = declare_parameter("json_map", "scenenn016.json");
         VXL_INFO("json_map parameter defined, value : {}", json_file);
 
         semantic_map = JsonSemanticMap::load_map(json_file);
@@ -21,7 +21,11 @@ namespace voxeland_disambiguation {
 
         VXL_INFO("Checking uncertain instances...");
         find_uncertain_instances();
-
+        
+        VXL_INFO("Uncertain instances found : {}", uncertain_instances.size());
+        for (JsonSemanticObject* instance : uncertain_instances){
+            VXL_INFO("Uncertain instance : {}", instance->InstanceID);
+        }
     }
 
     void VoxelandDisambiguation::find_uncertain_instances(){
@@ -34,10 +38,11 @@ namespace voxeland_disambiguation {
             }
             
             // Compute the entropy
-            double entropy = expected_shannon_entropy(alphas);
-            std::cout << "Entropy for instance " << instance.InstanceID << " : " << entropy << std::endl;
 
-            if(entropy > 0.5){
+            double entropy = expected_shannon_entropy(alphas);
+            std::cout << "Expected entropy for instance " << instance.InstanceID << " : " << entropy << std::endl;
+
+            if(entropy > 0.7){
                 uncertain_instances.push_back(&instance);
             }
         }
