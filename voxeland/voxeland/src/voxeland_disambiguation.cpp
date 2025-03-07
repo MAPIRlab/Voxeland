@@ -12,7 +12,7 @@ namespace voxeland_disambiguation {
     VoxelandDisambiguation::VoxelandDisambiguation(const rclcpp::NodeOptions& node_options)
         : Node("voxeland_disambiguation_node", node_options)
     {
-        json_file = declare_parameter("json_map", "scenenn016.json");
+        json_file = declare_parameter("json_map", "scenenn065.json");
         VXL_INFO("json_map parameter defined, value : {}", json_file);
 
         semantic_map = JsonSemanticMap::load_map(json_file);
@@ -24,7 +24,7 @@ namespace voxeland_disambiguation {
         
         VXL_INFO("Uncertain instances found : {}", uncertain_instances.size());
         for (JsonSemanticObject* instance : uncertain_instances){
-            VXL_INFO("Uncertain instance : {}", instance->InstanceID);
+            VXL_INFO("Uncertain instance : {} - Appearances: {}", instance->InstanceID, instance->appearances_timestamps.size());
         }
     }
 

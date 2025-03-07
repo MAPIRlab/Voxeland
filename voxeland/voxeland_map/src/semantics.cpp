@@ -193,8 +193,16 @@ void SemanticMap::updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D&
 
 void SemanticMap::updateApearancesTimestamps(SemanticObject& original, const SemanticObject& update)
 {
-    for (std::uint32_t image_timestamp : update.appearancesTimestamps){
-        original.appearancesTimestamps.insert(image_timestamp);
+    for (const auto& [category, appearances_set] : update.appearancesTimestamps){
+        auto it = original.appearancesTimestamps.find(category);
+
+        if(it != original.appearancesTimestamps.end()){
+            // If the category is already included, insert the new appearances
+            original.appearancesTimestamps[category].insert(appearances_set.begin(), appearances_set.end());
+        } else {
+            // If the category is not included, create a new entry
+            original.appearancesTimestamps[category] = appearances_set;
+        }
     }
 }
 

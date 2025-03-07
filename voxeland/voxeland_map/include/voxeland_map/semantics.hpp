@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <eigen3/Eigen/Core>
 #include <iostream>
@@ -32,7 +33,7 @@ struct SemanticObject
     // Otherwise, it should be considered, as the instanceID cannot be the globalSemanticMap.size()+1
     std::string instanceID;
     std::vector<double> alphaParamsCategories; // concentration parameters for the Dirichlet distribution
-    std::set<uint32_t> appearancesTimestamps;
+    std::map<std::string, std::set<uint32_t>> appearancesTimestamps;
     uint32_t numberObservations = 1;
     BoundingBox3D bbox;
 
@@ -516,13 +517,6 @@ public:
                 size.push_back(globalSemanticMap[i].bbox.maxZ - globalSemanticMap[i].bbox.minZ);
                 data_json["instances"][globalSemanticMap[i].instanceID]["bbox"]["size"] = size;
 
-                nlohmann::json appearances_timestamps = nlohmann::json::array();
-                for (const auto& timestamp : globalSemanticMap[i].appearancesTimestamps)
-                {
-                    appearances_timestamps.push_back(timestamp);
-                }
-                data_json["instances"][globalSemanticMap[i].instanceID]["appearances_timestamps"] = appearances_timestamps;
-
                 data_json["instances"][globalSemanticMap[i].instanceID]["results"] = {};
                 for (InstanceID_t j = 0; j < default_categories.size(); j++)
                 {
@@ -535,6 +529,30 @@ public:
 
                 data_json["instances"][globalSemanticMap[i].instanceID]["n_observations"] =
                     globalSemanticMap[i].numberObservations;
+            }
+        }
+
+        return data_json;
+    }
+
+    nlohmann::json appearancesToJson(){
+        nlohmann::json data_json;
+
+        data_json = {};
+        for (size_t i = 0; i < globalSemanticMap.size(); i++)
+        {
+            if (globalSemanticMap[i].pointsTo == -1)
+            {
+                data_json[globalSemanticMap[i].instanceID] = {};
+                data_json[globalSemanticMap[i].instanceID]["timestamps"] = {};
+                for (const auto& [category, appearances_set] : globalSemanticMap[i].appearancesTimestamps)
+                {
+                    data_json[globalSemanticMap[i].instanceID]["timestamps"][category] = nlohmann::json::array();
+                    for (const auto& timestamp : appearances_set)
+                    {
+                        data_json[globalSemanticMap[i].instanceID]["timestamps"][category].push_back(timestamp);
+                    }
+                }
             }
         }
 
