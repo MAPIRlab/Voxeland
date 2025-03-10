@@ -13,6 +13,9 @@ namespace voxeland_disambiguation {
         : Node("voxeland_disambiguation_node", node_options)
     {
         json_file = declare_parameter("json_map", "scenenn065.json");
+        json_appearances_file = declare_parameter("json_appearances", "scenenn065_appearances.json");
+        bag_path = declare_parameter("bag_path", "/ros_ws/bag/SceneNN/to_ros/ROS2_bags/065/065.db3");
+
         VXL_INFO("json_map parameter defined, value : {}", json_file);
 
         semantic_map = JsonSemanticMap::load_map(json_file);
@@ -26,6 +29,8 @@ namespace voxeland_disambiguation {
         for (JsonSemanticObject* instance : uncertain_instances){
             VXL_INFO("Uncertain instance : {} - Appearances: {}", instance->InstanceID, instance->appearances_timestamps.size());
         }
+
+
     }
 
     void VoxelandDisambiguation::find_uncertain_instances(){

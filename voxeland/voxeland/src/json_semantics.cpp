@@ -4,7 +4,6 @@
 #include <exception>
 #include <fstream>
 #include <map>
-#include <set>
 #include <string>
 #include "voxeland_map/Utils/logging.hpp"
 #include "voxeland_map/semantics.hpp"
@@ -19,7 +18,7 @@ using json = nlohmann::json;
  * 
  * @throws std::exception If the file cannot be found or opened.
  */
-JsonSemanticMap JsonSemanticMap::load_map(const std::string& json_file){
+JsonSemanticMap JsonSemanticMap::load_map(const std::string& json_file, const std::string& json_appearances_file){
 
     // Get the path to the package
     std::string package_path = ament_index_cpp::get_package_share_directory("voxeland");
@@ -34,6 +33,7 @@ JsonSemanticMap JsonSemanticMap::load_map(const std::string& json_file){
     
     // Parse the json file
     json j = json::parse(file);
+    json apppearances_j = json::parse(json_appearances_file); // Timestamps json file
     json instances = j["instances"];
     
     JsonSemanticMap map;
@@ -43,7 +43,7 @@ JsonSemanticMap JsonSemanticMap::load_map(const std::string& json_file){
 
         instance.InstanceID = object_it.key();
         instance.bbox = parse_bbox(object_value["bbox"]);
-        instance.appearances_timestamps = parse_appearances_timestamps(object_value["appearances_timestamps"]);
+        instance.appearances_timestamps = parse_appearances_timestamps(apppearances_j[instance.InstanceID]);
         instance.n_observations = object_value["n_observations"];
         instance.results = parse_results(object_value["results"]);
 
@@ -74,8 +74,12 @@ const std::string JsonSemanticMap::to_string(){
         str += "BBox: " + std::to_string(instance.bbox.minX) + ", " + std::to_string(instance.bbox.minY) + ", " + std::to_string(instance.bbox.minZ) + "\n";
         str += "       " + std::to_string(instance.bbox.maxX) + ", " + std::to_string(instance.bbox.maxY) + ", " + std::to_string(instance.bbox.maxZ) + "\n";
         str += "Appearances timestamps: ";
-        for (uint32_t timestamp : instance.appearances_timestamps){
-            str += std::to_string(timestamp) + ", ";
+        for (auto& [category, timestamps] : instance.appearances_timestamps){
+            str += category + ": ";
+            for (uint32_t timestamp : timestamps){
+                str += std::to_string(timestamp) + ", ";
+            }
+            str += "\n";
         }
         str += "\n";
         str += "n_observations: " + std::to_string(instance.n_observations) + "\n";
@@ -123,10 +127,15 @@ std::map<std::string, double> JsonSemanticMap::parse_results(json& results){
     return results_map;
 }
 
-std::set<uint32_t> JsonSemanticMap::parse_appearances_timestamps(json& appearances_timestamps){
-    std::set<uint32_t> timestamps;
-    for (json::iterator timestamp_it = appearances_timestamps.begin(); timestamp_it != appearances_timestamps.end(); ++timestamp_it) {
-        timestamps.insert(static_cast<uint32_t>(timestamp_it.value()));
+std::map<std::string, std::vector<uint32_t>> JsonSemanticMap::parse_appearances_timestamps(json& appearances_timestamps){
+    std::map<std::string, std::vector<uint32_t>> appearances_map;
+    for(auto& [category, timestamps] : appearances_timestamps.items()){
+        std::vector<uint32_t> timestamps_set;
+        for (uint32_t timestamp : timestamps){
+            timestamps_set.push_back(timestamp);
+        }
+        appearances_map[category] = timestamps_set;
     }
-    return timestamps;
+
+    return appearances_map;
 }
