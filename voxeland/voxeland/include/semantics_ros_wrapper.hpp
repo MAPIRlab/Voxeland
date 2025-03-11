@@ -23,7 +23,8 @@ public:
         for (const auto& result : instance.results)
         {
             semantics.updateCategoryProbability(semanticObject, result.hypothesis.class_id, result.hypothesis.score);
-            semanticObject.appearancesTimestamps[result.hypothesis.class_id].push_back(instance.header.stamp.sec);
+            // Insert image instance in the appearances array
+            semanticObject.appearancesTimestamps[result.hypothesis.class_id].insert(instance.header.stamp.sec);
         }
 
         return semanticObject;

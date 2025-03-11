@@ -33,7 +33,7 @@ struct SemanticObject
     // Otherwise, it should be considered, as the instanceID cannot be the globalSemanticMap.size()+1
     std::string instanceID;
     std::vector<double> alphaParamsCategories; // concentration parameters for the Dirichlet distribution
-    std::map<std::string, std::vector<uint32_t>> appearancesTimestamps;
+    std::map<std::string, std::set<uint32_t>> appearancesTimestamps;
     uint32_t numberObservations = 1;
     BoundingBox3D bbox;
 

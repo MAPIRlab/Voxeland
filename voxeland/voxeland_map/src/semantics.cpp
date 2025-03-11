@@ -198,7 +198,7 @@ void SemanticMap::updateApearancesTimestamps(SemanticObject& original, const Sem
 
         if(it != original.appearancesTimestamps.end()){
             // If the category is already included, insert the new appearances
-            original.appearancesTimestamps[category].insert(original.appearancesTimestamps[category].end(), appearances_set.begin(), appearances_set.end());
+            original.appearancesTimestamps[category].insert(appearances_set.begin(), appearances_set.end());
         } else {
             // If the category is not included, create a new entry
             original.appearancesTimestamps[category] = appearances_set;
