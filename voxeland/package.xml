@@ -24,6 +24,7 @@
   <depend>voxeland_msgs</depend>
   <depend>message_filters</depend>
   <depend>std_srvs</depend>
+  <depend>rosbag2_transport</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

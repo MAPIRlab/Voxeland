@@ -1,8 +1,8 @@
+#pragma once
 
 #include <sys/types.h>
 #include <cstdint>
 #include <map>
-#include <set>
 #include <string>
 #include <vector>
 #include "voxeland_map/semantics.hpp"
@@ -16,6 +16,23 @@ struct JsonSemanticObject{
     std::map<std::string, std::vector<uint32_t>> appearances_timestamps;
     uint32_t n_observations;
     std::map<std::string, double> results;
+};
+
+class UncertainInstance {
+    public:
+        UncertainInstance(JsonSemanticObject* instance, double entropy){
+            this->instance = instance;
+            this->entropy = entropy;
+        };
+        JsonSemanticObject* get_instance();
+        std::map<std::string, std::vector<uint32_t>>* get_selected_appearances();
+        void set_selected_appearances(std::map<std::string, std::vector<uint32_t>> selected_appearances);
+        double get_entropy();
+        std::string to_string();
+    private:
+        JsonSemanticObject* instance;
+        std::map<std::string, std::vector<uint32_t>> selected_appearances; 
+        double entropy;
 };
 
 class JsonSemanticMap{

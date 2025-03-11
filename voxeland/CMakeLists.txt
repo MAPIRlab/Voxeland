@@ -57,6 +57,7 @@ if ( ament_cmake_FOUND )
     # Add colcon-specific configuration here
     message(STATUS "Building with colcon")
 
+    find_package(rosbag2_transport REQUIRED)
     find_package(ament_cmake_auto REQUIRED)
     find_package(segmentation_msgs REQUIRED)
     find_package(sensor_msgs REQUIRED)
@@ -75,6 +76,7 @@ if ( ament_cmake_FOUND )
       voxeland_map
       ${PCL_LIBRARIES}
       OpenMP::OpenMP_CXX
+      rosbag2_transport::rosbag2_transport
     )
 
     rclcpp_components_register_node(voxeland_server
@@ -83,14 +85,16 @@ if ( ament_cmake_FOUND )
     )
 
     ament_auto_add_library(voxeland_disambiguation SHARED
-    voxeland/src/voxeland_disambiguation.cpp
-    voxeland/src/json_semantics.cpp
+      voxeland/src/voxeland_disambiguation.cpp
+      voxeland/src/json_semantics.cpp
+      voxeland/src/appearances_classifier.cpp
     )
 
     target_link_libraries(voxeland_disambiguation
       voxeland_map
       ${PCL_LIBRARIES}
       OpenMP::OpenMP_CXX
+      rosbag2_transport::rosbag2_transport
     )
 
     rclcpp_components_register_node(voxeland_disambiguation
