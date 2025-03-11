@@ -53,7 +53,7 @@ void RandomAppearancesClassifier::classify_instance_appearances(UncertainInstanc
         // Choose max_appearances random appearances and add them to the final vector
         for (int i = 0; i < max_appearances; i++){
             int random_index = rand() % appearances.size();
-            selected_appearances.push_back(appearances[random_index]);
+            selected_appearances.push_back(appearances.at(random_index));
         }
 
         selected_appearances_map[category] = selected_appearances;
@@ -71,21 +71,25 @@ void RandomAppearancesClassifier::classify_instance_appearances(UncertainInstanc
  * 
  * @param instance Uncertain instance to classify. 
  */
-void SplitAppearancesClassifier::classify_instance_appearances(UncertainInstance& instance){
+ void SplitAppearancesClassifier::classify_instance_appearances(UncertainInstance& instance) {
     // Choose n_categories with the highest probabilities
     std::vector<std::string> selected_categories = choose_selected_categories(instance.get_instance()->results);
     std::map<std::string, std::vector<uint32_t>> selected_appearances_map;
 
-    for (std::string category : selected_categories){
+    for (const std::string& category : selected_categories) {
         std::vector<uint32_t> selected_appearances;
         std::vector<uint32_t> appearances = instance.get_instance()->appearances_timestamps[category];
 
-        // Split the appearances to choose max_appearances appearances
-        int split_size = appearances.size() / (max_appearances-1);
-        
-        for(int i = 0; i < max_appearances; i++){
-            int index = i * split_size;
-            selected_appearances.push_back(appearances[index]);
+        size_t n = appearances.size();
+        if (n <= max_appearances) {
+            // If the number of appearances is less than max_appearances, use all of them
+            selected_appearances = appearances;
+        } else {
+            // Distribute the appearances in max_appearances splits
+            for (int i = 0; i < max_appearances; i++) {
+                size_t index = std::round(i * (n - 1.0) / (max_appearances - 1));
+                selected_appearances.push_back(appearances.at(index));
+            }
         }
 
         selected_appearances_map[category] = selected_appearances;
@@ -93,4 +97,5 @@ void SplitAppearancesClassifier::classify_instance_appearances(UncertainInstance
 
     instance.set_selected_appearances(selected_appearances_map);
 }
+
 
