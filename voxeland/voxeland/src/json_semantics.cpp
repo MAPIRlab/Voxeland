@@ -19,6 +19,10 @@ std::map<std::string, std::vector<uint32_t>>* UncertainInstance::get_selected_ap
     return &selected_appearances;
 }
 
+std::map<std::string, std::vector<sensor_msgs::msg::Image>>* UncertainInstance::get_selected_images(){
+    return &selected_images;
+}
+
 double UncertainInstance::get_entropy(){
     return entropy;
 }
