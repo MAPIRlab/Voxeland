@@ -1,4 +1,5 @@
 #include "json_semantics.hpp"
+#include <cv_bridge/cv_bridge.h>
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <cstdint>
 #include <exception>
@@ -19,7 +20,7 @@ std::map<std::string, std::vector<uint32_t>>* UncertainInstance::get_selected_ap
     return &selected_appearances;
 }
 
-std::map<std::string, std::vector<sensor_msgs::msg::Image>>* UncertainInstance::get_selected_images(){
+std::map<std::string, std::vector<cv_bridge::CvImagePtr>>* UncertainInstance::get_selected_images(){
     return &selected_images;
 }
 

@@ -5,6 +5,7 @@
 #include <ament_index_cpp/get_package_share_directory.hpp>
 
 #include <rclcpp/serialized_message.hpp>
+#include <ros_lm_interfaces/srv/detail/open_llm_request__struct.hpp>
 #include <rosbag2_storage/serialized_bag_message.hpp>
 #include <rosbag2_storage/storage_options.hpp>
 #include <sensor_msgs/msg/detail/image__struct.hpp>
@@ -32,12 +33,17 @@ namespace voxeland_disambiguation {
         bag_path = declare_parameter("bag_path", "/home/ubuntu/ros2_ws/bag/SceneNN/to_ros/ROS2_bags/065/065.db3");
         VXL_INFO("bag_path parameter defined, value: {}", bag_path);
 
-        // Get the path to the package
-        std::string package_path = ament_index_cpp::get_package_share_directory("voxeland");
-        std::string map_file_path = package_path + "/params/" + json_file;
-        std::string appearances_file_path = package_path + "/params/" + json_appearances_file;
-
-        std::cout << appearances_file_path << std::endl;
+        // Create the client for the LLM service
+        client = create_client<ros_lm_interfaces::srv::OpenLLMRequest>("llm_generate_text");
+        VXL_INFO("Awaiting llm_generate_text service...");
+        while (!client->wait_for_service(std::chrono::seconds(1))){
+            if (!rclcpp::ok()){
+                VXL_ERROR("Interrupted while waiting for the service. Exiting...");
+                return;
+            }
+            VXL_WARN("sertvice not available, waiting...");
+        }
+        VXL_INFO("llm_generate_text service available!");
 
         execute_pipeline();
     }
@@ -123,6 +129,24 @@ namespace voxeland_disambiguation {
             }
         }
     }
+
+    void VoxelandDisambiguation::ask_llm_for_disambiguation(){
+        auto load_request = std::make_shared<ros_lm_interfaces::srv::OpenLLMRequest::Request>();
+        load_request -> action = 1;
+        load_request-> model_id = "llava-hf/llava-1.5-7b-hf";
+
+        auto future = client->async_send_request(load_request);
+        if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future) == rclcpp::FutureReturnCode::SUCCESS){
+            auto response = future.get();
+            VXL_INFO("Response: {}", response->status_message);
+        } else {
+            VXL_ERROR("Failed to call service");
+        }
+
+        
+
+    }
+
 
     /**
      * @brief Checks if the img_timestamp is included in any of the selected appearances of the instance

@@ -7,6 +7,7 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/segmentation/sac_segmentation.h>
 
+#include <segmentation_msgs/msg/detail/instance_semantic_map__struct.hpp>
 #include <semantics_ros_wrapper.hpp>
 #include <voxeland_map/cell_types.hpp>
 #include <voxeland_map/data_modes.hpp>
