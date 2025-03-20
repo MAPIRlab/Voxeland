@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 #include "voxeland_map/semantics.hpp"
-#include "sensor_msgs/msg/image.hpp"
+#include "cv_bridge/cv_bridge.h"
 
 #include "nlohmann/json.hpp"
 using json = nlohmann::json;
@@ -27,14 +27,14 @@ class UncertainInstance {
         };
         JsonSemanticObject* get_instance();
         std::map<std::string, std::vector<uint32_t>>* get_selected_appearances();
-        std::map<std::string, std::vector<sensor_msgs::msg::Image>>* get_selected_images();
+        std::map<std::string, std::vector<cv_bridge::CvImagePtr>>* get_selected_images();
         void set_selected_appearances(std::map<std::string, std::vector<uint32_t>> selected_appearances);
         double get_entropy();
         std::string to_string();
     private:
         JsonSemanticObject* instance;
         std::map<std::string, std::vector<uint32_t>> selected_appearances;
-        std::map<std::string, std::vector<sensor_msgs::msg::Image>> selected_images;
+        std::map<std::string, std::vector<cv_bridge::CvImagePtr>> selected_images;
         double entropy;
 };
 

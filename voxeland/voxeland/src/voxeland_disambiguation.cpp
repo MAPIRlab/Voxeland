@@ -16,6 +16,7 @@
 #include "appearances_classifier.hpp"
 
 #include "rosbag2_transport/reader_writer_factory.hpp"
+#include "cv_bridge/cv_bridge.h"
 
 namespace voxeland_disambiguation {
     VoxelandDisambiguation::VoxelandDisambiguation(const rclcpp::NodeOptions& node_options)
@@ -107,9 +108,7 @@ namespace voxeland_disambiguation {
         while (reader->has_next()){
             rosbag2_storage::SerializedBagMessageSharedPtr message = reader->read_next();
 
-            // std::cout << "Topic: " << message->topic_name << std::endl;
             if(message->topic_name != "camera/rgb"){
-                // Accept only image messages
                 continue;
             }
 
@@ -130,15 +129,17 @@ namespace voxeland_disambiguation {
      * @brief If it is included, the image is added to the selected images map
      */
     void VoxelandDisambiguation::add_selected_images(sensor_msgs::msg::Image::SharedPtr image_msg, UncertainInstance& instance){
-        std::map<std::string, std::vector<sensor_msgs::msg::Image>>* appearances = instance.get_selected_images();
-
+        std::map<std::string, std::vector<cv_bridge::CvImagePtr>>* appearances = instance.get_selected_images();
+        cv_bridge::CvImagePtr cv_ptr;
         // Lopp through all the selected appearances
         for(auto& [category, appearances_vector] : *instance.get_selected_appearances()){
             for(uint32_t timestamp : appearances_vector){
                 // If the timestamp is included in the selected appearances,
                 // the image is added to the selected images map
                 if(timestamp == image_msg->header.stamp.sec){
-                    (*appearances)[category].push_back(*image_msg);
+                    // Convert the image to a open_cv image
+                    cv_bridge::CvImagePtr cv_image = cv_bridge::toCvCopy(image_msg, "bgr8");
+                    (*appearances)[category].push_back(cv_image);
                     VXL_INFO("Image {} added to instance: {} - Category: {}", image_msg->header.stamp.sec,instance.get_instance()->InstanceID, category);
                 }
             }

@@ -64,6 +64,8 @@ if ( ament_cmake_FOUND )
     find_package(vision_msgs REQUIRED)
     find_package(geometry_msgs REQUIRED)
     find_package(voxeland_msgs REQUIRED)
+    find_package(cv_bridge REQUIRED)
+
     ament_auto_find_build_dependencies()
 
     include_directories(voxeland/include 3rdparty)
@@ -76,7 +78,6 @@ if ( ament_cmake_FOUND )
       voxeland_map
       ${PCL_LIBRARIES}
       OpenMP::OpenMP_CXX
-      rosbag2_transport::rosbag2_transport
     )
 
     rclcpp_components_register_node(voxeland_server
@@ -95,7 +96,7 @@ if ( ament_cmake_FOUND )
       ${PCL_LIBRARIES}
       OpenMP::OpenMP_CXX
       rosbag2_transport::rosbag2_transport
-    )
+      )
 
     rclcpp_components_register_node(voxeland_disambiguation
       PLUGIN "voxeland_disambiguation::VoxelandDisambiguation"
