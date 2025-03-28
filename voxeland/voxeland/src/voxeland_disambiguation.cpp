@@ -1,8 +1,10 @@
 #include <iostream>
 #include <memory>
+#include <rclcpp/executors.hpp>
 #include <rclcpp/node.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <ament_index_cpp/get_package_share_directory.hpp>
+#include <thread>
 
 #include <rclcpp/serialized_message.hpp>
 #include <ros_lm_interfaces/srv/detail/open_llm_request__struct.hpp>
@@ -10,11 +12,13 @@
 #include <rosbag2_storage/storage_options.hpp>
 #include <sensor_msgs/msg/detail/image__struct.hpp>
 #include <string>
+#include <vector>
 #include <voxeland_disambiguation.hpp>
 #include "json_semantics.hpp"
 #include "voxeland_map/dirichlet.hpp"
 #include "voxeland_map/Utils/logging.hpp"
 #include "appearances_classifier.hpp"
+#include "lvlm_processing.hpp"
 
 #include "rosbag2_transport/reader_writer_factory.hpp"
 #include "cv_bridge/cv_bridge.h"
@@ -34,16 +38,16 @@ namespace voxeland_disambiguation {
         VXL_INFO("bag_path parameter defined, value: {}", bag_path);
 
         // Create the client for the LLM service
-        client = create_client<ros_lm_interfaces::srv::OpenLLMRequest>("llm_generate_text");
-        VXL_INFO("Awaiting llm_generate_text service...");
-        while (!client->wait_for_service(std::chrono::seconds(1))){
-            if (!rclcpp::ok()){
-                VXL_ERROR("Interrupted while waiting for the service. Exiting...");
-                return;
-            }
-            VXL_WARN("sertvice not available, waiting...");
-        }
-        VXL_INFO("llm_generate_text service available!");
+        // client = this->create_client<ros_lm_interfaces::srv::OpenLLMRequest>("llm_generate_text");
+        // VXL_INFO("Awaiting llm_generate_text service...");
+        // while (!client->wait_for_service(std::chrono::seconds(1))){
+        //     if (!rclcpp::ok()){
+        //         VXL_ERROR("Interrupted while waiting for the service. Exiting...");
+        //         return;
+        //     }
+        //     VXL_WARN("sertvice not available, waiting...");
+        // }
+        // VXL_INFO("llm_generate_text service available!");
 
         execute_pipeline();
     }
@@ -64,6 +68,8 @@ namespace voxeland_disambiguation {
                 std::cout << "     Category: " << category << " - " << images.size() << " images" << std::endl;
             }
         }
+
+        ask_llm_for_disambiguation();
     }
     /**
      * @brief Select the uncertain instances by computing the entropy of the results map
@@ -95,7 +101,7 @@ namespace voxeland_disambiguation {
     */
     void VoxelandDisambiguation::select_appearances(){
         // Select an strategy
-        AppearancesClassifier* classifier = new SplitAppearancesClassifier(3);
+        AppearancesClassifier* classifier = new RandomAppearancesClassifier(1);
         for (UncertainInstance& instance : uncertain_instances){
 
             classifier->classify_instance_appearances(instance);
@@ -134,7 +140,9 @@ namespace voxeland_disambiguation {
         auto load_request = std::make_shared<ros_lm_interfaces::srv::OpenLLMRequest::Request>();
         load_request -> action = 1;
         load_request-> model_id = "llava-hf/llava-1.5-7b-hf";
+        // load_request-> model_id = "openbmb/MiniCPM-V-2";
 
+        VXL_INFO("Loading model {} into ros_lm server", load_request->model_id);
         auto future = client->async_send_request(load_request);
         if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future) == rclcpp::FutureReturnCode::SUCCESS){
             auto response = future.get();
@@ -142,8 +150,74 @@ namespace voxeland_disambiguation {
         } else {
             VXL_ERROR("Failed to call service");
         }
+        int i = 0;
+        for (UncertainInstance& instance : uncertain_instances){
+            if( i >= 1){
+                break;
+            }
+            std::vector<std::string> categories;
+            std::vector<std::string> selected_images;
+            std::string prompt;
+            for (auto& [category, images] : *instance.get_selected_images()){
+                categories.push_back(category);
+                for (cv_bridge::CvImagePtr image : images){
+                    std::string base64_image = image_to_base64(image);
+                    selected_images.push_back(base64_image);
+                }
+            }
+            prompt = load_and_format_prompt("prompt.txt", categories,1);
+            std::cout << prompt << std::endl;
+            std::cout << "Selected images: " << selected_images.size() << std::endl;
 
-        
+            // TEST REQUEST
+
+            auto text_request = std::make_shared<ros_lm_interfaces::srv::OpenLLMRequest::Request>();
+            text_request->action = 2;
+            text_request->prompt = prompt;
+            text_request->model_id = "llava-hf/llava-1.5-7b-hf";
+            text_request->images = selected_images;
+
+            auto future = client -> async_send_request(text_request);
+            VXL_INFO("Waiting for response for instance: {}", instance.get_instance()->InstanceID);
+            // Espera hasta que la respuesta esté disponible
+            if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future) ==
+                rclcpp::FutureReturnCode::SUCCESS)
+            {
+                auto response = future.get();
+                VXL_INFO("Instance {} disambiguated to category: {}", instance.get_instance()->InstanceID, response->generated_text);
+            } else {
+                VXL_ERROR("Failed to call service");
+            }
+            
+            i++;
+            
+            // Execute request
+            // auto text_request = std::make_shared<ros_lm_interfaces::srv::OpenLLMRequest::Request>();
+            // text_request->action = 2;
+            // text_request->prompt = prompt;
+            // text_request->model_id = "llava-hf/llava-1.5-7b-hf";
+            // text_request->images = selected_images;
+
+            // std::cout << text_request->images.size() << std::endl;
+
+            // VXL_INFO("Requesting disambiguation for instance: {}", instance.get_instance()->InstanceID);
+            // auto future = client -> async_send_request(text_request);
+
+            // // Create a thread to handle the response
+            // std::thread([this, &instance, future = std::move(future)]() mutable {
+            //     VXL_INFO("Waiting for response for instance: {}", instance.get_instance()->InstanceID);
+            //     // Espera hasta que la respuesta esté disponible
+            //     if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future) ==
+            //         rclcpp::FutureReturnCode::SUCCESS)
+            //     {
+            //         auto response = future.get();
+            //         VXL_INFO("Instance {} disambiguated to category: {}", instance.get_instance()->InstanceID, response->generated_text);
+            //     } else {
+            //         VXL_ERROR("Failed to call service");
+            //     }
+            // }).detach();
+            
+        }
 
     }
 
@@ -169,6 +243,18 @@ namespace voxeland_disambiguation {
             }
         }
     }
+
+    void VoxelandDisambiguation::llm_response(auto future, UncertainInstance& instance){
+        if(rclcpp::spin_until_future_complete(this->get_node_base_interface(),future) == rclcpp::FutureReturnCode::SUCCESS){
+            auto response = future.get();
+            instance.set_final_category(response->generated_text);
+            VXL_INFO("Instance {} disambiguated to category: {}", instance.get_instance()->InstanceID, response->generated_text);
+        } else {
+            VXL_ERROR("Failed to call service");
+        }
+    }
+
+
 
 }
 

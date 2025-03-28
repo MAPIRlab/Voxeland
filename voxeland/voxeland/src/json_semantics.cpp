@@ -32,6 +32,14 @@ void UncertainInstance::set_selected_appearances(std::map<std::string, std::vect
     this->selected_appearances = selected_appearances;
 }
 
+std::string UncertainInstance::get_final_category(){
+    return final_category;
+}
+
+void UncertainInstance::set_final_category(std::string final_category){
+    this->final_category = final_category;
+}
+
 std::string UncertainInstance::to_string(){
     std::string str = "Instance: " + instance->InstanceID + "\n";
     str += "Entropy: " + std::to_string(entropy) + "\n";

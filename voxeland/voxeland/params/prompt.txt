@@ -1,0 +1,11 @@
+You are an expert object category disambiguator. I am passing you several images that include an object. That object has
+been labeled these categories: {}. I want you to analyze the images to tell me exactly which one of the previous categories
+is the correct one.
+
+Your answer must only include one of the categories I have specified and must follow the following format:
+"The category is ..."
+
+For example:
+    # Example 1: "The category is refrigerator"
+    # Example 2: "The category is TV"
+    # Example 3: "The category is table"

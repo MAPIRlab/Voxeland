@@ -30,12 +30,15 @@ class UncertainInstance {
         std::map<std::string, std::vector<cv_bridge::CvImagePtr>>* get_selected_images();
         void set_selected_appearances(std::map<std::string, std::vector<uint32_t>> selected_appearances);
         double get_entropy();
+        std::string get_final_category();
+        void set_final_category(std::string final_category);
         std::string to_string();
     private:
         JsonSemanticObject* instance;
         std::map<std::string, std::vector<uint32_t>> selected_appearances;
         std::map<std::string, std::vector<cv_bridge::CvImagePtr>> selected_images;
         double entropy;
+        std::string final_category;
 };
 
 class JsonSemanticMap{

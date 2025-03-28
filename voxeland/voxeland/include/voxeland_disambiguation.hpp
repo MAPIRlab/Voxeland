@@ -27,6 +27,7 @@ namespace voxeland_disambiguation {
             void ask_llm_for_disambiguation();
         protected:
             void add_selected_images(sensor_msgs::msg::Image::SharedPtr image_msg, UncertainInstance& instance);
+            void llm_response(auto future, UncertainInstance& instance);
 
             std::string json_file;
             std::string json_appearances_file;
