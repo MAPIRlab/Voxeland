@@ -116,7 +116,7 @@ namespace voxeland_server
             max_range_range.from_value = -1.0;
             max_range_range.to_value = 100.0;
             max_range_desc.floating_point_range.push_back(max_range_range);
-            max_range_ = declare_parameter("sensor_model.max_range", -1.0, max_range_desc);
+            max_range_ = declare_parameter("sensor_model.max_range", 100.0, max_range_desc);
         }
 
         res_ = declare_parameter("resolution", 0.1);
@@ -213,41 +213,41 @@ namespace voxeland_server
 
         if (currentMode == DataMode::Empty)  // Mode XYZ
         {
-            VXL_INFO("Mode Empty");
+            // VXL_INFO("Mode Empty");
             insertPointCloudBasic<voxeland::Empty>(cloud);
         }
         else if (currentMode == DataMode::RGB)  // Mode XYZRGB
         {
-            VXL_INFO("Mode RGB");
+            // VXL_INFO("Mode RGB");
             insertPointCloudBasic<voxeland::Color>(cloud);
         }
 
         // Semantics - No instances
         else if (currentMode == DataMode::Semantics)  // Mode XYZSemantics
         {
-            VXL_INFO("Mode Semantics");
+            // VXL_INFO("Mode Semantics");
             insertPointCloudSemantics<voxeland::Semantics>(cloud);
         }
         else if (currentMode == DataMode::RGBSemantics)  // Mode XYZRGBSemantics
         {
-            VXL_INFO("Mode RGBSemantics");
+            // VXL_INFO("Mode RGBSemantics");
             insertPointCloudSemantics<voxeland::RGBSemantics>(cloud);
         }
 
         // Semantics with instances
         else if (currentMode == DataMode::SemanticsInstances)  // Mode XYZSemanticsInstances
         {
-            VXL_INFO("Mode SemanticsInstances");
+            // VXL_INFO("Mode SemanticsInstances");
             insertPointCloudSemanticInstances<voxeland::SemanticsInstances>(cloud);
         }
         else if (currentMode == DataMode::RGBSemanticsInstances)  // Mode XYZRGBSemanticsInstances
         {
-            VXL_INFO("Mode RGBSemanticsInstances");
+            // VXL_INFO("Mode RGBSemanticsInstances");
             insertPointCloudSemanticInstances<voxeland::RGBSemanticsInstances>(cloud);
         }
 
         double total_elapsed = (rclcpp::Clock{}.now() - start_time).seconds();
-        VXL_INFO("Pointcloud insertion in Bonxai done, {} sec)", total_elapsed);
+        // VXL_INFO("Pointcloud insertion in Bonxai done, {} sec)", total_elapsed);
     }
 
     rcl_interfaces::msg::SetParametersResult VoxelandServer::onParameter(const std::vector<rclcpp::Parameter>& parameters)
@@ -414,7 +414,7 @@ namespace voxeland_server
         PointCloudType pc;
         pcl::fromROSMsg(cloud->cloud, pc);
         pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, DataT>(pc, cloud->pose);
-        bonxai_->With<DataT>()->insertPointCloud(pc.points, sensorPosition, 30.0);
+        bonxai_->With<DataT>()->insertPointCloud(pc.points, sensorPosition, max_range_);
         publishAll<DataT>(cloud->header.stamp);
     }
 
@@ -428,7 +428,7 @@ namespace voxeland_server
 
         semantics_ros_wrapper.addLocalSemanticMap<PointCloudType>(cloud->instances, pc);
 
-        bonxai_->With<DataT>()->insertPointCloud(pc.points, sensorPosition, 30.0);
+        bonxai_->With<DataT>()->insertPointCloud(pc.points, sensorPosition, max_range_);
         publishAll<DataT>(cloud->header.stamp);
     }
 
@@ -440,7 +440,7 @@ namespace voxeland_server
         pcl::fromROSMsg(cloud->cloud, pc);
         pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, DataT>(pc, cloud->pose);
         semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, DataT>(cloud->instances, pc);
-        bonxai_->With<DataT>()->insertPointCloud(pc.points, sensorPosition, 30.0);
+        bonxai_->With<DataT>()->insertPointCloud(pc.points, sensorPosition, max_range_);
         if (number_iterations % 20 == 0)
         {
             const auto stime3 = rclcpp::Clock{}.now();
@@ -451,7 +451,7 @@ namespace voxeland_server
         std::set<InstanceID_t> visibleInstances =
             semantics.getCurrentVisibleInstances<DataT>(occupancy_min_z_, occupancy_max_z_);
         semantic_map_pub_->publish(semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp, visibleInstances));
-        VXL_INFO("Global map: {} visible and {} active instances", visibleInstances.size(), semantics.globalSemanticMap.size());
+        // VXL_INFO("Global map: {} visible and {} active instances", visibleInstances.size(), semantics.globalSemanticMap.size());
     }
 
     template <typename DataT>
