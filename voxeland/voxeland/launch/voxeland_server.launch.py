@@ -17,6 +17,7 @@ def launch_arguments():
         DeclareLaunchArgument("pMiss", default_value="0.4"),                # p (occupancy | miss)
         DeclareLaunchArgument("clampOccupancyMin", default_value="0.12"),   # value at which the occupancy prob gets clamped
         DeclareLaunchArgument("clampOccupancyMax", default_value="0.97"),   # value at which the occupancy prob gets clamped
+        DeclareLaunchArgument("maxRange", default_value="4.0"),   # max distance from the sensor before discarding the point as unreliable
    ]
 #==========================
 
@@ -30,7 +31,7 @@ def launch_setup(context, *args, **kwargs):
            {"resolution":parse_substitution("$(var resolution)")},
            {"latch": False},
            {"semantics_as_instances": False},
-           {"sensor_model.max_range": 4.0},
+           {"sensor_model.max_range": parse_substitution("$(var maxRange)")},
            
            {"sensor_model.hit": parse_substitution("$(var pHit)")},
            {"sensor_model.miss": parse_substitution("$(var pMiss)")},
