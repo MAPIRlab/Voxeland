@@ -3,6 +3,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <voxeland_map/semantics.hpp>
+#include <voxeland_map/cell_types/Color.hpp>
 
 #include "segmentation_msgs/msg/instance_semantic_map.hpp"
 #include "segmentation_msgs/msg/semantic_point_cloud.hpp"
@@ -10,6 +11,7 @@
 #include "vision_msgs/msg/detection3_d.hpp"
 #include "vision_msgs/msg/object_hypothesis.hpp"
 #include "vision_msgs/msg/object_hypothesis_with_pose.hpp"
+#include "visualization_msgs/msg/marker_array.hpp"
 
 class SemanticsROSWrapper
 {
@@ -44,12 +46,18 @@ public:
         return localSemanticMap;
     }
 
-    segmentation_msgs::msg::InstanceSemanticMap
-    getSemanticMapAsROSMessage(const rclcpp::Time& rostime, const std::set<InstanceID_t> visibleInstances)
+    struct InstanceMapMsgs
+    {
+        segmentation_msgs::msg::InstanceSemanticMap instanceMap;
+        visualization_msgs::msg::MarkerArray textMarkers;
+    };
+
+    InstanceMapMsgs getSemanticMapAsROSMessage(const rclcpp::Time& rostime, const std::set<InstanceID_t> visibleInstances)
     {
         segmentation_msgs::msg::InstanceSemanticMap map;
 
         map.header.stamp = rostime;
+        visualization_msgs::msg::MarkerArray textMarkers;
 
         for (size_t i = 0; i < semantics.globalSemanticMap.size(); i++)
         {
@@ -80,10 +88,30 @@ public:
                     }
                 }
                 map.semantic_map.push_back(instance);
+
+                // marker with instance ID for RViz
+                visualization_msgs::msg::Marker textMarker;
+                {
+                    textMarker.header.frame_id = "map";
+                    textMarker.id = i;
+                    textMarker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+                    textMarker.scale.z = 0.2;
+                    textMarker.text = instance.id;
+                    textMarker.pose.position.x = instance.bbox.center.position.x;
+                    textMarker.pose.position.y = instance.bbox.center.position.y;
+                    textMarker.pose.position.z = instance.bbox.center.position.z + 1.0f;
+                    
+                    auto color = voxeland::Color::FromHex(SemanticMap::get_instance().indexToHexColor(i));
+                    textMarker.color.r = color.r / 255.f;
+                    textMarker.color.g = color.g / 255.f;
+                    textMarker.color.b = color.b / 255.f;
+                    textMarker.color.a = 1;
+                }
+                textMarkers.markers.push_back(textMarker);
             }
         }
 
-        return map;
+        return { map, textMarkers };
     }
 
     template <typename PointCloudTypeT, typename DataT>

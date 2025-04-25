@@ -25,12 +25,13 @@ def launch_setup(context, *args, **kwargs):
     node = Node(
         package="voxeland",
         executable="voxeland_server_node",
-        prefix ="xterm -hold -e ",
+        name="voxeland_server",
+        # prefix ="xterm -hold -e",
         parameters=[
            {"frame_id":parse_substitution("$(var fixed_frame)")},
            {"resolution":parse_substitution("$(var resolution)")},
            {"latch": False},
-           {"semantics_as_instances": False},
+           {"semantics_as_instances": True},
            {"sensor_model.max_range": parse_substitution("$(var maxRange)")},
            
            {"sensor_model.hit": parse_substitution("$(var pHit)")},

@@ -393,7 +393,7 @@ namespace voxeland_server
                     classProbabilities[classIndex] = std::lerp(0., classProbabilities[classIndex], occupancyProb);
 
                 classProbabilities.back() = std::lerp(1., classProbabilities.back(), occupancyProb);  // the last element is always the background class
-                VXL_ASSERT(classProbabilities.back() < 1);
+                VXL_ASSERT(classProbabilities.back() <= 1);
             }
 
             // retrieve the corresponding class names and fill in the response
@@ -450,7 +450,13 @@ namespace voxeland_server
 
         std::set<InstanceID_t> visibleInstances =
             semantics.getCurrentVisibleInstances<DataT>(occupancy_min_z_, occupancy_max_z_);
-        semantic_map_pub_->publish(semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp, visibleInstances));
+        
+        SemanticsROSWrapper::InstanceMapMsgs msgs = semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp, visibleInstances);
+        semantic_map_pub_->publish(msgs.instanceMap);
+        
+        static auto textPub = create_publisher<visualization_msgs::msg::MarkerArray>("/voxeland/IDs", 1);
+        textPub->publish(msgs.textMarkers);
+        
         // VXL_INFO("Global map: {} visible and {} active instances", visibleInstances.size(), semantics.globalSemanticMap.size());
     }
 
