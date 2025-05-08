@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <voxeland_map/semantics.hpp>
@@ -24,7 +25,15 @@ public:
         {
             semantics.updateCategoryProbability(semanticObject, result.hypothesis.class_id, result.hypothesis.score);
             // Insert image instance in the appearances array
-            semanticObject.appearancesTimestamps[result.hypothesis.class_id].insert(instance.header.stamp.sec);
+
+            // Create mask bbox object
+            BoundingBox2D bbox;
+            bbox.centerX = instance.bbox.center.position.x;
+            bbox.centerY = instance.bbox.center.position.y;
+            bbox.sizeX = instance.bbox.size_x;
+            bbox.sizeY = instance.bbox.size_y;
+
+            semanticObject.appearancesTimestamps[result.hypothesis.class_id][instance.header.stamp.sec] = bbox;
         }
 
         return semanticObject;

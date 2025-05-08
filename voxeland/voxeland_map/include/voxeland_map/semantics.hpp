@@ -27,13 +27,21 @@ struct BoundingBox3D
     float maxZ = -std::numeric_limits<float>::infinity();
 };
 
+struct BoundingBox2D
+{
+    float centerX;
+    float centerY;
+    float sizeX;
+    float sizeY;
+};
+
 struct SemanticObject
 {
     // Note: For now, it is supposed that in the globalSemanticMap, instances are not going to disappear.
     // Otherwise, it should be considered, as the instanceID cannot be the globalSemanticMap.size()+1
     std::string instanceID;
     std::vector<double> alphaParamsCategories; // concentration parameters for the Dirichlet distribution
-    std::map<std::string, std::set<uint32_t>> appearancesTimestamps;
+    std::map<std::string, std::map<uint32_t,BoundingBox2D>> appearancesTimestamps;
     uint32_t numberObservations = 1;
     BoundingBox3D bbox;
 
@@ -545,12 +553,19 @@ public:
             {
                 data_json[globalSemanticMap[i].instanceID] = {};
                 data_json[globalSemanticMap[i].instanceID]["timestamps"] = {};
-                for (const auto& [category, appearances_set] : globalSemanticMap[i].appearancesTimestamps)
+                for (const auto& [category, appearances_map] : globalSemanticMap[i].appearancesTimestamps)
                 {
                     data_json[globalSemanticMap[i].instanceID]["timestamps"][category] = nlohmann::json::array();
-                    for (const auto& timestamp : appearances_set)
+                    for (const auto& instancePair : appearances_map)
                     {
-                        data_json[globalSemanticMap[i].instanceID]["timestamps"][category].push_back(timestamp);
+                        nlohmann::json instanceBbox;
+                        instanceBbox["instance_id"] = instancePair.first;
+                        instanceBbox["bbox"]["centerX"] = instancePair.second.centerX;
+                        instanceBbox["bbox"]["centerY"] = instancePair.second.centerY;
+                        instanceBbox["bbox"]["sizeX"] = instancePair.second.sizeX;
+                        instanceBbox["bbox"]["sizeY"] = instancePair.second.sizeY;
+
+                        data_json[globalSemanticMap[i].instanceID]["timestamps"][category].push_back(instanceBbox);
                     }
                 }
             }
