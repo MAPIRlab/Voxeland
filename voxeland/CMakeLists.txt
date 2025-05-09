@@ -17,7 +17,7 @@ endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_FLAGS_RELEASE "-fno-omit-frame-pointer -O3")
-set(CMAKE_CXX_FLAGS_DEBUG "-fno-omit-frame-pointer -O0 -g")
+set(CMAKE_CXX_FLAGS_DEBUG "-fno-omit-frame-pointer -fsanitize=undefined -O0 -g")
 
 #---- Add the subdirectory cmake ----
 set(CMAKE_CONFIG_PATH ${CMAKE_MODULE_PATH}  "${CMAKE_CURRENT_LIST_DIR}/cmake")
