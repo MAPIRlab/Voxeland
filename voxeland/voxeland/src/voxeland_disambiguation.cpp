@@ -1,5 +1,6 @@
 #include <iostream>
 #include <memory>
+#include <opencv2/highgui.hpp>
 #include <rclcpp/executors.hpp>
 #include <rclcpp/node.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -22,32 +23,35 @@
 
 #include "rosbag2_transport/reader_writer_factory.hpp"
 #include "cv_bridge/cv_bridge.h"
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+
 
 namespace voxeland_disambiguation {
     VoxelandDisambiguation::VoxelandDisambiguation(const rclcpp::NodeOptions& node_options)
         : Node("voxeland_disambiguation_node", node_options)
     {
+        std::cout << cv::getBuildInformation() << std::endl;
         // DECLARE NODE PARAMETERS
-        json_file = declare_parameter("json_map", "scenenn065.json");
+        json_file = declare_parameter("json_map", "scenenn/061.json");
         VXL_INFO("json_map parameter defined, value: {}", json_file);
 
-        json_appearances_file = declare_parameter("json_appearances", "scenenn065_appearances.json");
+        json_appearances_file = declare_parameter("json_appearances", "scenenn/061_appearances.json");
         VXL_INFO("json_appearances parameter defined, value: {}", json_appearances_file);
 
-        bag_path = declare_parameter("bag_path", "/home/ubuntu/ros2_ws/bag/SceneNN/to_ros/ROS2_bags/065/065.db3");
+        bag_path = declare_parameter("bag_path", "/home/ubuntu/ros2_ws/bag/SceneNN/to_ros/ROS2_bags/061/061.db3");
         VXL_INFO("bag_path parameter defined, value: {}", bag_path);
 
-        // Create the client for the LLM service
-        // client = this->create_client<ros_lm_interfaces::srv::OpenLLMRequest>("llm_generate_text");
-        // VXL_INFO("Awaiting llm_generate_text service...");
-        // while (!client->wait_for_service(std::chrono::seconds(1))){
-        //     if (!rclcpp::ok()){
-        //         VXL_ERROR("Interrupted while waiting for the service. Exiting...");
-        //         return;
-        //     }
-        //     VXL_WARN("sertvice not available, waiting...");
-        // }
-        // VXL_INFO("llm_generate_text service available!");
+        client = this->create_client<ros_lm_interfaces::srv::OpenLLMRequest>("llm_generate_text");
+        VXL_INFO("Awaiting llm_generate_text service...");
+        while (!client->wait_for_service(std::chrono::seconds(1))){
+            if (!rclcpp::ok()){
+                VXL_ERROR("Interrupted while waiting for the service. Exiting...");
+                return;
+            }
+            VXL_WARN("sertvice not available, waiting...");
+        }
+        VXL_INFO("llm_generate_text service available!");
 
         execute_pipeline();
     }
@@ -61,13 +65,6 @@ namespace voxeland_disambiguation {
         select_appearances();
 
         obtain_bag_images();
-        VXL_INFO("------- IMAGES OBTAINED ----------");
-        for(UncertainInstance& instance : uncertain_instances){
-            std::cout << "Instance: " << instance.get_instance()->InstanceID << std::endl;
-            for(auto& [category, images] : *instance.get_selected_images()){
-                std::cout << "     Category: " << category << " - " << images.size() << " images" << std::endl;
-            }
-        }
 
         ask_llm_for_disambiguation();
     }
@@ -101,10 +98,16 @@ namespace voxeland_disambiguation {
     */
     void VoxelandDisambiguation::select_appearances(){
         // Select an strategy
-        AppearancesClassifier* classifier = new RandomAppearancesClassifier(1);
+        AppearancesClassifier* classifier = new RandomAppearancesClassifier(3);
         for (UncertainInstance& instance : uncertain_instances){
-
             classifier->classify_instance_appearances(instance);
+        }
+    }
+
+    void show_all_images(std::string category ,std::vector<cv_bridge::CvImagePtr> images){
+        for (cv_bridge::CvImagePtr image : images){
+            cv::imshow(category, image->image);
+            cv::waitKey(0);
         }
     }
 
@@ -134,13 +137,22 @@ namespace voxeland_disambiguation {
                 add_selected_images(ros_msg, instance);
             }
         }
+        VXL_INFO("All images added to instances");
+
+        // Show all images
+        // for (UncertainInstance& instance : uncertain_instances){
+        //     std::map<std::string, std::vector<cv_bridge::CvImagePtr>>* selected_images = instance.get_selected_images();
+        //     for (auto& [category, images] : *selected_images){
+        //         show_all_images(category,images);
+        //     }
+        // }
     }
 
     void VoxelandDisambiguation::ask_llm_for_disambiguation(){
         auto load_request = std::make_shared<ros_lm_interfaces::srv::OpenLLMRequest::Request>();
         load_request -> action = 1;
-        load_request-> model_id = "llava-hf/llava-1.5-7b-hf";
-        // load_request-> model_id = "openbmb/MiniCPM-V-2";
+        // load_request-> model_id = "llava-hf/llava-1.5-7b-hf";
+        load_request-> model_id = "openbmb/MiniCPM-o-2_6";
 
         VXL_INFO("Loading model {} into ros_lm server", load_request->model_id);
         auto future = client->async_send_request(load_request);
@@ -156,26 +168,26 @@ namespace voxeland_disambiguation {
                 break;
             }
             std::vector<std::string> categories;
-            std::vector<std::string> selected_images;
+            std::vector<std::string> base64_images;
             std::string prompt;
             for (auto& [category, images] : *instance.get_selected_images()){
                 categories.push_back(category);
                 for (cv_bridge::CvImagePtr image : images){
                     std::string base64_image = image_to_base64(image);
-                    selected_images.push_back(base64_image);
+                    base64_images.push_back(base64_image);
                 }
             }
-            prompt = load_and_format_prompt("prompt.txt", categories,1);
+            prompt = load_and_format_prompt("prompt.txt", categories,3);
             std::cout << prompt << std::endl;
-            std::cout << "Selected images: " << selected_images.size() << std::endl;
+            std::cout << "Selected images: " << base64_images.size() << std::endl;
 
             // TEST REQUEST
 
             auto text_request = std::make_shared<ros_lm_interfaces::srv::OpenLLMRequest::Request>();
             text_request->action = 2;
             text_request->prompt = prompt;
-            text_request->model_id = "llava-hf/llava-1.5-7b-hf";
-            text_request->images = selected_images;
+            text_request->model_id = "openbmb/MiniCPM-o-2_6";
+            text_request->images = base64_images;
 
             auto future = client -> async_send_request(text_request);
             VXL_INFO("Waiting for response for instance: {}", instance.get_instance()->InstanceID);
@@ -191,7 +203,7 @@ namespace voxeland_disambiguation {
             
             i++;
             
-            // Execute request
+            // // Execute request
             // auto text_request = std::make_shared<ros_lm_interfaces::srv::OpenLLMRequest::Request>();
             // text_request->action = 2;
             // text_request->prompt = prompt;
@@ -237,12 +249,14 @@ namespace voxeland_disambiguation {
                 if(timestamp == image_msg->header.stamp.sec){
                     // Convert the image to a open_cv image
                     cv_bridge::CvImagePtr cv_image = cv_bridge::toCvCopy(image_msg, "bgr8");
-                    (*appearances)[category].push_back(cv_image);
+                    cv_bridge::CvImagePtr cv_image_bbox = instance.get_bbox_image(cv_image, category, timestamp);
+                    (*appearances)[category].push_back(cv_image_bbox);
                     VXL_INFO("Image {} added to instance: {} - Category: {}", image_msg->header.stamp.sec,instance.get_instance()->InstanceID, category);
                 }
             }
         }
     }
+
 
     void VoxelandDisambiguation::llm_response(auto future, UncertainInstance& instance){
         if(rclcpp::spin_until_future_complete(this->get_node_base_interface(),future) == rclcpp::FutureReturnCode::SUCCESS){

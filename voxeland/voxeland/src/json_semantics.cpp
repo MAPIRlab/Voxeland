@@ -123,6 +123,8 @@ JsonSemanticMap JsonSemanticMap::load_map(const std::string& json_file, const st
         map.instances.push_back(instance);
     }
 
+    // std::cout << " --- LOADED MAP ---\n " << map.to_string() << std::endl;
+
     return map;
 }
 
@@ -148,8 +150,8 @@ const std::string JsonSemanticMap::to_string(){
         str += "Appearances timestamps: ";
         for (auto& [category, timestamps] : instance.appearances_timestamps){
             str += category + " (" + std::to_string(timestamps.size()) + ") : ";
-            for (uint32_t timestamp : timestamps){
-                str += std::to_string(timestamp) + ", ";
+            for (const auto& [instance_id, bbox] : timestamps){
+                str += std::to_string(instance_id) + " (" + std::to_string(bbox.centerX) + ", " + std::to_string(bbox.centerY) + ", " + std::to_string(bbox.sizeX) + ", " + std::to_string(bbox.sizeY) + "), ";
             }
             str += "\n";
         }
@@ -200,16 +202,52 @@ std::map<std::string, double> JsonSemanticMap::parse_results(json& results){
     return results_map;
 }
 
-std::map<std::string, std::vector<uint32_t>> JsonSemanticMap::parse_appearances_timestamps(json& appearances_timestamps){
-    std::map<std::string, std::vector<uint32_t>> appearances_map;
-    for(auto& [category, timestamps] : appearances_timestamps["timestamps"].items()){
-        std::vector<uint32_t> timestamps_vector;
-        for (uint32_t timestamp : timestamps){
-            timestamps_vector.push_back(timestamp);
+std::map<std::string, std::map<uint32_t,BoundingBox2D>> JsonSemanticMap::parse_appearances_timestamps(json& appearances_timestamps){
+    std::map<std::string, std::map<uint32_t,BoundingBox2D>> appearances_map;
+    for(auto& [category, instances] : appearances_timestamps["timestamps"].items()){
+        for (auto& instance : instances){
+            BoundingBox2D bbox;
+            bbox.centerX = instance["bbox"]["centerX"];
+            bbox.centerY = instance["bbox"]["centerY"];
+            bbox.sizeX = instance["bbox"]["sizeX"];
+            bbox.sizeY = instance["bbox"]["sizeY"];
+            appearances_map[category][instance["instance_id"]] = bbox;
         }
-        appearances_map[category] = timestamps_vector;
     }
 
     return appearances_map;
 }
 
+cv_bridge::CvImagePtr UncertainInstance::get_bbox_image(cv_bridge::CvImagePtr full_image,std::string category, uint32_t timestamp){
+    auto& appearances_map = this->get_instance()->appearances_timestamps;
+    BoundingBox2D bbox = appearances_map[category][timestamp];
+
+    int paddinng = 75;
+
+    int width = static_cast<int>(bbox.sizeX);
+    int height = static_cast<int>(bbox.sizeY);
+
+    // Esquina superior izquierda
+    int x = static_cast<int>(bbox.centerX - width/2 ) - paddinng;
+    int y = static_cast<int>(bbox.centerY - height/2 ) - paddinng;
+    // Añadir el padding
+    width += 2 * paddinng;
+    height += 2 * paddinng;
+    
+    // Crear el rectángulo
+    cv::Rect bbox_rect(x, y, width, height);
+
+    // Asegurar que el bounding box esté dentro de los límites de la imagen
+    bbox_rect = bbox_rect & cv::Rect(0, 0, full_image->image.cols, full_image->image.rows);
+
+    cv::Mat roi = full_image->image(bbox_rect).clone();
+
+    // Crear una nueva CvImagePtr con el ROI
+    cv_bridge::CvImagePtr bbox_image(new cv_bridge::CvImage);
+    bbox_image->header = full_image->header;             // mantener timestamp y frame_id
+    bbox_image->encoding = full_image->encoding;         // mantener el encoding
+    bbox_image->image = roi;
+
+    // Ahora `output_ptr` contiene la imagen recortada
+    return bbox_image;
+}

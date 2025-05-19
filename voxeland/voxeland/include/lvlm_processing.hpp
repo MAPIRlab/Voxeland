@@ -82,7 +82,7 @@ const std::string load_and_format_prompt(const std::string& file_name, std::vect
             for(auto it = categories.begin(); it != categories.end(); ++it){
                 res_prompt += *it;
                 if (it != categories.end() - 1){
-                    res_prompt += " - ";
+                    res_prompt += ",";
                 }
             }
             res_prompt += line.substr(pos + 1);
@@ -92,9 +92,9 @@ const std::string load_and_format_prompt(const std::string& file_name, std::vect
         res_prompt += "\n";
     }
     // Add <image> tags
-    for(int i = 0; i < total_images; i++){
-        res_prompt += "<image>";
-    }
+    // for(int i = 0; i < total_images; i++){
+    //     res_prompt += "<image>";
+    // }
 
 
     return res_prompt;

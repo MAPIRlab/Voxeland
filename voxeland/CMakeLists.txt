@@ -66,6 +66,7 @@ if ( ament_cmake_FOUND )
     find_package(geometry_msgs REQUIRED)
     find_package(voxeland_msgs REQUIRED)
     find_package(cv_bridge REQUIRED)
+    find_package(OpenCV REQUIRED)
 
     ament_auto_find_build_dependencies()
 
@@ -97,6 +98,7 @@ if ( ament_cmake_FOUND )
       ${PCL_LIBRARIES}
       OpenMP::OpenMP_CXX
       rosbag2_transport::rosbag2_transport
+      ${OpenCV_LIBS}
       )
 
     rclcpp_components_register_node(voxeland_disambiguation

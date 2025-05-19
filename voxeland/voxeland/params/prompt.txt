@@ -1,11 +1,7 @@
-You are an expert object category disambiguator. I am passing you several images that include an object. That object has
-been labeled these categories: {}. I want you to analyze the images to tell me exactly which one of the previous categories
-is the correct one.
+You are an expert object classifier. I will provide you with several images that contain
+an object seen from different perspectives. The object belongs to one of the following categories: {}
 
-Your answer must only include one of the categories I have specified and must follow the following format:
-"The category is ..."
-
-For example:
-    # Example 1: "The category is refrigerator"
-    # Example 2: "The category is TV"
-    # Example 3: "The category is table"
+Your task is to analyze the object and its surrounding environment across all images to determine the correct category.
+    
+Your response must include only one of the previously specified categories
+and follow this exact format: ``The category is <category>''

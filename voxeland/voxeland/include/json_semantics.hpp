@@ -14,7 +14,7 @@ using json = nlohmann::json;
 struct JsonSemanticObject{
     std::string InstanceID;
     BoundingBox3D bbox;
-    std::map<std::string, std::vector<uint32_t>> appearances_timestamps;
+    std::map<std::string, std::map<uint32_t,BoundingBox2D>> appearances_timestamps;
     uint32_t n_observations;
     std::map<std::string, double> results;
 };
@@ -28,9 +28,10 @@ class UncertainInstance {
         JsonSemanticObject* get_instance();
         std::map<std::string, std::vector<uint32_t>>* get_selected_appearances();
         std::map<std::string, std::vector<cv_bridge::CvImagePtr>>* get_selected_images();
-        void set_selected_appearances(std::map<std::string, std::vector<uint32_t>> selected_appearances);
         double get_entropy();
         std::string get_final_category();
+        cv_bridge::CvImagePtr get_bbox_image(cv_bridge::CvImagePtr full_image, std::string category, uint32_t timestamp);
+        void set_selected_appearances(std::map<std::string, std::vector<uint32_t>> selected_appearances);
         void set_final_category(std::string final_category);
         std::string to_string();
     private:
@@ -51,6 +52,6 @@ class JsonSemanticMap{
         std::vector<JsonSemanticObject> instances;
     private:
         static BoundingBox3D parse_bbox(json& bbox);
-        static std::map<std::string, std::vector<uint32_t>> parse_appearances_timestamps(json& appearances_timestamps);
+        static std::map<std::string, std::map<uint32_t,BoundingBox2D>> parse_appearances_timestamps(json& appearances_timestamps);
         static std::map<std::string, double> parse_results(json& results);
 };

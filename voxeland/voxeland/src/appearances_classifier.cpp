@@ -1,6 +1,8 @@
 
 #include "appearances_classifier.hpp"
+#include <cstdint>
 #include <cstdlib>
+#include "voxeland_map/semantics.hpp"
 
 
 /**
@@ -47,13 +49,20 @@ void RandomAppearancesClassifier::classify_instance_appearances(UncertainInstanc
     std::map<std::string, std::vector<uint32_t>> selected_appearances_map;
 
     for (std::string category : selected_categories){
-        std::vector<uint32_t> appearances = instance.get_instance()->appearances_timestamps[category];
+        std::map<uint32_t,BoundingBox2D> appearances = instance.get_instance()->appearances_timestamps[category];
+
+        // Take the keys vector
+        std::vector<uint32_t> instance_ids_vector;
+        for (auto& [instance_id, bbox] : appearances){
+            instance_ids_vector.push_back(instance_id);
+        }
+
         std::vector<uint32_t> selected_appearances;
 
         // Choose max_appearances random appearances and add them to the final vector
         for (int i = 0; i < max_appearances; i++){
             int random_index = rand() % appearances.size();
-            selected_appearances.push_back(appearances.at(random_index));
+            selected_appearances.push_back(instance_ids_vector.at(random_index));
         }
 
         selected_appearances_map[category] = selected_appearances;
@@ -77,18 +86,24 @@ void RandomAppearancesClassifier::classify_instance_appearances(UncertainInstanc
     std::map<std::string, std::vector<uint32_t>> selected_appearances_map;
 
     for (const std::string& category : selected_categories) {
+        std::map<uint32_t,BoundingBox2D> appearances = instance.get_instance()->appearances_timestamps[category];
+
+        // Take the keys vector
+        std::vector<uint32_t> instance_ids_vector;
+        for (auto& [instance_id, bbox] : appearances){
+            instance_ids_vector.push_back(instance_id);
+        }
         std::vector<uint32_t> selected_appearances;
-        std::vector<uint32_t> appearances = instance.get_instance()->appearances_timestamps[category];
 
         size_t n = appearances.size();
         if (n <= max_appearances) {
             // If the number of appearances is less than max_appearances, use all of them
-            selected_appearances = appearances;
+            selected_appearances = instance_ids_vector;
         } else {
             // Distribute the appearances in max_appearances splits
             for (int i = 0; i < max_appearances; i++) {
                 size_t index = std::round(i * (n - 1.0) / (max_appearances - 1));
-                selected_appearances.push_back(appearances.at(index));
+                selected_appearances.push_back(instance_ids_vector.at(index));
             }
         }
 

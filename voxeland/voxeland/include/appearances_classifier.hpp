@@ -8,7 +8,7 @@ class AppearancesClassifier{
     protected:
         std::vector<std::string> choose_selected_categories(std::map<std::string, double>& results); // The n_categories with the highest probabilities
         int32_t max_appearances;
-        int32_t n_categories = 2;
+        int32_t n_categories = 3;
 };
 
 class RandomAppearancesClassifier : public AppearancesClassifier{
