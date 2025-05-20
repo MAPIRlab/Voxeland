@@ -2,6 +2,7 @@
 #include <ros_lm_interfaces/srv/detail/open_llm_request__struct.hpp>
 #include <rosbag2_cpp/reader.hpp>
 #include <rclcpp/client.hpp>
+#include <vector>
 #include "disambiguation/disambiguation_context.hpp"
 #include "disambiguation/json_semantics.hpp"
 #include "disambiguation/pipeline/interface_pipeline_step.hpp"
@@ -40,6 +41,8 @@ class JsonDeserializationStep : public AbstractPipelineStep{
 class UncertainInstanceIdentificationStep : public AbstractPipelineStep{
     public:
         void execute() override;
+    private:
+        std::vector<UncertainInstance> identify_uncertain_instances(JsonSemanticMap& map);
 };
 
 class AppeareancesSelectionStep : public AbstractPipelineStep{

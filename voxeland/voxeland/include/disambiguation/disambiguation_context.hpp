@@ -28,4 +28,9 @@ public:
     // Attribute getters
     JsonSemanticMap* get_semantic_map();
     std::vector<UncertainInstance>* get_uncertain_instances();
+    UncertainInstance* get_uncertain_instance_by_id(std::string instanceId);
+
+    // Attribute setters
+    void set_uncertain_instances(std::vector<UncertainInstance> uncertain_instances);
+    
 };
