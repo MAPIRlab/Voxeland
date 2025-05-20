@@ -5,6 +5,7 @@
 #include <vector>
 #include "disambiguation/disambiguation_context.hpp"
 #include "disambiguation/json_semantics.hpp"
+#include "disambiguation/appearances_classifier/appearances_classifier.hpp"
 #include "disambiguation/pipeline/interface_pipeline_step.hpp"
 
 class AbstractPipelineStep : public PipelineStep{
@@ -47,12 +48,18 @@ class UncertainInstanceIdentificationStep : public AbstractPipelineStep{
 
 class AppeareancesSelectionStep : public AbstractPipelineStep{
     public:
-        AppeareancesSelectionStep(std::string appearances_classifier, uint32_t n_images_per_category, uint32_t n_categories_per_instance);
+        AppeareancesSelectionStep(std::shared_ptr<AppearancesClassifier> classifier, uint32_t n_images_per_category, uint32_t n_categories_per_instance);
         void execute() override;
     private:
-        std::string appearances_classifier;
+        std::shared_ptr<AppearancesClassifier> appearances_classifier;
         uint32_t n_images_per_category;
         uint32_t n_categories_per_instance;
+
+        void select_category_appearances(std::vector<UncertainInstance>& uncertain_instances);
+
+        // Auxiliary functions
+        std::vector<std::string> choose_selected_categories(std::map<std::string, double>& results);
+        std::vector<std::pair<std::string, double>> sort_results_map(std::map<std::string, double>& results);
 };
 
 class ImageBagReading : public AbstractPipelineStep{
