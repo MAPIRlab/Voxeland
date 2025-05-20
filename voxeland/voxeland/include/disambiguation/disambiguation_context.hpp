@@ -23,7 +23,7 @@ public:
     void operator=(const DisambiguationContext &) = delete;
 
     // Static method to get the singleton instance
-    static std::shared_ptr<DisambiguationContext> get_instance();
+    static std::shared_ptr<DisambiguationContext> get_context_instance();
 
     // Attribute getters
     JsonSemanticMap* get_semantic_map();

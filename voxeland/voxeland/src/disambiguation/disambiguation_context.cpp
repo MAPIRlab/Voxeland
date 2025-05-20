@@ -6,7 +6,7 @@ void DisambiguationContext::reset_instance() {
     singleton_.reset();  // Free the existing instance
 }
 
-std::shared_ptr<DisambiguationContext> DisambiguationContext::get_instance() {
+std::shared_ptr<DisambiguationContext> DisambiguationContext::get_context_instance() {
     if (!singleton_) {
         singleton_ = std::make_shared<DisambiguationContext>();
     }
