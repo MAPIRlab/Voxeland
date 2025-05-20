@@ -31,7 +31,6 @@ namespace voxeland_disambiguation {
     VoxelandDisambiguation::VoxelandDisambiguation(const rclcpp::NodeOptions& node_options)
         : Node("voxeland_disambiguation_node", node_options)
     {
-        std::cout << cv::getBuildInformation() << std::endl;
         // DECLARE NODE PARAMETERS
         json_file = declare_parameter("json_map", "scenenn/061.json");
         VXL_INFO("json_map parameter defined, value: {}", json_file);
