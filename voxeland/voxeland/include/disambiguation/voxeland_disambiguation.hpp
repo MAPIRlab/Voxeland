@@ -1,4 +1,6 @@
 
+#include <sys/types.h>
+#include <cstdint>
 #include <memory>
 #include <rclcpp/client.hpp>
 #include <rclcpp/node.hpp>
@@ -10,6 +12,7 @@
 #include <voxeland_map/semantics.hpp>
 #include "json_semantics.hpp"
 #include <ros_lm_interfaces/srv/open_llm_request.hpp>
+#include "disambiguation/pipeline/interface_pipeline_step.hpp"
 
 #include "rclcpp/serialization.hpp"
 
@@ -18,29 +21,20 @@ namespace voxeland_disambiguation {
     {
         public:
             explicit VoxelandDisambiguation(const rclcpp::NodeOptions& node_options);
-
-            //Pipeline methods
-            void execute_pipeline();
-            void find_uncertain_instances();
-            void select_appearances();
-            void obtain_bag_images();
-            void ask_llm_for_disambiguation();
-        protected:
-            void add_selected_images(sensor_msgs::msg::Image::SharedPtr image_msg, UncertainInstance& instance);
-            void llm_response(auto future, UncertainInstance& instance);
-
+        private:
+            // Configuration parameters
             std::string json_file;
             std::string json_appearances_file;
             std::string bag_path;
-            
-            JsonSemanticMap semantic_map;
-            std::vector<UncertainInstance> uncertain_instances;
+            std::string appearances_classifier;
+            uint32_t n_images_per_category;
+            uint32_t n_categories_per_instance;
+            std::string output_file;
+            std::string lvlm_model;
 
-            rclcpp::Client<ros_lm_interfaces::srv::OpenLLMRequest>::SharedPtr client;
+            std::vector<std::unique_ptr<PipelineStep>> pipeline_steps;
 
-            // Instance variables for the scene bag reader
-            rclcpp::Serialization<sensor_msgs::msg::Image> image_serializer;
-            std::unique_ptr<rosbag2_cpp::Reader> reader;
-        
+            void initialize_pipeline();
+            void execute_pipeline();
     };
 };

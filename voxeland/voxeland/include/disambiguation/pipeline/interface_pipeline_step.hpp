@@ -1,8 +1,7 @@
+#pragma once
 
-class PipelineStep{
+class PipelineStep {
     public:
-        virtual void set_next(PipelineStep* next_step) = 0;
+        virtual ~PipelineStep() = default;
         virtual void execute() = 0;
-    protected:
-        PipelineStep* next;
 };

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <memory>
 #include <rclcpp/node.hpp>
 #include <ros_lm_interfaces/srv/detail/open_llm_request__struct.hpp>
@@ -11,12 +13,8 @@
 #include "disambiguation/pipeline/interface_pipeline_step.hpp"
 
 class AbstractPipelineStep : public PipelineStep{
-    
-    public:
-        void set_next(PipelineStep* next_step) override;
     protected:
         std::shared_ptr<DisambiguationContext> context = DisambiguationContext::get_context_instance();
-        void execute_next();
 
 };
 
@@ -36,7 +34,7 @@ class JsonDeserializationStep : public AbstractPipelineStep{
         std::map<std::string, std::map<uint32_t,BoundingBox2D>> parse_appearances_timestamps(nlohmann::json& appearances_timestamps);
         std::map<std::string, double> parse_results(nlohmann::json& results);
         BoundingBox3D parse_bbox(nlohmann::json& bbox);
-        JsonSemanticObject serialize_instance(nlohmann::json& instance_json);
+        JsonSemanticObject serialize_instance(const std::string& instance_id,nlohmann::json& instance_json);
 };
 
 class UncertainInstanceIdentificationStep : public AbstractPipelineStep{
@@ -48,10 +46,10 @@ class UncertainInstanceIdentificationStep : public AbstractPipelineStep{
 
 class AppeareancesSelectionStep : public AbstractPipelineStep{
     public:
-        AppeareancesSelectionStep(std::shared_ptr<AppearancesClassifier> classifier, uint32_t n_images_per_category, uint32_t n_categories_per_instance);
+        AppeareancesSelectionStep(std::unique_ptr<AppearancesClassifier> classifier, uint32_t n_images_per_category, uint32_t n_categories_per_instance);
         void execute() override;
     private:
-        std::shared_ptr<AppearancesClassifier> appearances_classifier;
+        std::unique_ptr<AppearancesClassifier> appearances_classifier;
         uint32_t n_images_per_category;
         uint32_t n_categories_per_instance;
 
@@ -81,7 +79,7 @@ class ImageBagReading : public AbstractPipelineStep{
 
 class LVLMDisambiguationStep : public AbstractPipelineStep{
     public:
-        LVLMDisambiguationStep(const std::string& lvlm_model, rclcpp::Node::SharedPtr node);
+        LVLMDisambiguationStep(const std::string& lvlm_model);
         void execute() override;
     private:
         std::string lvlm_model;

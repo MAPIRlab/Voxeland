@@ -86,11 +86,10 @@ if ( ament_cmake_FOUND )
       PLUGIN "voxeland_server::VoxelandServer"
       EXECUTABLE voxeland_server_node
     )
-
+    
+    file(GLOB_RECURSE SOURCES "voxeland/src/disambiguation/*.cpp")
     ament_auto_add_library(voxeland_disambiguation SHARED
-      voxeland/src/voxeland_disambiguation.cpp
-      voxeland/src/json_semantics.cpp
-      voxeland/src/appearances_classifier.cpp
+      ${SOURCES}
     )
 
     target_link_libraries(voxeland_disambiguation
