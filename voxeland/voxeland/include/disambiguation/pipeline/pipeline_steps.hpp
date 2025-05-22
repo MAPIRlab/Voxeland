@@ -1,7 +1,9 @@
 #include <memory>
+#include <rclcpp/node.hpp>
 #include <ros_lm_interfaces/srv/detail/open_llm_request__struct.hpp>
 #include <rosbag2_cpp/reader.hpp>
 #include <rclcpp/client.hpp>
+#include <string>
 #include <vector>
 #include "disambiguation/disambiguation_context.hpp"
 #include "disambiguation/json_semantics.hpp"
@@ -12,10 +14,8 @@ class AbstractPipelineStep : public PipelineStep{
     
     public:
         void set_next(PipelineStep* next_step) override;
-        
     protected:
         std::shared_ptr<DisambiguationContext> context = DisambiguationContext::get_context_instance();
-        
         void execute_next();
 
 };
@@ -33,9 +33,9 @@ class JsonDeserializationStep : public AbstractPipelineStep{
         void serialize_map(JsonSemanticMap& map);
         
         // Auxiliary functions
-        BoundingBox3D parse_bbox(nlohmann::json& bbox);
         std::map<std::string, std::map<uint32_t,BoundingBox2D>> parse_appearances_timestamps(nlohmann::json& appearances_timestamps);
         std::map<std::string, double> parse_results(nlohmann::json& results);
+        BoundingBox3D parse_bbox(nlohmann::json& bbox);
         JsonSemanticObject serialize_instance(nlohmann::json& instance_json);
 };
 
@@ -81,11 +81,17 @@ class ImageBagReading : public AbstractPipelineStep{
 
 class LVLMDisambiguationStep : public AbstractPipelineStep{
     public:
-        LVLMDisambiguationStep(const std::string& lvlm_model);
+        LVLMDisambiguationStep(const std::string& lvlm_model, rclcpp::Node::SharedPtr node);
         void execute() override;
     private:
         std::string lvlm_model;
+        rclcpp::Node::SharedPtr node;
         rclcpp::Client<ros_lm_interfaces::srv::OpenLLMRequest>::SharedPtr client;
+
+        void disambiguate_instances(std::vector<UncertainInstance>& uncertain_instances);
+        
+        void init_client();
+        bool load_model();
 };
 
 class JsonSerializationStep : public AbstractPipelineStep{
