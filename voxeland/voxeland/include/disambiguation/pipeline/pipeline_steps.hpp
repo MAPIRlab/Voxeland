@@ -69,6 +69,14 @@ class ImageBagReading : public AbstractPipelineStep{
     private:
         std::string bag_path;
         rclcpp::Serialization<sensor_msgs::msg::Image> image_serializer;
+        std::unique_ptr<rosbag2_cpp::Reader> reader;
+
+        void obtain_bag_images(std::vector<UncertainInstance>& uncertain_instances);
+        void add_selected_images(sensor_msgs::msg::Image::SharedPtr image_msg, UncertainInstance& instance);
+
+        // Debug
+        void show_all_images(std::vector<UncertainInstance>& uncertain_instances);
+        void show_category_images(std::string category, std::vector<cv_bridge::CvImagePtr> images);
 };
 
 class LVLMDisambiguationStep : public AbstractPipelineStep{
@@ -78,7 +86,6 @@ class LVLMDisambiguationStep : public AbstractPipelineStep{
     private:
         std::string lvlm_model;
         rclcpp::Client<ros_lm_interfaces::srv::OpenLLMRequest>::SharedPtr client;
-        std::unique_ptr<rosbag2_cpp::Reader> reader;
 };
 
 class JsonSerializationStep : public AbstractPipelineStep{
