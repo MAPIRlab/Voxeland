@@ -9,7 +9,7 @@ void DisambiguationContext::reset_instance() {
 
 std::shared_ptr<DisambiguationContext> DisambiguationContext::get_context_instance() {
     if (!singleton_) {
-        singleton_ = std::make_shared<DisambiguationContext>();
+        singleton_ = std::shared_ptr<DisambiguationContext>(new DisambiguationContext());
     }
     return singleton_;
 }
