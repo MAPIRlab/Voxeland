@@ -25,7 +25,6 @@ void ImageBagReading::execute(){
     obtain_bag_images(*uncertain_instances);
     
     VXL_INFO("[IMAGE_BAG_READING] All images read ");
-    execute_next();
 }
 
 void ImageBagReading::obtain_bag_images(std::vector<UncertainInstance>& uncertain_instances){

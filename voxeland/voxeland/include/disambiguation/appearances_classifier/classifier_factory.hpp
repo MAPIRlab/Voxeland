@@ -1,3 +1,4 @@
+#pragma once
 
 #include "disambiguation/appearances_classifier/appearances_classifier.hpp"
 

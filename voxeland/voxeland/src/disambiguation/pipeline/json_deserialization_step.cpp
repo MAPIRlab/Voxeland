@@ -14,8 +14,6 @@ void JsonDeserializationStep::execute() {
     serialize_map((*map));
 
     VXL_INFO("[JSON_DESERIALIZATION] JSON deserialization step completed.");
-
-    execute_next();
 }
 
 /**
@@ -51,7 +49,7 @@ void JsonDeserializationStep::serialize_map(JsonSemanticMap& map) {
     
     for (json::iterator object_it = instances.begin();  object_it != instances.end(); ++object_it) {
         json object_value = object_it.value();
-        JsonSemanticObject instance = serialize_instance(object_value);
+        JsonSemanticObject instance = serialize_instance(object_it.key(), object_value);
 
         map.add_instance(instance);
     }
@@ -111,9 +109,9 @@ std::map<std::string, std::map<uint32_t,BoundingBox2D>> JsonDeserializationStep:
     return appearances_map;
 }
 
-JsonSemanticObject JsonDeserializationStep::serialize_instance(json& instance_json) {
+JsonSemanticObject JsonDeserializationStep::serialize_instance(const std::string& instance_id, json& instance_json){
     JsonSemanticObject instance;
-    instance.InstanceID = instance_json["InstanceID"];
+    instance.InstanceID = instance_id;
     instance.bbox = parse_bbox(instance_json["bbox"]);
     instance.appearances_timestamps = parse_appearances_timestamps(instance_json["appearances_timestamps"]);
     instance.n_observations = instance_json["n_observations"];
@@ -121,4 +119,3 @@ JsonSemanticObject JsonDeserializationStep::serialize_instance(json& instance_js
 
     return instance;
 }
-

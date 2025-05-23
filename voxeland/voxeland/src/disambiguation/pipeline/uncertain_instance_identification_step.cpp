@@ -12,7 +12,6 @@ void UncertainInstanceIdentificationStep::execute(){
 
     VXL_INFO("[UNCERTAIN_INSTANCE_IDENTIFICATION] Completed, found %d uncertain instances",uncertain_instances.size());
     
-    execute_next();
 }
 
 /**

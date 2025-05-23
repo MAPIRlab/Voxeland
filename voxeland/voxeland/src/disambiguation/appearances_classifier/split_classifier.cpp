@@ -37,3 +37,7 @@
 
     instance.set_selected_appearances(selected_appearances_map);
 }
+
+std::string SplitAppearancesClassifier::get_name() const {
+    return name;
+}

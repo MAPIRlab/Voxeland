@@ -34,7 +34,7 @@ class JsonDeserializationStep : public AbstractPipelineStep{
         std::map<std::string, std::map<uint32_t,BoundingBox2D>> parse_appearances_timestamps(nlohmann::json& appearances_timestamps);
         std::map<std::string, double> parse_results(nlohmann::json& results);
         BoundingBox3D parse_bbox(nlohmann::json& bbox);
-        JsonSemanticObject serialize_instance(const std::string& instance_id,nlohmann::json& instance_json);
+        JsonSemanticObject serialize_instance(const std::string& instance_id, nlohmann::json& instance_json);
 };
 
 class UncertainInstanceIdentificationStep : public AbstractPipelineStep{

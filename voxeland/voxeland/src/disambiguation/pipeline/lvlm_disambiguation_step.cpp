@@ -5,9 +5,13 @@
 #include <rclcpp/node.hpp>
 #include <rclcpp/rclcpp.hpp>
 
-LVLMDisambiguationStep::LVLMDisambiguationStep(const std::string& lvlm_model, rclcpp::Node::SharedPtr node){
+LVLMDisambiguationStep::LVLMDisambiguationStep(const std::string& lvlm_model){
     this->lvlm_model = lvlm_model;
-    this->node = node;
+
+    rclcpp::NodeOptions options;
+    options.allow_undeclared_parameters(true);
+    options.automatically_declare_parameters_from_overrides(true);
+    this->node = std::make_shared<rclcpp::Node>("lvlm_disambiguation_node", options);
 
     init_client();
 }
@@ -19,7 +23,6 @@ void LVLMDisambiguationStep::execute(){
     disambiguate_instances(*uncertain_instances);
     
     VXL_INFO("[LVLM_DISAMBIGUATION] All instances disambiguated ");
-    execute_next();
 }
 
 void LVLMDisambiguationStep::disambiguate_instances(std::vector<UncertainInstance>& uncertain_instances){
