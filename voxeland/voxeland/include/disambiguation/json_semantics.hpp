@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 #include "voxeland_map/semantics.hpp"
@@ -21,11 +22,11 @@ struct JsonSemanticObject{
 class UncertainInstance {
     public:
         UncertainInstance(JsonSemanticObject* instance, double entropy){
-            this->instance = instance;
+            this->instance = std::make_shared<JsonSemanticObject>(*instance);
             this->entropy = entropy;
         };
         
-        JsonSemanticObject* get_instance();
+        std::shared_ptr<JsonSemanticObject> get_instance();
         std::map<std::string, std::vector<uint32_t>>* get_selected_appearances();
         std::map<std::string, std::vector<cv_bridge::CvImagePtr>>* get_selected_images();
         double get_entropy();
@@ -36,7 +37,7 @@ class UncertainInstance {
         void set_final_category(std::string final_category);
         std::string to_string();
     private:
-        JsonSemanticObject* instance;
+        std::shared_ptr<JsonSemanticObject> instance;
         std::map<std::string, std::vector<uint32_t>> selected_appearances;
         std::map<std::string, std::vector<cv_bridge::CvImagePtr>> selected_images;
         double entropy;
@@ -48,7 +49,7 @@ class JsonSemanticMap{
         std::vector<JsonSemanticObject>* get_instances();
     
         void add_instance(JsonSemanticObject instance);
-        JsonSemanticObject* get_instance(const std::string& instanceID);    
+        std::shared_ptr<JsonSemanticObject> get_instance(const std::string& instanceID);    
         const std::string to_string();
     private:
         std::vector<JsonSemanticObject> instances; 

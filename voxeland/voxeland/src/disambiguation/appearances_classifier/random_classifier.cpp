@@ -1,5 +1,6 @@
 
 #include "disambiguation/appearances_classifier/appearances_classifier.hpp"
+#include "voxeland_map/Utils/logging.hpp"
 
 /**
  * @brief Select the appearances to be used for re-classification by choosing
@@ -13,8 +14,12 @@ void RandomAppearancesClassifier::classify_instance_appearances(
   std::map<std::string, std::vector<uint32_t>> selected_appearances_map;
 
   for (std::string category : categories) {
+
     std::map<uint32_t, BoundingBox2D> appearances =
         instance.get_instance()->appearances_timestamps[category];
+
+        VXL_INFO("[APPEARANCES_CLASSIFIER] Appearances for category {}: {}",
+            category, appearances.size());
 
     // Take the keys vector
     std::vector<uint32_t> instance_ids_vector;

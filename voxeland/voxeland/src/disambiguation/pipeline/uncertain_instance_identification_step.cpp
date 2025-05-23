@@ -3,6 +3,7 @@
 #include "voxeland_map/Utils/logging.hpp"
 #include "voxeland_map/dirichlet.hpp"
 
+
 void UncertainInstanceIdentificationStep::execute(){
     VXL_INFO("[UNCERTAIN_INSTANCE_IDENTIFICATION] Executing uncertain instance identification step");
 
@@ -10,8 +11,14 @@ void UncertainInstanceIdentificationStep::execute(){
     std::vector<UncertainInstance> uncertain_instances = identify_uncertain_instances(map);
     context->set_uncertain_instances(uncertain_instances);
 
-    VXL_INFO("[UNCERTAIN_INSTANCE_IDENTIFICATION] Completed, found %d uncertain instances",uncertain_instances.size());
-    
+    VXL_INFO("CHECKING RESULTS ARRAY");
+    auto& uncertain_instances_ref = *context->get_uncertain_instances();
+    auto& result = uncertain_instances_ref[0].get_instance()->results;
+    for (const auto& result_pair : result) {
+        VXL_INFO("[UNCERTAIN_INSTANCE_IDENTIFICATION] Result: {} -> {}", result_pair.first.c_str(), result_pair.second);
+    }
+
+    VXL_INFO("[UNCERTAIN_INSTANCE_IDENTIFICATION] Completed, found {} uncertain instances",uncertain_instances.size()); 
 }
 
 /**
@@ -30,7 +37,7 @@ std::vector<UncertainInstance> UncertainInstanceIdentificationStep::identify_unc
             
             // Compute the entropy
             double entropy = expected_shannon_entropy(alphas);
-            VXL_INFO("[UNCERTAIN_INSTANCE_IDENTIFICATION] Instance %s has entropy %f", instance.InstanceID, entropy);
+            VXL_INFO("[UNCERTAIN_INSTANCE_IDENTIFICATION] Instance {} has entropy {}", instance.InstanceID, entropy);
 
             // Fixed threshold
             if(entropy > 0.7){

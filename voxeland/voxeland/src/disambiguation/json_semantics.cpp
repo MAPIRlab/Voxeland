@@ -4,12 +4,13 @@
 #include <cstdint>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <string>
 #include "voxeland_map/semantics.hpp"
 
 using json = nlohmann::json;
 
-JsonSemanticObject* UncertainInstance::get_instance(){
+std::shared_ptr<JsonSemanticObject> UncertainInstance::get_instance(){
     return instance;
 }
 
@@ -44,11 +45,7 @@ std::string UncertainInstance::to_string(){
     str += "Selected appearances: \n";
     str += "    " + std::to_string(selected_appearances.size()) + " categories\n";
     for (auto& [category, timestamps] : selected_appearances){
-        str += "    " + category + " : ";
-        for (uint32_t timestamp : timestamps){
-            str += std::to_string(timestamp) + ", ";
-        }
-        str += "\n";
+        str += "    " + category + " : " + std::to_string(timestamps.size()) + " timestamps\n";
     }
     return str;
 }
@@ -75,10 +72,10 @@ void JsonSemanticMap::add_instance(JsonSemanticObject instance){
     instances.push_back(instance);
 }
 
-JsonSemanticObject* JsonSemanticMap::get_instance(const std::string& instanceID){
+std::shared_ptr<JsonSemanticObject> JsonSemanticMap::get_instance(const std::string& instanceID){
     for (JsonSemanticObject& instance : instances){
         if (instance.InstanceID == instanceID){
-            return &instance;
+            return std::make_shared<JsonSemanticObject>(instance);
         }
     }
     return nullptr;
@@ -94,13 +91,9 @@ const std::string JsonSemanticMap::to_string(){
         str += "Instance: " + instance.InstanceID + "\n";
         str += "BBox: " + std::to_string(instance.bbox.minX) + ", " + std::to_string(instance.bbox.minY) + ", " + std::to_string(instance.bbox.minZ) + "\n";
         str += "       " + std::to_string(instance.bbox.maxX) + ", " + std::to_string(instance.bbox.maxY) + ", " + std::to_string(instance.bbox.maxZ) + "\n";
-        str += "Appearances timestamps: ";
+        str += "Appearances timestamps (" + std::to_string(instance.appearances_timestamps.size()) + "): \n";
         for (auto& [category, timestamps] : instance.appearances_timestamps){
-            str += category + " (" + std::to_string(timestamps.size()) + ") : ";
-            for (const auto& [instance_id, bbox] : timestamps){
-                str += std::to_string(instance_id) + " (" + std::to_string(bbox.centerX) + ", " + std::to_string(bbox.centerY) + ", " + std::to_string(bbox.sizeX) + ", " + std::to_string(bbox.sizeY) + "), ";
-            }
-            str += "\n";
+            str += "    " + category + " (" + std::to_string(timestamps.size()) + ")\n";
         }
         str += "\n";
         str += "n_observations: " + std::to_string(instance.n_observations) + "\n";

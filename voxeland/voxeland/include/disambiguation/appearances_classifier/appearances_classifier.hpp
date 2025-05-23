@@ -18,7 +18,7 @@ class RandomAppearancesClassifier : public AppearancesClassifier{
         void classify_instance_appearances(UncertainInstance& instance, std::vector<std::string> categories, uint32_t max_appearances) override;
         std::string get_name() const override;
     private:
-        static const std::string name;
+        const std::string name = "random";
 };
 
 class SplitAppearancesClassifier : public AppearancesClassifier{
@@ -26,5 +26,5 @@ class SplitAppearancesClassifier : public AppearancesClassifier{
         void classify_instance_appearances(UncertainInstance& instance, std::vector<std::string> categories, uint32_t max_appearances) override;
         std::string get_name() const override;
     private:    
-        static const std::string name;
+        const std::string name = "split";
 };

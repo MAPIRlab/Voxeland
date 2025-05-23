@@ -34,7 +34,7 @@ class JsonDeserializationStep : public AbstractPipelineStep{
         std::map<std::string, std::map<uint32_t,BoundingBox2D>> parse_appearances_timestamps(nlohmann::json& appearances_timestamps);
         std::map<std::string, double> parse_results(nlohmann::json& results);
         BoundingBox3D parse_bbox(nlohmann::json& bbox);
-        JsonSemanticObject serialize_instance(const std::string& instance_id, nlohmann::json& instance_json);
+        JsonSemanticObject serialize_instance(const std::string& instance_id, nlohmann::json& instance_json, nlohmann::json& instance_appeareances_json);
 };
 
 class UncertainInstanceIdentificationStep : public AbstractPipelineStep{
@@ -56,8 +56,8 @@ class AppeareancesSelectionStep : public AbstractPipelineStep{
         void select_category_appearances(std::vector<UncertainInstance>& uncertain_instances);
 
         // Auxiliary functions
-        std::vector<std::string> choose_selected_categories(std::map<std::string, double>& results);
-        std::vector<std::pair<std::string, double>> sort_results_map(std::map<std::string, double>& results);
+        std::vector<std::string> choose_selected_categories(const std::map<std::string, double>& results);
+        std::vector<std::pair<std::string, double>> sort_results_map(const std::map<std::string, double>& results);
 };
 
 class ImageBagReading : public AbstractPipelineStep{

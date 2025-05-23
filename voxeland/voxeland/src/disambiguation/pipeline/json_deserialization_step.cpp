@@ -2,16 +2,23 @@
 #include "disambiguation/json_semantics.hpp"
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
+#include <string>
 #include "nlohmann/json.hpp"
 #include "voxeland_map/Utils/logging.hpp"
 using json = nlohmann::json;
 
+JsonDeserializationStep::JsonDeserializationStep(const std::string& json_file, const std::string& json_appearances_file){
+    this->json_file = json_file;
+    this->json_appearances_file = json_appearances_file;
+}
 
 void JsonDeserializationStep::execute() {
     VXL_INFO("[JSON_DESERIALIZATION] Executing JSON deserialization step...");
     
     auto map = context->get_semantic_map();
     serialize_map((*map));
+
+    std::cout << map->to_string() << std::endl;
 
     VXL_INFO("[JSON_DESERIALIZATION] JSON deserialization step completed.");
 }
@@ -49,7 +56,8 @@ void JsonDeserializationStep::serialize_map(JsonSemanticMap& map) {
     
     for (json::iterator object_it = instances.begin();  object_it != instances.end(); ++object_it) {
         json object_value = object_it.value();
-        JsonSemanticObject instance = serialize_instance(object_it.key(), object_value);
+        std::string instance_id = object_it.key();
+        JsonSemanticObject instance = serialize_instance(instance_id, object_value, apppearances_j[instance_id]);
 
         map.add_instance(instance);
     }
@@ -109,11 +117,11 @@ std::map<std::string, std::map<uint32_t,BoundingBox2D>> JsonDeserializationStep:
     return appearances_map;
 }
 
-JsonSemanticObject JsonDeserializationStep::serialize_instance(const std::string& instance_id, json& instance_json){
+JsonSemanticObject JsonDeserializationStep::serialize_instance(const std::string& instance_id, json& instance_json, json& instance_appeareances_json) {
     JsonSemanticObject instance;
     instance.InstanceID = instance_id;
     instance.bbox = parse_bbox(instance_json["bbox"]);
-    instance.appearances_timestamps = parse_appearances_timestamps(instance_json["appearances_timestamps"]);
+    instance.appearances_timestamps = parse_appearances_timestamps(instance_appeareances_json);
     instance.n_observations = instance_json["n_observations"];
     instance.results = parse_results(instance_json["results"]);
 
