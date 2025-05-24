@@ -1,9 +1,5 @@
 <launch>
     <node pkg="voxeland" exec="voxeland_disambiguation_node" name="voxeland_disambiguation">
-        <param name="json_map" value="0.02" />
-        <param name="json_appearances" value="map" />
-        <param name="scene_bag_path" value="4.0" />
-        <param name="appearances_classifier_strategy" value="true" />
     </node>
     <node pkg="ros_lm" exec="ros_lm" name="ros_lm">
     </node>

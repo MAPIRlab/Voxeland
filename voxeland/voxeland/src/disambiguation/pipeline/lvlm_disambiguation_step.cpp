@@ -55,20 +55,16 @@ void LVLMDisambiguationStep::disambiguate_instances(std::vector<UncertainInstanc
         // Call the service
         auto future = client -> async_send_request(prompt_request);
         
-        // Create a thread to handle the response
-        std::thread([this, &instance, future = std::move(future)]() mutable {
-            VXL_INFO("Waiting for response for instance: {}", instance.get_instance()->InstanceID);
-            // Espera hasta que la respuesta esté disponible
-            if (rclcpp::spin_until_future_complete(node->get_node_base_interface(), future) ==
-                rclcpp::FutureReturnCode::SUCCESS)
-            {
-                auto response = future.get();
-                instance.set_final_category(response->generated_text);
-                VXL_INFO("Instance {} disambiguated to category: {}", instance.get_instance()->InstanceID, response->generated_text);
-            } else {
-                VXL_ERROR("Failed to call service");
-            }
-        }).detach();
+        VXL_INFO("Waiting for response for instance: {}", instance.get_instance()->InstanceID);
+        // Espera hasta que la respuesta esté disponible
+        if (rclcpp::spin_until_future_complete(node->get_node_base_interface(), future) ==
+            rclcpp::FutureReturnCode::SUCCESS)
+        {
+            auto response = future.get();
+            VXL_INFO("Instance {} disambiguated to category: {}", instance.get_instance()->InstanceID, response->generated_text);
+        } else {
+            VXL_ERROR("Failed to call service");
+        }
     }
 }
 

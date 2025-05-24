@@ -1,3 +1,4 @@
+#include <iostream>
 #include <memory>
 #include <opencv2/highgui.hpp>
 #include <rclcpp/executors.hpp>
@@ -81,6 +82,7 @@ namespace voxeland_disambiguation {
     void VoxelandDisambiguation::execute_pipeline() {
         for (auto& step : pipeline_steps) {
             step -> execute();
+            std::cout << std::endl;
         }
     }
 

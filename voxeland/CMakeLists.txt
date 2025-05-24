@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(voxeland)
 
-SET(CMAKE_BUILD_TYPE "Release")
+SET(CMAKE_BUILD_TYPE "Debug")
 set(CMAKE_VERBOSE_MAKEFILE ON) #Outputs the compiler command to the build log file
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
