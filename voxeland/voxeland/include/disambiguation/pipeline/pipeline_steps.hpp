@@ -11,6 +11,7 @@
 #include "disambiguation/json_semantics.hpp"
 #include "disambiguation/appearances_classifier/appearances_classifier.hpp"
 #include "disambiguation/pipeline/interface_pipeline_step.hpp"
+#include "nlohmann/json.hpp"
 
 class AbstractPipelineStep : public PipelineStep{
     protected:
@@ -100,4 +101,11 @@ class JsonSerializationStep : public AbstractPipelineStep{
         void execute() override;
     private:
         std::string output_file;
+
+        nlohmann::json serialize_map(JsonSemanticMap& map);
+        void save_map(const nlohmann::json& map_json);
+
+        nlohmann::json serialize_instance(JsonSemanticObject& instance);
+        nlohmann::json serialize_bbox(BoundingBox3D& bbox);
+        nlohmann::json serialize_results(std::map<std::string, double>& results);
 };

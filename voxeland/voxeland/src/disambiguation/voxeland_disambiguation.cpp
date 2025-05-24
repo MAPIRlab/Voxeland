@@ -50,7 +50,7 @@ namespace voxeland_disambiguation {
         n_categories_per_instance = declare_parameter("n_categories_per_instance", 3);
         VXL_INFO("n_categories_per_instance parameter defined, value: {}", n_categories_per_instance);
 
-        output_file = declare_parameter("output_file", "scenenn/061_disambiguated.json");
+        output_file = declare_parameter("output_file", "/home/ubuntu/Desktop/061_disambiguated.json");
         VXL_INFO("output_file parameter defined, value: {}", output_file);
 
         lvlm_model = declare_parameter("lvlm_model", "openbmb/MiniCPM-o-2_6");
@@ -68,15 +68,15 @@ namespace voxeland_disambiguation {
         auto appearances_selection = std::make_unique<AppeareancesSelectionStep>(std::move(classifier_instance), n_images_per_category, n_categories_per_instance);
         auto image_bag_reading = std::make_unique<ImageBagReading>(bag_path);
         auto lvlm_disambiguation = std::make_unique<LVLMDisambiguationStep>(lvlm_model);
-        // auto json_serialization = std::make_unique<JsonSerializationStep>(output_file);
+        auto json_serialization = std::make_unique<JsonSerializationStep>(output_file);
         
         pipeline_steps.push_back(std::move(json_deserialization));
         pipeline_steps.push_back(std::move(uncertain_instance_identification));
         pipeline_steps.push_back(std::move(appearances_selection));
         pipeline_steps.push_back(std::move(image_bag_reading));
         pipeline_steps.push_back(std::move(lvlm_disambiguation));
+        pipeline_steps.push_back(std::move(json_serialization));
 
-        // pipeline_steps.push_back(std::move(json_serialization));
     }
 
     void VoxelandDisambiguation::execute_pipeline() {
