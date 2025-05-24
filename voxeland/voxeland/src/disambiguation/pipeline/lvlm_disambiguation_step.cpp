@@ -1,9 +1,12 @@
+#include "disambiguation/json_semantics.hpp"
 #include "disambiguation/pipeline/pipeline_steps.hpp"
 #include "disambiguation/prompt_utils.hpp"
 #include <rclcpp/serialized_message.hpp>
 #include <rclcpp/executors.hpp>
 #include <rclcpp/node.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <string>
+#include <vector>
 
 LVLMDisambiguationStep::LVLMDisambiguationStep(const std::string& lvlm_model){
     this->lvlm_model = lvlm_model;
@@ -26,15 +29,15 @@ void LVLMDisambiguationStep::execute(){
 }
 
 void LVLMDisambiguationStep::disambiguate_instances(std::vector<UncertainInstance>& uncertain_instances){
-    // Load the model
     load_model();
 
-    // Loop through all the uncertain instances
     for (UncertainInstance& instance : uncertain_instances){
+        VXL_INFO("Disambiguating instance: {}", instance.get_instance()->InstanceID);
         std::vector<std::string> categories;
         std::vector<std::string> base64_images;
         std::string prompt;
-        // Convert images to base64
+
+        // Convert images to base64 and extract categories
         for (auto& [category, images] : *instance.get_selected_images()){
             categories.push_back(category);
             for (cv_bridge::CvImagePtr image : images){
@@ -42,28 +45,21 @@ void LVLMDisambiguationStep::disambiguate_instances(std::vector<UncertainInstanc
                 base64_images.push_back(base64_image);
             }
         }
-        prompt = load_and_format_prompt("prompt.txt", categories,3);
-        VXL_INFO("Prompt: {}", prompt);
-        VXL_INFO("Selected images: {}", base64_images.size());
 
+        prompt = load_and_format_prompt("prompt.txt", categories,3);
         auto prompt_request = std::make_shared<ros_lm_interfaces::srv::OpenLLMRequest::Request>();
         prompt_request->action = 2;
         prompt_request->prompt = prompt;
         prompt_request->model_id = lvlm_model;
         prompt_request->images = base64_images;
 
-        // Call the service
-        auto future = client -> async_send_request(prompt_request);
-        
-        VXL_INFO("Waiting for response for instance: {}", instance.get_instance()->InstanceID);
-        // Espera hasta que la respuesta esté disponible
-        if (rclcpp::spin_until_future_complete(node->get_node_base_interface(), future) ==
-            rclcpp::FutureReturnCode::SUCCESS)
-        {
-            auto response = future.get();
-            VXL_INFO("Instance {} disambiguated to category: {}", instance.get_instance()->InstanceID, response->generated_text);
-        } else {
-            VXL_ERROR("Failed to call service");
+        send_and_handle_request(prompt_request, categories, instance);
+
+        // DEBUG
+        const auto& results = instance.get_disambiguation_results();
+        VXL_INFO("Disambiguation results for instance {}:", instance.get_instance()->InstanceID);
+        for (const auto& [category, count] : *results) {
+            VXL_INFO("  Category: {}, Count: {}", category, count);
         }
     }
 }
@@ -97,5 +93,42 @@ bool LVLMDisambiguationStep::load_model(){
     }
 
     return true;
+}
+
+void LVLMDisambiguationStep::send_and_handle_request(std::shared_ptr<ros_lm_interfaces::srv::OpenLLMRequest::Request> request, std::vector<std::string>& categories, UncertainInstance& instance){
+    int valid_responses_count = 0;
+
+    while (valid_responses_count < 10){
+        auto future = client -> async_send_request(request);
+
+        if (rclcpp::spin_until_future_complete(node->get_node_base_interface(), future) != rclcpp::FutureReturnCode::SUCCESS){
+            VXL_ERROR("Failed to call service");
+            continue;
+        }
+
+        auto response = future.get();
+        std::string selected_category = get_category_from_response(response->generated_text, categories);
+        if (selected_category.empty()) {
+            VXL_WARN("No valid category found in response for instance: {}", instance.get_instance()->InstanceID);
+            continue;
+        }
+
+        VXL_INFO("Instance {} disambiguated to category: {}", instance.get_instance()->InstanceID, selected_category);
+        instance.increase_one_disambiguation_result(selected_category);
+        valid_responses_count++;
+    }
+
+}
+
+
+std::string LVLMDisambiguationStep::get_category_from_response(std::string response, const std::vector<std::string>& categories) {
+    // Find one the categories in the response
+    for (const std::string& category : categories) {
+        if (response.find(category) != std::string::npos) {
+            return category;
+        }
+    }
+    // If no category is found, return an empty string
+    return "";
 }
 

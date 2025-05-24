@@ -27,16 +27,20 @@ double UncertainInstance::get_entropy(){
     return entropy;
 }
 
+std::map<std::string, uint32_t>* UncertainInstance::get_disambiguation_results(){
+    return &disambiguation_results;
+}
+
 void UncertainInstance::set_selected_appearances(std::map<std::string, std::vector<uint32_t>> selected_appearances){
     this->selected_appearances = selected_appearances;
 }
 
-std::string UncertainInstance::get_final_category(){
-    return final_category;
-}
-
-void UncertainInstance::set_final_category(std::string final_category){
-    this->final_category = final_category;
+void UncertainInstance::increase_one_disambiguation_result(const std::string& category){
+    if (disambiguation_results.find(category) != disambiguation_results.end()){
+        disambiguation_results[category]++;
+    } else {
+        disambiguation_results[category] = 1;
+    }
 }
 
 std::string UncertainInstance::to_string(){

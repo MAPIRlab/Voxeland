@@ -10,14 +10,7 @@ void UncertainInstanceIdentificationStep::execute(){
     JsonSemanticMap map = *(context->get_semantic_map());
     std::vector<UncertainInstance> uncertain_instances = identify_uncertain_instances(map);
     context->set_uncertain_instances(uncertain_instances);
-
-    VXL_INFO("CHECKING RESULTS ARRAY");
-    auto& uncertain_instances_ref = *context->get_uncertain_instances();
-    auto& result = uncertain_instances_ref[0].get_instance()->results;
-    for (const auto& result_pair : result) {
-        VXL_INFO("[UNCERTAIN_INSTANCE_IDENTIFICATION] Result: {} -> {}", result_pair.first.c_str(), result_pair.second);
-    }
-
+    
     VXL_INFO("[UNCERTAIN_INSTANCE_IDENTIFICATION] Completed, found {} uncertain instances",uncertain_instances.size()); 
 }
 

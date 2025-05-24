@@ -90,6 +90,8 @@ class LVLMDisambiguationStep : public AbstractPipelineStep{
         
         void init_client();
         bool load_model();
+        void send_and_handle_request(std::shared_ptr<ros_lm_interfaces::srv::OpenLLMRequest::Request> request, std::vector<std::string>& categories, UncertainInstance& instance);
+        std::string get_category_from_response(std::string response, const std::vector<std::string>& categories);
 };
 
 class JsonSerializationStep : public AbstractPipelineStep{

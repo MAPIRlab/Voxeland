@@ -49,10 +49,8 @@ void AppeareancesSelectionStep::select_category_appearances(
     auto categories = choose_selected_categories(
       uncertain_instance.get_instance()->results);
     
-    VXL_INFO("[APPEARANCES_SELECTION] BOMBOCLAT IN");
     appearances_classifier->classify_instance_appearances(
       uncertain_instance, categories, n_images_per_category);
-    VXL_INFO("[APPEARANCES_SELECTION] BOMBOCLAT OUT");
   }
 }
 

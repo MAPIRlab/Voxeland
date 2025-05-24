@@ -15,11 +15,7 @@ void RandomAppearancesClassifier::classify_instance_appearances(
 
   for (std::string category : categories) {
 
-    std::map<uint32_t, BoundingBox2D> appearances =
-        instance.get_instance()->appearances_timestamps[category];
-
-        VXL_INFO("[APPEARANCES_CLASSIFIER] Appearances for category {}: {}",
-            category, appearances.size());
+    std::map<uint32_t, BoundingBox2D> appearances = instance.get_instance()->appearances_timestamps[category];
 
     // Take the keys vector
     std::vector<uint32_t> instance_ids_vector;
@@ -38,10 +34,6 @@ void RandomAppearancesClassifier::classify_instance_appearances(
 
     selected_appearances_map[category] = selected_appearances;
   }
-
-  std::cout << "Selected appearances: " << selected_appearances_map.size()
-            << std::endl;
-
   instance.set_selected_appearances(selected_appearances_map);
 }
 
