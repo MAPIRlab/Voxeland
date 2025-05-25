@@ -72,37 +72,37 @@ std::map<std::string, double> sort_map(std::map<std::string, double>& map){
     return sorted_map;
 }
 
-void JsonSemanticMap::add_instance(JsonSemanticObject instance){
+void JsonSemanticMap::add_instance(std::shared_ptr<JsonSemanticObject> instance){
     instances.push_back(instance);
 }
 
 std::shared_ptr<JsonSemanticObject> JsonSemanticMap::get_instance(const std::string& instanceID){
-    for (JsonSemanticObject& instance : instances){
-        if (instance.InstanceID == instanceID){
-            return std::make_shared<JsonSemanticObject>(instance);
+    for (auto& instance : instances){
+        if (instance->InstanceID == instanceID){
+            return instance;
         }
     }
     return nullptr;
 }
 
-std::vector<JsonSemanticObject>* JsonSemanticMap::get_instances(){
-    return &instances;
+std::vector<std::shared_ptr<JsonSemanticObject>>& JsonSemanticMap::get_instances(){
+    return instances;
 }
 
 const std::string JsonSemanticMap::to_string(){
     std::string str = "";
-    for (JsonSemanticObject& instance : instances){
-        str += "Instance: " + instance.InstanceID + "\n";
-        str += "BBox: " + std::to_string(instance.bbox.minX) + ", " + std::to_string(instance.bbox.minY) + ", " + std::to_string(instance.bbox.minZ) + "\n";
-        str += "       " + std::to_string(instance.bbox.maxX) + ", " + std::to_string(instance.bbox.maxY) + ", " + std::to_string(instance.bbox.maxZ) + "\n";
-        str += "Appearances timestamps (" + std::to_string(instance.appearances_timestamps.size()) + "): \n";
-        for (auto& [category, timestamps] : instance.appearances_timestamps){
+    for (auto& instance : instances){
+        str += "Instance: " + instance->InstanceID + "\n";
+        str += "BBox: " + std::to_string(instance->bbox.minX) + ", " + std::to_string(instance->bbox.minY) + ", " + std::to_string(instance->bbox.minZ) + "\n";
+        str += "       " + std::to_string(instance->bbox.maxX) + ", " + std::to_string(instance->bbox.maxY) + ", " + std::to_string(instance->bbox.maxZ) + "\n";
+        str += "Appearances timestamps (" + std::to_string(instance->appearances_timestamps.size()) + "): \n";
+        for (auto& [category, timestamps] : instance->appearances_timestamps){
             str += "    " + category + " (" + std::to_string(timestamps.size()) + ")\n";
         }
         str += "\n";
-        str += "n_observations: " + std::to_string(instance.n_observations) + "\n";
+        str += "n_observations: " + std::to_string(instance->n_observations) + "\n";
         str += "Results: \n";
-        for (std::pair<std::string, double> result : instance.results){
+        for (std::pair<std::string, double> result : instance->results){
             str += "    " + result.first + ": " + std::to_string(result.second) + "\n";
         }
     }

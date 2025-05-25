@@ -2,6 +2,7 @@
 #include "disambiguation/json_semantics.hpp"
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
+#include <memory>
 #include <string>
 #include "nlohmann/json.hpp"
 #include "voxeland_map/Utils/logging.hpp"
@@ -59,7 +60,7 @@ void JsonDeserializationStep::serialize_map(JsonSemanticMap& map) {
         std::string instance_id = object_it.key();
         JsonSemanticObject instance = serialize_instance(instance_id, object_value, apppearances_j[instance_id]);
 
-        map.add_instance(instance);
+        map.add_instance(std::make_shared<JsonSemanticObject>(instance));
     }
 }
 

@@ -98,7 +98,7 @@ bool LVLMDisambiguationStep::load_model(){
 void LVLMDisambiguationStep::send_and_handle_request(std::shared_ptr<ros_lm_interfaces::srv::OpenLLMRequest::Request> request, std::vector<std::string>& categories, UncertainInstance& instance){
     int valid_responses_count = 0;
 
-    while (valid_responses_count < 10){
+    while (valid_responses_count < 100){
         auto future = client -> async_send_request(request);
 
         if (rclcpp::spin_until_future_complete(node->get_node_base_interface(), future) != rclcpp::FutureReturnCode::SUCCESS){

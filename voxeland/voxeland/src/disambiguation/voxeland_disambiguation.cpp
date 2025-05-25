@@ -68,6 +68,7 @@ namespace voxeland_disambiguation {
         auto appearances_selection = std::make_unique<AppeareancesSelectionStep>(std::move(classifier_instance), n_images_per_category, n_categories_per_instance);
         auto image_bag_reading = std::make_unique<ImageBagReading>(bag_path);
         auto lvlm_disambiguation = std::make_unique<LVLMDisambiguationStep>(lvlm_model);
+        auto uncertain_results_updater = std::make_unique<UncertainResultsUpdateStep>();
         auto json_serialization = std::make_unique<JsonSerializationStep>(output_file);
         
         pipeline_steps.push_back(std::move(json_deserialization));
@@ -75,6 +76,7 @@ namespace voxeland_disambiguation {
         pipeline_steps.push_back(std::move(appearances_selection));
         pipeline_steps.push_back(std::move(image_bag_reading));
         pipeline_steps.push_back(std::move(lvlm_disambiguation));
+        pipeline_steps.push_back(std::move(uncertain_results_updater));
         pipeline_steps.push_back(std::move(json_serialization));
 
     }

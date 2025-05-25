@@ -1,3 +1,4 @@
+#include <memory>
 #include "disambiguation/json_semantics.hpp"
 #include "disambiguation/pipeline/pipeline_steps.hpp"
 using json = nlohmann::json;
@@ -26,11 +27,11 @@ void JsonSerializationStep::save_map(const json& map_json) {
 }
 
 json JsonSerializationStep::serialize_map(JsonSemanticMap& map) {
-    std::vector<JsonSemanticObject> instances = *map.get_instances();
+    std::vector<std::shared_ptr<JsonSemanticObject>> instances = map.get_instances();
     json map_json = {};
 
     for (auto& instance : instances){
-        map_json["instances"][instance.InstanceID] = serialize_instance(instance);
+        map_json["instances"][instance->InstanceID] = serialize_instance(*instance);
     }
 
     return map_json;

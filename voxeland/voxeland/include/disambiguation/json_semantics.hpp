@@ -21,8 +21,8 @@ struct JsonSemanticObject{
 
 class UncertainInstance {
     public:
-        UncertainInstance(JsonSemanticObject* instance, double entropy){
-            this->instance = std::make_shared<JsonSemanticObject>(*instance);
+        UncertainInstance(std::shared_ptr<JsonSemanticObject> instance, double entropy){
+            this->instance = instance;
             this->entropy = entropy;
         };
         
@@ -46,12 +46,12 @@ class UncertainInstance {
 
 class JsonSemanticMap{
     public:
-        std::vector<JsonSemanticObject>* get_instances();
+        std::vector<std::shared_ptr<JsonSemanticObject>>& get_instances();
     
-        void add_instance(JsonSemanticObject instance);
+        void add_instance(std::shared_ptr<JsonSemanticObject> instance);
         std::shared_ptr<JsonSemanticObject> get_instance(const std::string& instanceID);    
         const std::string to_string();
     private:
-        std::vector<JsonSemanticObject> instances; 
+        std::vector<std::shared_ptr<JsonSemanticObject>> instances; 
 
 };

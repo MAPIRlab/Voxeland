@@ -20,21 +20,21 @@ void UncertainInstanceIdentificationStep::execute(){
 */
 std::vector<UncertainInstance> UncertainInstanceIdentificationStep::identify_uncertain_instances(JsonSemanticMap& map){
     std::vector<UncertainInstance> uncertain_instances;
-    for (JsonSemanticObject& instance : *(map.get_instances())){
+    for (auto instance : map.get_instances()){
             
             // Retrieve all alphas from the results
             std::vector<double> alphas;
-            for (auto results_pair : instance.results){
+            for (auto results_pair : instance->results){
                 alphas.push_back(results_pair.second);
             }
             
             // Compute the entropy
             double entropy = expected_shannon_entropy(alphas);
-            VXL_INFO("[UNCERTAIN_INSTANCE_IDENTIFICATION] Instance {} has entropy {}", instance.InstanceID, entropy);
+            VXL_INFO("[UNCERTAIN_INSTANCE_IDENTIFICATION] Instance {} has entropy {}", instance->InstanceID, entropy);
 
             // Fixed threshold
             if(entropy > 0.7){
-                uncertain_instances.push_back(UncertainInstance(&instance, entropy));
+                uncertain_instances.emplace_back(instance, entropy);
             }
         }
     return uncertain_instances;

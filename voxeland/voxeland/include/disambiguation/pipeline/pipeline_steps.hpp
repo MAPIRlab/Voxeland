@@ -95,6 +95,13 @@ class LVLMDisambiguationStep : public AbstractPipelineStep{
         std::string get_category_from_response(std::string response, const std::vector<std::string>& categories);
 };
 
+class UncertainResultsUpdateStep : public AbstractPipelineStep{
+    public:
+        void execute() override;
+    private:
+        void update_uncertain_instances_results(std::vector<UncertainInstance>& uncertain_instances);
+};
+
 class JsonSerializationStep : public AbstractPipelineStep{
     public:
         JsonSerializationStep(const std::string& output_file);
