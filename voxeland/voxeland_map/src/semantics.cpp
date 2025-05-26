@@ -112,6 +112,9 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
 
 uint32_t SemanticMap::indexToHexColor(InstanceID_t index)
 {
+    if (index == 0)
+        return 0xbcbcbc;
+
     return color_palette[index % color_palette.size()];
 }
 

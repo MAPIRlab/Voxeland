@@ -26,9 +26,6 @@ namespace voxeland
             InstanceID_t bestInstance = getMostRepresentativeInstance();
             uint32_t hexColor = SemanticMap::get_instance().indexToHexColor(bestInstance);
 
-            if (bestInstance == 0)
-                hexColor = 0xbcbcbc;
-
             return Color::FromHex(hexColor);
         }
 
@@ -45,30 +42,29 @@ namespace voxeland
         static std::string getHeaderPLY()
         {
             return fmt::format(
-                       "{}\n"
-                       "{}\n"
-                       "property int instanceid\n"
-                       "property float uncertainty_instances\n"
-                       "property float uncertainty_categories",
-                       getXYZheader(),
-                       getRGBheader());
+                "{}\n"
+                "{}\n"
+                "property int instanceid\n"
+                "property float uncertainty_instances\n"
+                "property float uncertainty_categories",
+                getXYZheader(),
+                getRGBheader());
         }
 
         std::vector<double> GetClassProbabilities()
         {
+            if (instances_candidates.size() == 0)
+                return {};
             SemanticMap& semantics = SemanticMap::get_instance();
-            std::vector<double> alphasDirichlet(instances_candidates.size(), 1);
-            size_t total_votes = 0;
+            std::vector<double> alphasDirichlet(semantics.default_categories.size(), 1);
 
-            for (InstanceID_t i = 0; i < instances_votes.size(); i++)
-                total_votes += instances_votes[i];
-
-            for (InstanceID_t i = 0; i < instances_candidates.size(); i++)
+            for (InstanceID_t localInstanceID = 0; localInstanceID < instances_candidates.size(); localInstanceID++)
             {
-                for (InstanceID_t j = 0; j < semantics.default_categories.size(); j++)
+                const SemanticObject& globalInstance = semantics.globalSemanticMap[instances_candidates[localInstanceID]];
+                float votesInstance = instances_votes[localInstanceID];
+                for (size_t category = 0; category < semantics.default_categories.size(); category++)
                 {
-                    alphasDirichlet[j] +=
-                        double(instances_votes[i]) / total_votes * semantics.globalSemanticMap[instances_candidates[i]].alphaParamsCategories[j];
+                    alphasDirichlet.at(category) +=  votesInstance * globalInstance.alphaParamsCategories.at(category);
                 }
             }
             double sum = std::accumulate(alphasDirichlet.begin(), alphasDirichlet.end(), 0.);
@@ -81,6 +77,7 @@ namespace voxeland
         }
 
     protected:
+        // if the instance with the most votes is background, but there is a real instance very close behind, returns the second one
         InstanceID_t getMostRepresentativeInstance()
         {
             InstanceID_t idxMaxVotes1 = 0;
@@ -119,21 +116,22 @@ namespace voxeland
         void AddVote(InstanceID_t thisGlobalID)
         {
             auto it = std::find(instances_candidates.begin(), instances_candidates.end(), thisGlobalID);
-
             if (it != instances_candidates.end())
                 instances_votes[std::distance(instances_candidates.begin(), it)] += 1;
             else
             {
                 instances_candidates.push_back(thisGlobalID);
-                instances_votes.push_back(0);
+                instances_votes.push_back(1);
             }
         }
 
+        // account for instances having been fused since they were last observed
         void updateCandidatesAndVotes()
         {
             SemanticMap& semantics = SemanticMap::get_instance();
 
             std::vector<InstanceID_t> candidates_temp;
+            candidates_temp.reserve(instances_candidates.size());
             std::map<InstanceID_t, uint32_t> combining_instances;
 
             for (InstanceID_t i = 0; i < instances_candidates.size(); i++)
@@ -159,4 +157,4 @@ namespace voxeland
             }
         }
     };
-} // namespace voxeland
+}  // namespace voxeland
