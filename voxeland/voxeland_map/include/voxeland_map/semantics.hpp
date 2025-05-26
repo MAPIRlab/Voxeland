@@ -41,7 +41,7 @@ struct SemanticObject
     // Otherwise, it should be considered, as the instanceID cannot be the globalSemanticMap.size()+1
     std::string instanceID;
     std::vector<double> alphaParamsCategories; // concentration parameters for the Dirichlet distribution
-    std::map<std::string, std::map<uint32_t,BoundingBox2D>> appearancesTimestamps;
+    std::vector<std::map<uint32_t,BoundingBox2D>> appearancesTimestamps;
     uint32_t numberObservations = 1;
     BoundingBox3D bbox;
 
@@ -54,20 +54,24 @@ struct SemanticObject
     SemanticObject(size_t numCategories, InstanceID_t _instanceID)
         : alphaParamsCategories(numCategories, 0)
         , instanceID("obj" + std::to_string(_instanceID))
+        , appearancesTimestamps(numCategories)
     {}
     SemanticObject(const std::vector<double>& alphas, InstanceID_t _instanceID)
         : alphaParamsCategories(alphas)
         , instanceID("obj" + std::to_string(_instanceID))
+        , appearancesTimestamps(alphas.size())
     {}
     SemanticObject(size_t numCategories, InstanceID_t _instanceID, BoundingBox3D _bbox)
         : alphaParamsCategories(numCategories, 0)
         , instanceID("obj" + std::to_string(_instanceID))
         , bbox(_bbox)
+        , appearancesTimestamps(numCategories)
     {}
     SemanticObject(const std::vector<double>& alphas, InstanceID_t _instanceID, BoundingBox3D _bbox)
         : alphaParamsCategories(alphas)
         , instanceID("obj" + std::to_string(_instanceID))
         , bbox(_bbox)
+        , appearancesTimestamps(alphas.size())
     {}
 };
 
@@ -122,7 +126,7 @@ public:
     bool checkBBoxIntersect(const BoundingBox3D& box1, const BoundingBox3D& box2);
     void updateAlphaCategories(SemanticObject& original, const SemanticObject& update);
     void updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D& update);
-    void updateApearancesTimestamps(SemanticObject& original, const SemanticObject& update);
+    void updateAppearancesTimestamps(SemanticObject& original, const SemanticObject& update);
     void fuseSemanticObjects(SemanticObject& firstInstance, const SemanticObject& secondInstance);
     InstanceID_t getCategoryMaxProbability(InstanceID_t objID);
 
@@ -367,7 +371,7 @@ public:
         if (globalSemanticMap.empty())
         {
             SemanticObject unknown = SemanticObject(localMap[0].alphaParamsCategories, 0, localMap[0].bbox);
-            updateApearancesTimestamps(unknown, localMap[0]);
+            updateAppearancesTimestamps(unknown, localMap[0]);
 
             globalSemanticMap.push_back(unknown);
         }
@@ -424,7 +428,7 @@ public:
                 lastMapLocalToGlobal[localInstanceID] = globalSemanticMap.size();
                 // Create new object integrating localMap information
                 SemanticObject newObject = SemanticObject(localInstance.alphaParamsCategories, globalSemanticMap.size(), localInstance.bbox);
-                updateApearancesTimestamps(newObject, localInstance);
+                updateAppearancesTimestamps(newObject, localInstance);
                 
                 // Add it to the global map
                 globalSemanticMap.push_back(newObject);
@@ -553,8 +557,13 @@ public:
             {
                 data_json[globalSemanticMap[i].instanceID] = {};
                 data_json[globalSemanticMap[i].instanceID]["timestamps"] = {};
-                for (const auto& [category, appearances_map] : globalSemanticMap[i].appearancesTimestamps)
-                {
+                for (size_t j = 0; j < globalSemanticMap[i].appearancesTimestamps.size(); j++){
+                    std::string category = default_categories[i];
+                    const auto& appearances_map = globalSemanticMap[i].appearancesTimestamps[j];
+                    if (appearances_map.empty()){
+                        continue;
+                    }
+
                     data_json[globalSemanticMap[i].instanceID]["timestamps"][category] = nlohmann::json::array();
                     for (const auto& instancePair : appearances_map)
                     {

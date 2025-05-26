@@ -32,8 +32,9 @@ public:
             bbox.centerY = instance.bbox.center.position.y;
             bbox.sizeX = instance.bbox.size_x;
             bbox.sizeY = instance.bbox.size_y;
-
-            semanticObject.appearancesTimestamps[result.hypothesis.class_id][instance.header.stamp.sec] = bbox;
+            
+            size_t categoryIndex = semantics.categoryIndexMap[result.hypothesis.class_id];
+            semanticObject.appearancesTimestamps[categoryIndex][instance.header.stamp.sec] = bbox;
         }
 
         return semanticObject;

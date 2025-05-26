@@ -5,6 +5,7 @@
 #include <string>
 #include <voxeland_map/Utils/Stopwatch.hpp>
 #include <voxeland_server.hpp>
+#include <segmentation_msgs/msg/instance_semantic_map.hpp>
 
 #include <rclcpp/serialization.hpp>
 

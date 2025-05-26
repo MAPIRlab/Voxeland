@@ -191,18 +191,14 @@ void SemanticMap::updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D&
     original.maxZ = std::max(update.maxZ, original.maxZ);
 }
 
-void SemanticMap::updateApearancesTimestamps(SemanticObject& original, const SemanticObject& update)
-{
-    for (const auto& [category, appearances_set] : update.appearancesTimestamps){
-        auto it = original.appearancesTimestamps.find(category);
+void SemanticMap::updateAppearancesTimestamps(SemanticObject& original, const SemanticObject& update){
 
-        if(it != original.appearancesTimestamps.end()){
-            // If the category is already included, insert the new appearances
-            original.appearancesTimestamps[category].insert(appearances_set.begin(), appearances_set.end());
-        } else {
-            // If the category is not included, create a new entry
-            original.appearancesTimestamps[category] = appearances_set;
-        }
+    for (size_t i = 0; i < original.appearancesTimestamps.size(); ++i) {
+        // Add all timestamps from the update to the original
+        original.appearancesTimestamps[i].insert(
+            update.appearancesTimestamps[i].begin(),
+            update.appearancesTimestamps[i].end()
+        );
     }
 }
 
@@ -222,7 +218,7 @@ void SemanticMap::fuseSemanticObjects(SemanticObject& firstInstance, const Seman
     updateBBoxBounds(firstInstance.bbox, secondInstance.bbox);
 
     // Update appearances timestamps
-    updateApearancesTimestamps(firstInstance, secondInstance);
+    updateAppearancesTimestamps(firstInstance, secondInstance);
 
 }
 
