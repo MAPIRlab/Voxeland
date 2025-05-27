@@ -24,7 +24,7 @@ OpenMP::OpenMP_CXX
 
 # Install 
 install(
-   DIRECTORY launch
+   DIRECTORY launch params
    DESTINATION share/${PROJECT_NAME} 
 )
 
