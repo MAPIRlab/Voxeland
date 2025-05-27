@@ -19,10 +19,6 @@ bool JsonDeserializationStep::execute() {
     VXL_INFO("[JSON_DESERIALIZATION] Executing JSON deserialization step...");
     
     auto map = context->get_semantic_map();
-    if(!map || map->get_instances().empty()){
-        VXL_ERROR("[JSON_DESERIALIZATION] Semantic map is empty or not initialized.");
-        return false;
-    }
     try {
         deserialize_map((*map));  
     } catch (std::runtime_error& e) {

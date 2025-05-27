@@ -25,7 +25,7 @@ bool LVLMDisambiguationStep::execute(){
     VXL_INFO("[LVLM_DISAMBIGUATION] Disambiguating instances using LVLM model: {} ...", lvlm_model);
     
     std::vector<UncertainInstance>* uncertain_instances = context -> get_uncertain_instances();
-    if (uncertain_instances->empty()){
+    if (!uncertain_instances || uncertain_instances->empty()){
         VXL_ERROR("[LVLM_DISAMBIGUATION] No uncertain instances to disambiguate.");
         return false;
     }
