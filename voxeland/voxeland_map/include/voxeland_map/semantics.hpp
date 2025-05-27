@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <eigen3/Eigen/Core>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -25,12 +27,21 @@ struct BoundingBox3D
     float maxZ = -std::numeric_limits<float>::infinity();
 };
 
+struct BoundingBox2D
+{
+    float centerX;
+    float centerY;
+    float sizeX;
+    float sizeY;
+};
+
 struct SemanticObject
 {
     // Note: For now, it is supposed that in the globalSemanticMap, instances are not going to disappear.
     // Otherwise, it should be considered, as the instanceID cannot be the globalSemanticMap.size()+1
     std::string instanceID;
     std::vector<double> alphaParamsCategories; // concentration parameters for the Dirichlet distribution
+    std::vector<std::map<uint32_t,BoundingBox2D>> appearancesTimestamps;
     uint32_t numberObservations = 1;
     BoundingBox3D bbox;
 
@@ -43,20 +54,24 @@ struct SemanticObject
     SemanticObject(size_t numCategories, InstanceID_t _instanceID)
         : alphaParamsCategories(numCategories, 0)
         , instanceID("obj" + std::to_string(_instanceID))
+        , appearancesTimestamps(numCategories)
     {}
     SemanticObject(const std::vector<double>& alphas, InstanceID_t _instanceID)
         : alphaParamsCategories(alphas)
         , instanceID("obj" + std::to_string(_instanceID))
+        , appearancesTimestamps(alphas.size())
     {}
     SemanticObject(size_t numCategories, InstanceID_t _instanceID, BoundingBox3D _bbox)
         : alphaParamsCategories(numCategories, 0)
         , instanceID("obj" + std::to_string(_instanceID))
         , bbox(_bbox)
+        , appearancesTimestamps(numCategories)
     {}
     SemanticObject(const std::vector<double>& alphas, InstanceID_t _instanceID, BoundingBox3D _bbox)
         : alphaParamsCategories(alphas)
         , instanceID("obj" + std::to_string(_instanceID))
         , bbox(_bbox)
+        , appearancesTimestamps(alphas.size())
     {}
 };
 
@@ -109,7 +124,10 @@ public:
     uint32_t indexToHexColor(InstanceID_t index);
     void updateCategoryProbability(SemanticObject& semanticObject, const std::string& categoryName, double probability);
     bool checkBBoxIntersect(const BoundingBox3D& box1, const BoundingBox3D& box2);
+    void updateAlphaCategories(SemanticObject& original, const SemanticObject& update);
     void updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D& update);
+    void updateAppearancesTimestamps(SemanticObject& original, const SemanticObject& update);
+    void fuseSemanticObjects(SemanticObject& firstInstance, const SemanticObject& secondInstance);
     InstanceID_t getCategoryMaxProbability(InstanceID_t objID);
 
     template <typename DataT>
@@ -325,12 +343,9 @@ public:
                     double iou = compute3DIoU<DataT>(firstInstance.bbox, i, secondInstance.bbox, j, true);
                     if (iou > 0.3)
                     {
+                        // Fuse the second instance with the first one
                         secondInstance.pointsTo = i;
-                        for (size_t k = 0; k < firstInstance.alphaParamsCategories.size(); k++)
-                        {
-                            firstInstance.alphaParamsCategories[k] += secondInstance.alphaParamsCategories[k];
-                        }
-                        updateBBoxBounds(firstInstance.bbox, secondInstance.bbox);
+                        fuseSemanticObjects(firstInstance, secondInstance);
                         firstInstance.numberObservations += secondInstance.numberObservations;
                     }
                 }
@@ -355,15 +370,14 @@ public:
         lastMapLocalToGlobal.resize(localMap.size());
         if (globalSemanticMap.empty())
         {
-            globalSemanticMap.push_back(SemanticObject(localMap[0].alphaParamsCategories, 0, localMap[0].bbox));
+            SemanticObject unknown = SemanticObject(localMap[0].alphaParamsCategories, 0, localMap[0].bbox);
+            updateAppearancesTimestamps(unknown, localMap[0]);
+
+            globalSemanticMap.push_back(unknown);
         }
         else
         {
-            for (size_t i = 0; i < localMap[0].alphaParamsCategories.size(); i++)
-            {
-                globalSemanticMap[0].alphaParamsCategories[i] += localMap[0].alphaParamsCategories[i];
-            }
-            updateBBoxBounds(globalSemanticMap[0].bbox, localMap[0].bbox);
+            fuseSemanticObjects(globalSemanticMap[0], localMap[0]);
         }
 
         // First, integrate local "unknown" with global "unknown". They are always the 0-index
@@ -398,20 +412,10 @@ public:
                         compute3DIoU<DataT>(globalInstance.bbox, globalInstanceID, localInstance.localGeometry.value());
                     if (iou > 0.3)
                     {
-                        // VXL_INFO("Integrando {} local con {} global con IoU de {}",
-                        // default_categories[localClassIdx].c_str(), default_categories[globalClassIdx].c_str(), iou);
-                        for (size_t i = 0; i < globalInstance.alphaParamsCategories.size(); i++)
-                        {
-                            globalInstance.alphaParamsCategories[i] += localInstance.alphaParamsCategories[i];
-                        }
+                        fuseSemanticObjects(globalInstance, localInstance);
+
                         lastMapLocalToGlobal[localInstanceID] = globalInstanceID;
-                        // int before_update = listOfVoxelsInsideBBox<DataT>(globalInstance.bbox,
-                        // globalInstanceID).size();
-                        updateBBoxBounds(globalInstance.bbox, localInstance.bbox);
-                        // int after_update = listOfVoxelsInsideBBox<DataT>(globalInstance.bbox,
-                        // globalInstanceID).size(); if (before_update > after_update){
-                        //   VXL_INFO("Bounding box updated wrongly!");
-                        // }
+
                         globalInstance.numberObservations += 1;
                         fused = true;
                         integrated += 1;
@@ -422,8 +426,12 @@ public:
             if (!fused)
             {
                 lastMapLocalToGlobal[localInstanceID] = globalSemanticMap.size();
-                globalSemanticMap.push_back(
-                    SemanticObject(localInstance.alphaParamsCategories, globalSemanticMap.size(), localInstance.bbox));
+                // Create new object integrating localMap information
+                SemanticObject newObject = SemanticObject(localInstance.alphaParamsCategories, globalSemanticMap.size(), localInstance.bbox);
+                updateAppearancesTimestamps(newObject, localInstance);
+                
+                // Add it to the global map
+                globalSemanticMap.push_back(newObject);
                 added += 1;
             }
         }
@@ -533,6 +541,42 @@ public:
 
                 data_json["instances"][globalSemanticMap[i].instanceID]["n_observations"] =
                     globalSemanticMap[i].numberObservations;
+            }
+        }
+
+        return data_json;
+    }
+
+    nlohmann::json appearancesToJson(){
+        nlohmann::json data_json;
+
+        data_json = {};
+        for (size_t i = 0; i < globalSemanticMap.size(); i++)
+        {
+            if (globalSemanticMap[i].pointsTo == -1)
+            {
+                data_json[globalSemanticMap[i].instanceID] = {};
+                data_json[globalSemanticMap[i].instanceID]["timestamps"] = {};
+                for (size_t j = 0; j < globalSemanticMap[i].appearancesTimestamps.size(); j++){
+                    std::string category = default_categories[i];
+                    const auto& appearances_map = globalSemanticMap[i].appearancesTimestamps[j];
+                    if (appearances_map.empty()){
+                        continue;
+                    }
+
+                    data_json[globalSemanticMap[i].instanceID]["timestamps"][category] = nlohmann::json::array();
+                    for (const auto& instancePair : appearances_map)
+                    {
+                        nlohmann::json instanceBbox;
+                        instanceBbox["instance_id"] = instancePair.first;
+                        instanceBbox["bbox"]["centerX"] = instancePair.second.centerX;
+                        instanceBbox["bbox"]["centerY"] = instancePair.second.centerY;
+                        instanceBbox["bbox"]["sizeX"] = instancePair.second.sizeX;
+                        instanceBbox["bbox"]["sizeY"] = instancePair.second.sizeY;
+
+                        data_json[globalSemanticMap[i].instanceID]["timestamps"][category].push_back(instanceBbox);
+                    }
+                }
             }
         }
 

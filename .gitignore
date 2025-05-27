@@ -31,8 +31,11 @@
 *.out
 *.app
 /CMakeLists.txt.user
-/build/
+build
 
 .vscode
 *.pcd
 .cache
+
+# Exclude map json files
+*.json

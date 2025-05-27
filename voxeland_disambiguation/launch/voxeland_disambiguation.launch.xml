@@ -1,0 +1,6 @@
+<launch>
+    <node pkg="voxeland" exec="voxeland_disambiguation_node" name="voxeland_disambiguation">
+    </node>
+    <node pkg="ros_lm" exec="ros_lm" name="ros_lm">
+    </node>
+</launch>

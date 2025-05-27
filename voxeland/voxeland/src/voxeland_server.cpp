@@ -1,8 +1,13 @@
 #include <tf2_ros/create_timer_ros.h>
 
 #include <filesystem>
+#include <fstream>
+#include <string>
 #include <voxeland_map/Utils/Stopwatch.hpp>
 #include <voxeland_server.hpp>
+#include <segmentation_msgs/msg/instance_semantic_map.hpp>
+
+#include <rclcpp/serialization.hpp>
 
 #include "voxeland_map/Utils/logging.hpp"
 
@@ -303,15 +308,29 @@ namespace voxeland_server
             nlohmann::json json_data = semantics.mapToJSON();
 
             std::string json_filename = "voxeland_instanceMap.json";
-            std::ofstream outfile(json_filename);
+            std::ofstream mapOutfile(json_filename);
 
-            if (!outfile.is_open())
+            if (!mapOutfile.is_open())
             {
                 VXL_ERROR("Cannot save .JSON file in: {}/{}", std::filesystem::current_path().string(), json_filename);
                 return;
             }
-            outfile << json_data.dump(4);
-            outfile.close();
+            mapOutfile << json_data.dump(4);
+            mapOutfile.close();
+
+            nlohmann::json json_appearances = semantics.appearancesToJson();
+
+            std::string json_appearances_filename = "voxeland_instanceMap_appearances.json";
+            std::ofstream appearancesOutfile(json_appearances_filename);
+
+            if(!appearancesOutfile.is_open())
+            {
+                VXL_ERROR("Cannot save .JSON file in: {}/{}", std::filesystem::current_path().string(), json_appearances_filename);
+                return;
+            }
+            appearancesOutfile << json_appearances.dump(4);
+            appearancesOutfile.close();
+
         }
 
         std::string ply;

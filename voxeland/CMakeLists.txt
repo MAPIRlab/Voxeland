@@ -59,15 +59,13 @@ if ( ament_cmake_FOUND )
     message(STATUS "Building with colcon")
 
     find_package(ament_cmake_auto REQUIRED)
-    find_package(segmentation_msgs REQUIRED)
-    find_package(sensor_msgs REQUIRED)
-    find_package(vision_msgs REQUIRED)
-    find_package(geometry_msgs REQUIRED)
-    find_package(voxeland_msgs REQUIRED)
     ament_auto_find_build_dependencies()
 
     include_directories(voxeland/include 3rdparty)
+    ament_export_libraries(voxeland_map)
+    ament_export_include_directories(include)
 
+    # Server node
     ament_auto_add_library(voxeland_server SHARED
       voxeland/src/voxeland_server.cpp
     )
@@ -82,12 +80,29 @@ if ( ament_cmake_FOUND )
       PLUGIN "voxeland_server::VoxelandServer"
       EXECUTABLE voxeland_server_node
     )
-
+    
+    # Install 
     ament_auto_package(
       INSTALL_TO_SHARE
       voxeland/launch 
       voxeland/rviz 
       voxeland/params 
+    )
+
+    # Include directories and library for downstream packages
+    install(
+        DIRECTORY bonxai_core/include/bonxai
+        DESTINATION include
+    )
+
+    install(
+        DIRECTORY voxeland_map/include/voxeland_map
+        DESTINATION include
+    )
+
+    install(
+        TARGETS voxeland_map 
+        DESTINATION lib
     )
 
 else()
