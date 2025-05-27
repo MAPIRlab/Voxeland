@@ -16,8 +16,8 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_FLAGS_RELEASE "-fno-omit-frame-pointer -O3")
-set(CMAKE_CXX_FLAGS_DEBUG "-fno-omit-frame-pointer -fsanitize=undefined -O0 -g")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_CXX_FLAGS_DEBUG "-fsanitize=undefined -O0 -g")
 
 #---- Add the subdirectory cmake ----
 set(CMAKE_CONFIG_PATH ${CMAKE_MODULE_PATH}  "${CMAKE_CURRENT_LIST_DIR}/cmake")
@@ -27,7 +27,6 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 add_compile_options(-Wpedantic -fno-omit-frame-pointer)
 endif()
 
-add_compile_definitions(USING_ROS=1)
 
 if(CMAKE_BUILD_TYPE MATCHES "Debug")
     add_compile_definitions(VXL_ENABLE_ASSERTS=1)
@@ -53,6 +52,8 @@ add_subdirectory(voxeland_map)
 if ( ament_cmake_FOUND )
 
     project(voxeland)
+
+    add_compile_definitions(USING_ROS=1)
 
     # Add colcon-specific configuration here
     message(STATUS "Building with colcon")
