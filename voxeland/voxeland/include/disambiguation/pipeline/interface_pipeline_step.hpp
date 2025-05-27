@@ -3,5 +3,5 @@
 class PipelineStep {
     public:
         virtual ~PipelineStep() = default;
-        virtual void execute() = 0;
+        virtual bool execute() = 0;
 };

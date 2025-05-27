@@ -1,0 +1,40 @@
+<launch>
+    <!-- Nodo de ros_lm-->
+    <node pkg="ros_lm" exec="server" name="ros_lm"/>
+
+    <!-- Nodo con classifier "random" -->
+    <node pkg="voxeland" exec="voxeland_disambiguation_node" name="voxeland_disambiguation_random">
+        <param name="json_map" value="scenenn/061.json"/>
+        <param name="json_appearances" value="scenenn/061_appearances.json"/>
+        <param name="bag_path" value="/home/ubuntu/ros2_ws/bag/SceneNN/to_ros/ROS2_bags/061/061.db3"/>
+        <param name="appearances_classifier" value="random"/>
+        <param name="n_images_per_category" value="3"/>
+        <param name="n_categories_per_instance" value="3"/>
+        <param name="output_file" value="/home/ubuntu/Desktop/061_disambiguated.json"/>
+        <param name="lvlm_model" value="openbmb/MiniCPM-o-2_6"/>
+    </node>
+
+    <!-- Nodo con classifier "split" -->
+    <node pkg="voxeland" exec="voxeland_disambiguation_node" name="voxeland_disambiguation_split">
+        <param name="json_map" value="scenenn/061.json"/>
+        <param name="json_appearances" value="scenenn/061_appearances.json"/>
+        <param name="bag_path" value="/home/ubuntu/ros2_ws/bag/SceneNN/to_ros/ROS2_bags/061/061.db3"/>
+        <param name="appearances_classifier" value="split"/>
+        <param name="n_images_per_category" value="3"/>
+        <param name="n_categories_per_instance" value="3"/>
+        <param name="output_file" value="/home/ubuntu/Desktop/061_disambiguated.json"/>
+        <param name="lvlm_model" value="openbmb/MiniCPM-o-2_6"/>
+    </node>
+
+    <!-- Nodo con classifier "bbox" -->
+    <node pkg="voxeland" exec="voxeland_disambiguation_node" name="voxeland_disambiguation_bbox">
+        <param name="json_map" value="scenenn/061.json"/>
+        <param name="json_appearances" value="scenenn/061_appearances.json"/>
+        <param name="bag_path" value="/home/ubuntu/ros2_ws/bag/SceneNN/to_ros/ROS2_bags/061/061.db3"/>
+        <param name="appearances_classifier" value="bbox"/>
+        <param name="n_images_per_category" value="3"/>
+        <param name="n_categories_per_instance" value="3"/>
+        <param name="output_file" value="/home/ubuntu/Desktop/061_disambiguated.json"/>
+        <param name="lvlm_model" value="openbmb/MiniCPM-o-2_6"/>
+    </node>
+</launch>

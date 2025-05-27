@@ -24,23 +24,23 @@ class AbstractPipelineStep : public PipelineStep{
 class JsonDeserializationStep : public AbstractPipelineStep{
     public:
         JsonDeserializationStep(const std::string& json_file, const std::string& json_appearances_file);
-        void execute() override;
+        bool execute() override;
     private:
         std::string json_file;
         std::string json_appearances_file;
 
-        void serialize_map(JsonSemanticMap& map);
+        void deserialize_map(JsonSemanticMap& map);
         
         // Auxiliary functions
         std::map<std::string, std::map<uint32_t,BoundingBox2D>> parse_appearances_timestamps(nlohmann::json& appearances_timestamps);
         std::map<std::string, double> parse_results(nlohmann::json& results);
         BoundingBox3D parse_bbox(nlohmann::json& bbox);
-        JsonSemanticObject serialize_instance(const std::string& instance_id, nlohmann::json& instance_json, nlohmann::json& instance_appeareances_json);
+        JsonSemanticObject deserialize_instance(const std::string& instance_id, nlohmann::json& instance_json, nlohmann::json& instance_appeareances_json);
 };
 
 class UncertainInstanceIdentificationStep : public AbstractPipelineStep{
     public:
-        void execute() override;
+        bool execute() override;
     private:
         std::vector<UncertainInstance> identify_uncertain_instances(JsonSemanticMap& map);
 };
@@ -48,7 +48,7 @@ class UncertainInstanceIdentificationStep : public AbstractPipelineStep{
 class AppeareancesSelectionStep : public AbstractPipelineStep{
     public:
         AppeareancesSelectionStep(std::unique_ptr<AppearancesClassifier> classifier, uint32_t n_images_per_category, uint32_t n_categories_per_instance);
-        void execute() override;
+        bool execute() override;
     private:
         std::unique_ptr<AppearancesClassifier> appearances_classifier;
         uint32_t n_images_per_category;
@@ -64,7 +64,7 @@ class AppeareancesSelectionStep : public AbstractPipelineStep{
 class ImageBagReading : public AbstractPipelineStep{
     public:
         ImageBagReading(const std::string& bag_path);
-        void execute() override;
+        bool execute() override;
     private:
         std::string bag_path;
         rclcpp::Serialization<sensor_msgs::msg::Image> image_serializer;
@@ -81,7 +81,7 @@ class ImageBagReading : public AbstractPipelineStep{
 class LVLMDisambiguationStep : public AbstractPipelineStep{
     public:
         LVLMDisambiguationStep(const std::string& lvlm_model);
-        void execute() override;
+        bool execute() override;
     private:
         std::string lvlm_model;
         rclcpp::Node::SharedPtr node;
@@ -97,7 +97,7 @@ class LVLMDisambiguationStep : public AbstractPipelineStep{
 
 class UncertainResultsUpdateStep : public AbstractPipelineStep{
     public:
-        void execute() override;
+        bool execute() override;
     private:
         void update_uncertain_instances_results(std::vector<UncertainInstance>& uncertain_instances);
 };
@@ -105,7 +105,7 @@ class UncertainResultsUpdateStep : public AbstractPipelineStep{
 class JsonSerializationStep : public AbstractPipelineStep{
     public:
         JsonSerializationStep(const std::string& output_file);
-        void execute() override;
+        bool execute() override;
     private:
         std::string output_file;
 
@@ -120,7 +120,7 @@ class JsonSerializationStep : public AbstractPipelineStep{
 class MetricsSaveStep : public AbstractPipelineStep{
     public:
         MetricsSaveStep(const std::string& classifer_name, const std::string& lvlm_model);
-        void execute() override;
+        bool execute() override;
     private:
         std::string classifier_name;
         std::string lvlm_model;

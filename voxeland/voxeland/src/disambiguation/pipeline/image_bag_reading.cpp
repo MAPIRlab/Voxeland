@@ -1,5 +1,6 @@
 #include "disambiguation/pipeline/pipeline_steps.hpp"
 #include "disambiguation/json_semantics.hpp"
+#include <exception>
 #include <rosbag2_storage/serialized_bag_message.hpp>
 #include <rosbag2_storage/storage_options.hpp>
 #include "rosbag2_transport/reader_writer_factory.hpp"
@@ -18,13 +19,19 @@ ImageBagReading::ImageBagReading(const std::string& bag_path){
     this->reader = rosbag2_transport::ReaderWriterFactory::make_reader(storage_options);
 }
 
-void ImageBagReading::execute(){
+bool ImageBagReading::execute(){
     VXL_INFO("[IMAGE_BAG_READING] Reading images from bag file: {} ...", bag_path);
     
     std::vector<UncertainInstance>* uncertain_instances = context -> get_uncertain_instances();
-    obtain_bag_images(*uncertain_instances);
+    try {
+        obtain_bag_images(*uncertain_instances);
+    } catch (std::exception) {
+        VXL_ERROR("[IMAGE_BAG_READING] Error reading images from bag file: {}", bag_path);
+        return false;
+    }
     
     VXL_INFO("[IMAGE_BAG_READING] All images read ");
+    return true;
 }
 
 void ImageBagReading::obtain_bag_images(std::vector<UncertainInstance>& uncertain_instances){

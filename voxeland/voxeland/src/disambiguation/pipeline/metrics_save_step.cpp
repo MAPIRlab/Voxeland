@@ -13,19 +13,25 @@ MetricsSaveStep::MetricsSaveStep(const std::string& classifier_name, const std::
     this->output_file = "metrics_" + this->classifier_name + "_" + this->lvlm_model + ".json";
 }   
 
-void MetricsSaveStep::execute() {
+bool MetricsSaveStep::execute() {
     VXL_INFO("[METRICS] Executing Metrics Save Step...");
 
     std::vector<UncertainInstance> uncertain_instances = *context -> get_uncertain_instances();
     if (uncertain_instances.empty()) {
         VXL_INFO("No uncertain instances to save metrics for.");
-        return;
+        return false;
     }
 
-    json metrics_json = serialize_metrics(uncertain_instances);
-    save_metrics(metrics_json);
+    try {
+        json metrics_json = serialize_metrics(uncertain_instances);
+        save_metrics(metrics_json);
+    } catch (std::runtime_error& e) {
+        VXL_ERROR("[METRICS] Error during metrics save step: {}", e.what());
+        return false;
+    }
 
     VXL_INFO("[METRICS] Metrics saved successfully.");
+    return true;
 }
 
 json MetricsSaveStep::serialize_metrics(std::vector<UncertainInstance>& uncertain_instances){
@@ -37,6 +43,9 @@ json MetricsSaveStep::serialize_metrics(std::vector<UncertainInstance>& uncertai
     for (auto& instance : uncertain_instances) {
         json instance_json = {};
         std::map<std::string, uint32_t> disambiguation_results = *instance.get_disambiguation_results();
+        if (disambiguation_results.empty()) {
+            throw std::runtime_error("No disambiguation results found for instance: " + instance.get_instance()->InstanceID);
+        }
 
         instance_json["instance_id"] = instance.get_instance()->InstanceID;
         instance_json["entropy"] = instance.get_entropy();

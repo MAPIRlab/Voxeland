@@ -16,29 +16,25 @@ AppeareancesSelectionStep::AppeareancesSelectionStep(
     n_categories_per_instance(n_categories_per_instance)
 {}
 
-void AppeareancesSelectionStep::execute() {
-  if (!appearances_classifier) {
-    VXL_ERROR("[APPEARANCES_SELECTION] El classifier es nullptr ¡no se puede continuar!");
-    return;
-  }
-
+bool AppeareancesSelectionStep::execute() {
   VXL_INFO(
-    "[APPEARANCES_SELECTION] Ejecutando step con classifier “{}” …",
-    appearances_classifier->get_name());
-
+  "[APPEARANCES_SELECTION] Executing with “{}” classifier, ",
+  appearances_classifier->get_name());
+  if (!appearances_classifier) {
+    VXL_ERROR("[APPEARANCES_SELECTION] No classifier provided");
+    return false;
+  }
   auto vec_ptr = context->get_uncertain_instances();
-  if (!vec_ptr) {
-    VXL_ERROR("[APPEARANCES_SELECTION] El contexto no tiene lista de instancias");
-    return;
-  }
-  auto &uncertain_instances = *vec_ptr;
-  if (uncertain_instances.empty()) {
-    VXL_WARN("[APPEARANCES_SELECTION] No hay instancias inciertas para procesar");
-    return;
+  if (!vec_ptr || vec_ptr->empty()) {
+    VXL_ERROR("[APPEARANCES_SELECTION] No uncertain instances found.");
+    return false;
   }
 
+  auto &uncertain_instances = *vec_ptr;
   select_category_appearances(uncertain_instances);
+
   VXL_INFO("[APPEARANCES_SELECTION] Completado correctamente.");
+  return true;
 }
 
 void AppeareancesSelectionStep::select_category_appearances(

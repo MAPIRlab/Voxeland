@@ -85,7 +85,11 @@ namespace voxeland_disambiguation {
 
     void VoxelandDisambiguation::execute_pipeline() {
         for (auto& step : pipeline_steps) {
-            step -> execute();
+            bool step_res = step -> execute();
+            if (!step_res) {
+                VXL_ERROR("Pipeline step failed, stopping execution.");
+                return;
+            }
             std::cout << std::endl;
         }
     }

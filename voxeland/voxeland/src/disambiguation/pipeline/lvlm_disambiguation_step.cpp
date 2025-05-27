@@ -14,22 +14,30 @@ LVLMDisambiguationStep::LVLMDisambiguationStep(const std::string& lvlm_model){
     rclcpp::NodeOptions options;
     options.allow_undeclared_parameters(true);
     options.automatically_declare_parameters_from_overrides(true);
-    this->node = std::make_shared<rclcpp::Node>("lvlm_disambiguation_node", options);
+    // Añade un sufijo aleatorio al nombre del nodo para evitar colisiones
+    std::string node_name = "lvlm_disambiguation_node_" + std::to_string(std::rand());
+    this->node = std::make_shared<rclcpp::Node>(node_name, options);
 
     init_client();
 }
 
-void LVLMDisambiguationStep::execute(){
+bool LVLMDisambiguationStep::execute(){
     VXL_INFO("[LVLM_DISAMBIGUATION] Disambiguating instances using LVLM model: {} ...", lvlm_model);
     
     std::vector<UncertainInstance>* uncertain_instances = context -> get_uncertain_instances();
     if (uncertain_instances->empty()){
-        VXL_INFO("[LVLM_DISAMBIGUATION] No uncertain instances to disambiguate.");
-        return;
+        VXL_ERROR("[LVLM_DISAMBIGUATION] No uncertain instances to disambiguate.");
+        return false;
     }
+    if((*uncertain_instances).at(0).get_selected_appearances()->empty()){
+        VXL_ERROR("[LVLM_DISAMBIGUATION] No selected appearances for uncertain instances.");
+        return false;
+    }
+
     disambiguate_instances(*uncertain_instances);
     
     VXL_INFO("[LVLM_DISAMBIGUATION] All instances disambiguated ");
+    return true;
 }
 
 void LVLMDisambiguationStep::disambiguate_instances(std::vector<UncertainInstance>& uncertain_instances){
