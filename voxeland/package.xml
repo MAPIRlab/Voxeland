@@ -22,8 +22,12 @@
   <depend>visualization_msgs</depend>
   <depend>segmentation_msgs</depend>
   <depend>voxeland_msgs</depend>
+  <depend>ros_lm_interfaces</depend>
   <depend>message_filters</depend>
   <depend>std_srvs</depend>
+  <depend>rosbag2_transport</depend>
+  <depend>cv_bridge</depend>
+
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

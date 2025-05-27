@@ -173,6 +173,14 @@ bool SemanticMap::checkBBoxIntersect(const BoundingBox3D& bbox1, const BoundingB
     return true;
 }
 
+void SemanticMap::updateAlphaCategories(SemanticObject& original, const SemanticObject& update)
+{
+    for (size_t i = 0; i < original.alphaParamsCategories.size(); i++)
+    {
+        original.alphaParamsCategories[i] += update.alphaParamsCategories[i];
+    }
+}
+
 void SemanticMap::updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D& update)
 {
     // Update min bounds
@@ -184,6 +192,37 @@ void SemanticMap::updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D&
     original.maxX = std::max(update.maxX, original.maxX);
     original.maxY = std::max(update.maxY, original.maxY);
     original.maxZ = std::max(update.maxZ, original.maxZ);
+}
+
+void SemanticMap::updateAppearancesTimestamps(SemanticObject& original, const SemanticObject& update){
+
+    for (size_t i = 0; i < original.appearancesTimestamps.size(); ++i) {
+        // Add all timestamps from the update to the original
+        original.appearancesTimestamps[i].insert(
+            update.appearancesTimestamps[i].begin(),
+            update.appearancesTimestamps[i].end()
+        );
+    }
+}
+
+
+/**
+ * @brief Integrates the sencondInstance info into the firstInstance. That includes alphas, bbox and appearances
+ *
+ * @param firstInstance : the instance to be updated
+ * @param secondInstance : the instance to be integrated
+*/
+void SemanticMap::fuseSemanticObjects(SemanticObject& firstInstance, const SemanticObject& secondInstance)
+{
+    // Integrate alpha semantics
+    updateAlphaCategories(firstInstance, secondInstance);
+
+    // Update Bounding Box
+    updateBBoxBounds(firstInstance.bbox, secondInstance.bbox);
+
+    // Update appearances timestamps
+    updateAppearancesTimestamps(firstInstance, secondInstance);
+
 }
 
 InstanceID_t SemanticMap::getCategoryMaxProbability(InstanceID_t objID)

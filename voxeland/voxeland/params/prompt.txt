@@ -1,0 +1,7 @@
+You are an expert object classifier. I will provide you with several images that contain
+an object seen from different perspectives. The object belongs to one of the following categories: {}
+
+Your task is to analyze the object and its surrounding environment across all images to determine the correct category.
+    
+Your response must include only one of the previously specified categories
+and follow this exact format: ``The category is <category>''
