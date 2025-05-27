@@ -116,3 +116,16 @@ class JsonSerializationStep : public AbstractPipelineStep{
         nlohmann::json serialize_bbox(BoundingBox3D& bbox);
         nlohmann::json serialize_results(std::map<std::string, double>& results);
 };
+
+class MetricsSaveStep : public AbstractPipelineStep{
+    public:
+        MetricsSaveStep(const std::string& classifer_name, const std::string& lvlm_model);
+        void execute() override;
+    private:
+        std::string classifier_name;
+        std::string lvlm_model;
+        std::string output_file;
+
+        nlohmann::json serialize_metrics(std::vector<UncertainInstance>& uncertain_instances);
+        void save_metrics(const nlohmann::json& metrics_json);
+};

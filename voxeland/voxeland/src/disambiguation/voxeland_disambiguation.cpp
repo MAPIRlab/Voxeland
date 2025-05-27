@@ -70,6 +70,7 @@ namespace voxeland_disambiguation {
         auto lvlm_disambiguation = std::make_unique<LVLMDisambiguationStep>(lvlm_model);
         auto uncertain_results_updater = std::make_unique<UncertainResultsUpdateStep>();
         auto json_serialization = std::make_unique<JsonSerializationStep>(output_file);
+        auto metrics_save = std::make_unique<MetricsSaveStep>(appearances_classifier, lvlm_model);
         
         pipeline_steps.push_back(std::move(json_deserialization));
         pipeline_steps.push_back(std::move(uncertain_instance_identification));
@@ -78,6 +79,7 @@ namespace voxeland_disambiguation {
         pipeline_steps.push_back(std::move(lvlm_disambiguation));
         pipeline_steps.push_back(std::move(uncertain_results_updater));
         pipeline_steps.push_back(std::move(json_serialization));
+        pipeline_steps.push_back(std::move(metrics_save));
 
     }
 
