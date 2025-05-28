@@ -1142,8 +1142,14 @@ struct hash<Bonxai::CoordT>
 {
   std::size_t operator()(const Bonxai::CoordT& p) const
   {
+    // reinterpret the coords as uint, since signed overflow (which will definitely happen) is *technically* UB
+    // to be clear, this is a pretty pedantic thing (basically all compilers behave as you would expect), mostly to get the sanitizer to shut up
+    // also, since we are just doing a reinterpret, and not copying the memory or anything, this has 0 runtime cost (on Release, anyway)
+    const uint32_t* x = reinterpret_cast<const uint32_t*>(&p.x);
+    const uint32_t* y = reinterpret_cast<const uint32_t*>(&p.y);
+    const uint32_t* z = reinterpret_cast<const uint32_t*>(&p.z);
     // same as OpenVDB
-    return ((1 << 20) - 1) & (p.x * 73856093 ^ p.y * 19349663 ^ p.z * 83492791);
+    return ((1 << 20) - 1) & (*x * 73856093 ^ *y * 19349663 ^ *z * 83492791);
   }
 };
 }  // namespace std
