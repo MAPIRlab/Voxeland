@@ -32,28 +32,6 @@ if(CMAKE_BUILD_TYPE MATCHES "Debug")
     add_compile_definitions(VXL_ENABLE_ASSERTS=1)
 endif()
 
-####################################################
-
-if(BUILD_TESTING)
-  find_package(ament_cmake_gtest REQUIRED)
-
-  # Buscar recursivamente todos los .cpp en voxeland/test/disambiguation
-  file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
-    ${CMAKE_CURRENT_SOURCE_DIR}/voxeland/test/disambiguation/*.cpp
-  )
-
-  foreach(test_source ${TEST_SOURCES})
-    # Obtener el nombre base del archivo sin extensión
-    get_filename_component(test_name ${test_source} NAME_WE)
-
-    ament_add_gtest(${PROJECT_NAME}_${test_name} ${test_source})
-    target_include_directories(${PROJECT_NAME}_${test_name} PUBLIC
-      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-      $<INSTALL_INTERFACE:include>
-    )
-    target_link_libraries(${PROJECT_NAME}_${test_name} voxeland_disambiguation)
-  endforeach()
-endif()
 
 
 ####################################################

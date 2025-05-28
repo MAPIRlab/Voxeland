@@ -65,7 +65,7 @@ std::string image_to_base64(cv_bridge::CvImagePtr image){
 }
 
 const std::string load_and_format_prompt(const std::string& file_name, std::vector<std::string> categories, int images_per_instance){
-    std::string package_path = ament_index_cpp::get_package_share_directory("voxeland");
+    std::string package_path = ament_index_cpp::get_package_share_directory("voxeland_disambiguation");
     std::string prompt_file_path = package_path + "/params/" + file_name;
 
     int total_images = categories.size() * images_per_instance;

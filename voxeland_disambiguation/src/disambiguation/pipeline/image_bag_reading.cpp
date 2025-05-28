@@ -78,18 +78,18 @@ void ImageBagReading::add_selected_images(sensor_msgs::msg::Image::SharedPtr ima
     }
 }
 
-void ImageBagReading::show_all_images(std::vector<UncertainInstance>& uncertain_instances){
-    for (UncertainInstance& instance : uncertain_instances){
-        std::map<std::string, std::vector<cv_bridge::CvImagePtr>>* selected_images = instance.get_selected_images();
-        for (auto& [category, images] : *selected_images){
-            show_category_images(category,images);
-        }
-    }
-}
+// void ImageBagReading::show_all_images(std::vector<UncertainInstance>& uncertain_instances){
+//     for (UncertainInstance& instance : uncertain_instances){
+//         std::map<std::string, std::vector<cv_bridge::CvImagePtr>>* selected_images = instance.get_selected_images();
+//         for (auto& [category, images] : *selected_images){
+//             show_category_images(category,images);
+//         }
+//     }
+// }
 
-void ImageBagReading::show_category_images(std::string category, std::vector<cv_bridge::CvImagePtr> images){
-    for (cv_bridge::CvImagePtr image : images){
-        cv::imshow(category, image->image);
-        cv::waitKey(0);
-    }
-}
+// void ImageBagReading::show_category_images(std::string category, std::vector<cv_bridge::CvImagePtr> images){
+//     for (cv_bridge::CvImagePtr image : images){
+//         cv::imshow(category, image->image);
+//         cv::waitKey(0);
+//     }
+// }
