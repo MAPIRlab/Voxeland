@@ -4,14 +4,20 @@
 #include "voxeland_map/dirichlet.hpp"
 
 
-void UncertainInstanceIdentificationStep::execute(){
+bool UncertainInstanceIdentificationStep::execute(){
     VXL_INFO("[UNCERTAIN_INSTANCE_IDENTIFICATION] Executing uncertain instance identification step");
 
     JsonSemanticMap map = *(context->get_semantic_map());
+    if (map.get_instances().empty()) {
+        VXL_ERROR("[UNCERTAIN_INSTANCE_IDENTIFICATION] Semantic map is empty or not initialized.");
+        return false;
+    }
+
     std::vector<UncertainInstance> uncertain_instances = identify_uncertain_instances(map);
     context->set_uncertain_instances(uncertain_instances);
     
     VXL_INFO("[UNCERTAIN_INSTANCE_IDENTIFICATION] Completed, found {} uncertain instances",uncertain_instances.size()); 
+    return true;
 }
 
 /**

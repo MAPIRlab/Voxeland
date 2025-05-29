@@ -6,6 +6,8 @@ std::unique_ptr<AppearancesClassifier> ClassifierFactory::create_classifier(cons
         return std::make_unique<RandomAppearancesClassifier>();
     } else if (classifier_type == "split") {
         return std::make_unique<SplitAppearancesClassifier>();
+    } else if (classifier_type == "bbox") {
+        return std::make_unique<BBoxAppearancesClassifier>();
     } else {
         throw std::invalid_argument("Unknown classifier type: " + classifier_type);
     }

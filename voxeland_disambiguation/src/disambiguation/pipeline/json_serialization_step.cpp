@@ -1,4 +1,6 @@
+#include <exception>
 #include <memory>
+#include <stdexcept>
 #include "disambiguation/json_semantics.hpp"
 #include "disambiguation/pipeline/pipeline_steps.hpp"
 using json = nlohmann::json;
@@ -6,21 +8,31 @@ using json = nlohmann::json;
 JsonSerializationStep::JsonSerializationStep(const std::string& output_file)
     : output_file(output_file) {}
 
-void JsonSerializationStep::execute() {
-    VXL_INFO("Executing JSON serialization step...");
-
+bool JsonSerializationStep::execute() {
+    VXL_INFO("[JSON_SERIALIZATION] Executing JSON serialization step...");
+    
     JsonSemanticMap map = *context->get_semantic_map();
-    json map_json = serialize_map(map);
-    save_map(map_json);
+    if (map.get_instances().empty()) {
+        VXL_ERROR("[JSON_SERIALIZATION] Semantic map is empty or not initialized.");
+        return false;
+    }
 
-    VXL_INFO("JSON serialization completed successfully, output written to: {}", output_file);
+    try {
+        json map_json = serialize_map(map);
+        save_map(map_json);
+    } catch (std::runtime_error& e) {
+        VXL_ERROR("[JSON_SERIALIZATION] Error during JSON serialization step: {}", e.what());
+        return false;
+    }
+
+    VXL_INFO("[JSON_SERIALIZATION] JSON serialization completed successfully, output written to: {}", output_file);
+    return true;
 }
 
 void JsonSerializationStep::save_map(const json& map_json) {
     std::ofstream out_file(output_file);
     if (!out_file.is_open()) {
-        VXL_ERROR("Cannot open output file: {}", output_file);
-        return;
+        throw std::runtime_error("Cannot open output file: " + output_file);
     }
     out_file << map_json.dump(4); // Pretty print with 4 spaces
     out_file.close();

@@ -32,6 +32,8 @@ if(CMAKE_BUILD_TYPE MATCHES "Debug")
     add_compile_definitions(VXL_ENABLE_ASSERTS=1)
 endif()
 
+
+
 ####################################################
 
 find_package(PCL REQUIRED COMPONENTS common io)
