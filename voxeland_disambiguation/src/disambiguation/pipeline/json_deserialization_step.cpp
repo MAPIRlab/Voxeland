@@ -41,7 +41,7 @@ bool JsonDeserializationStep::execute() {
  */
 void JsonDeserializationStep::deserialize_map(JsonSemanticMap& map) {
     // Get the path to the package
-    std::string package_path = ament_index_cpp::get_package_share_directory("voxeland");
+    std::string package_path = ament_index_cpp::get_package_share_directory("voxeland_disambiguation");
     std::string map_file_path = package_path + "/params/" + json_file;
     std::string appearances_file_path = package_path + "/params/" + json_appearances_file;
 

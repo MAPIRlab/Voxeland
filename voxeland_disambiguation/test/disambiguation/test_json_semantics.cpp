@@ -8,10 +8,11 @@ TEST(JsonSemanticMapTest, test_add_instance_updates_map) {
 
     map.add_instance(instance);
 
-    auto retrieved = map.get_instance("test_id");
-    ASSERT_NE(retrieved, nullptr);
-    EXPECT_EQ(retrieved->InstanceID, "test_id");
+    std::shared_ptr<JsonSemanticObject> expected_instance = map.get_instance("test_id");
+    ASSERT_NE(expected_instance, nullptr);
+    EXPECT_EQ(expected_instance->InstanceID, "test_id");
 }
+
 TEST(JsonSemanticMapTest, test_get_instance_non_existent_returns_null) {
     JsonSemanticMap map;
 
