@@ -88,7 +88,6 @@ if ( ament_cmake_FOUND )
       INSTALL_TO_SHARE
       voxeland/launch 
       voxeland/rviz 
-      voxeland/params 
     )
 
     # Include directories and library for downstream packages
