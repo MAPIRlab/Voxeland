@@ -195,7 +195,7 @@ void SemanticMap::updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D&
 }
 
 void SemanticMap::updateAppearancesTimestamps(SemanticObject& original, const SemanticObject& update){
-
+    
     for (size_t i = 0; i < original.appearancesTimestamps.size(); ++i) {
         // Add all timestamps from the update to the original
         original.appearancesTimestamps[i].insert(
