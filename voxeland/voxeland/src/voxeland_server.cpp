@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <stdexcept>
 #include <string>
 #include <voxeland_map/Utils/Stopwatch.hpp>
 #include <voxeland_server.hpp>
@@ -9,6 +10,7 @@
 
 #include <rclcpp/serialization.hpp>
 
+#include "nlohmann/json.hpp"
 #include "voxeland_map/Utils/logging.hpp"
 
 namespace
@@ -88,6 +90,8 @@ namespace voxeland_server
         reset_srv_ = create_service<ResetSrv>("~/reset", std::bind(&VoxelandServer::resetSrv, this, _1, _2));
 
         save_map_srv_ = create_service<ResetSrv>("~/save_map", std::bind(&VoxelandServer::saveMapSrv, this, _1, _2));
+
+        load_map_srv_ = create_service<UpdateMapResultsSrv>("~/update_map_results", std::bind(&VoxelandServer::loadMapSrv, this, _1, _2));
 
         // set parameter callback
         set_param_res_ = this->add_on_set_parameters_callback(std::bind(&VoxelandServer::onParameter, this, _1));
@@ -349,6 +353,30 @@ namespace voxeland_server
         outfile << ply;
         outfile.close();
     }
+
+    void VoxelandServer::loadMapSrv(const std::shared_ptr<UpdateMapResultsSrv::Request> req, const std::shared_ptr<UpdateMapResultsSrv::Response> resp)
+    {
+        VXL_INFO("Loading map files");
+        try {
+            nlohmann::json json_map = nlohmann::json::parse(req->json_map);
+            semantics.updateSemanticMapResultsFromJSON(json_map);
+        } catch (nlohmann::json::parse_error& e) {
+            VXL_ERROR("Failed to parse JSON map: {}", e.what());
+            resp->success = false;
+            resp->message = "Failed to parse JSON map";
+            return;
+        } catch(std::runtime_error& e) {
+            VXL_ERROR("An error occurred while loading the map: {}", e.what());
+            resp->success = false;
+            resp->message = "Error loading map: " + std::string(e.what());
+            return;
+        }
+
+        resp->success = true;
+        resp->message = "Map loaded successfully";
+        VXL_INFO("Map loaded successfully");
+    }
+
 
     bool VoxelandServer::getClassDistributionsSrv(
         const std::shared_ptr<rmw_request_id_t> requestHeader,

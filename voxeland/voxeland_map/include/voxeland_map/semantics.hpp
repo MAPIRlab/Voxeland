@@ -547,6 +547,33 @@ public:
         return data_json;
     }
 
+    void updateSemanticMapResultsFromJSON(const nlohmann::json& data_json)
+    {
+        if (!initialized)
+        {
+            throw std::runtime_error("SemanticMap is not initialized.");
+        }
+
+        for (SemanticObject& instance : globalSemanticMap)
+        {
+            if (instance.pointsTo != -1){
+                continue;
+            }
+            
+            auto index_iter = data_json["instances"].find(instance.instanceID);
+            if (index_iter == data_json["instances"].end())
+            {
+                throw std::runtime_error("Instance " + instance.instanceID + "not found in JSON data");
+            }
+            const nlohmann::json& instance_json = index_iter.value();
+            for (const auto& [category, alpha] : instance_json["results"].items())
+            {
+                size_t category_index = categoryIndexMap[category];
+                instance.alphaParamsCategories[category_index] = alpha;
+            }
+        }
+    }
+
     nlohmann::json appearancesToJson(){
         nlohmann::json data_json;
 
@@ -558,7 +585,7 @@ public:
                 data_json[globalSemanticMap[i].instanceID] = {};
                 data_json[globalSemanticMap[i].instanceID]["timestamps"] = {};
                 for (size_t j = 0; j < globalSemanticMap[i].appearancesTimestamps.size(); j++){
-                    std::string category = default_categories[i];
+                    std::string category = default_categories[j];
                     const auto& appearances_map = globalSemanticMap[i].appearancesTimestamps[j];
                     if (appearances_map.empty()){
                         continue;
