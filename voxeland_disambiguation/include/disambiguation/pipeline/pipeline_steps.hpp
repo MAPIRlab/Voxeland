@@ -3,6 +3,9 @@
 #include <memory>
 #include <rclcpp/node.hpp>
 #include <ros_lm_interfaces/srv/detail/open_llm_request__struct.hpp>
+#include <voxeland_msgs/srv/detail/load_map__struct.hpp>
+#include <voxeland_msgs/srv/detail/update_map_results__struct.hpp>
+#include <voxeland_msgs/srv/load_map.hpp>
 #include <rosbag2_cpp/reader.hpp>
 #include <rclcpp/client.hpp>
 #include <string>
@@ -108,10 +111,14 @@ class JsonSerializationStep : public AbstractPipelineStep{
         bool execute() override;
     private:
         std::string output_file;
+        rclcpp::Node::SharedPtr node;
+        rclcpp::Client<voxeland_msgs::srv::UpdateMapResults>::SharedPtr client;
 
         nlohmann::json serialize_map(JsonSemanticMap& map);
         void save_map(const nlohmann::json& map_json);
+        void send_map_to_server(const nlohmann::json& map_json);
 
+        void init_client();
         nlohmann::json serialize_instance(JsonSemanticObject& instance);
         nlohmann::json serialize_bbox(BoundingBox3D& bbox);
         nlohmann::json serialize_results(std::map<std::string, double>& results);
