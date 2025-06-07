@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <rclcpp/node.hpp>
 #include <ros_lm_interfaces/srv/detail/open_llm_request__struct.hpp>
@@ -83,12 +84,13 @@ class ImageBagReading : public AbstractPipelineStep{
 
 class LVLMDisambiguationStep : public AbstractPipelineStep{
     public:
-        LVLMDisambiguationStep(const std::string& lvlm_model);
+        LVLMDisambiguationStep(const std::string& lvlm_model, uint32_t disambiguation_iters);
         bool execute() override;
     private:
         std::string lvlm_model;
         rclcpp::Node::SharedPtr node;
         rclcpp::Client<ros_lm_interfaces::srv::OpenLLMRequest>::SharedPtr client;
+        uint32_t disambiguation_iters;
 
         void disambiguate_instances(std::vector<UncertainInstance>& uncertain_instances);
         
