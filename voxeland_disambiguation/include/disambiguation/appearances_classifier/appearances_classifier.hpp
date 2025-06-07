@@ -36,3 +36,11 @@ class BBoxAppearancesClassifier : public AppearancesClassifier{
     private:
         const std::string name = "bbox";
 };
+
+class SplitBboxAreaAppearancesClassifier : public AppearancesClassifier{
+    public:
+        void classify_instance_appearances(UncertainInstance& instance, std::vector<std::string> categories, uint32_t max_appearances) override;
+        std::string get_name() const override;
+    private:
+        const std::string name = "split_bbox";
+};
