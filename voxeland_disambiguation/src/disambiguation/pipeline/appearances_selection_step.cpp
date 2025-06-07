@@ -1,5 +1,3 @@
-#include <algorithm>
-#include <iostream>
 #include <string>
 #include <vector>
 
@@ -41,7 +39,6 @@ void AppeareancesSelectionStep::select_category_appearances(
     std::vector<UncertainInstance> &uncertain_instances) {
   for (auto &uncertain_instance : uncertain_instances) {
 
-    // Paso seguro: la función recibe el mapa por const&
     auto categories = choose_selected_categories(
       uncertain_instance.get_instance()->results);
     
