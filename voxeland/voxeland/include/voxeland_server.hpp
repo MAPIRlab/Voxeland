@@ -32,6 +32,11 @@
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
 #include <voxeland_msgs/srv/get_class_distributions.hpp>
+#include <voxeland_msgs/srv/update_map_results.hpp>
+
+
+
+
 
 namespace voxeland_server
 {
@@ -45,6 +50,7 @@ namespace voxeland_server
     public:
         using ResetSrv = std_srvs::srv::Empty;
         using GetClassDistributions = voxeland_msgs::srv::GetClassDistributions;
+        using UpdateMapResultsSrv = voxeland_msgs::srv::UpdateMapResults;
 
         DataMode currentMode = DataMode::Uninitialized;
 
@@ -60,6 +66,8 @@ namespace voxeland_server
         bool resetSrv(const std::shared_ptr<ResetSrv::Request> req, const std::shared_ptr<ResetSrv::Response> resp);
 
         void saveMapSrv(const std::shared_ptr<std_srvs::srv::Empty::Request> req, const std::shared_ptr<std_srvs::srv::Empty::Response> resp);
+
+        void loadMapSrv(const std::shared_ptr<voxeland_msgs::srv::UpdateMapResults::Request> req, const std::shared_ptr<voxeland_msgs::srv::UpdateMapResults::Response> resp);
 
         bool getClassDistributionsSrv(const std::shared_ptr<rmw_request_id_t> requestHeader, GetClassDistributions::Request::SharedPtr request, GetClassDistributions::Response::SharedPtr response);
 
@@ -111,6 +119,7 @@ namespace voxeland_server
         rclcpp::Service<ResetSrv>::SharedPtr reset_srv_;
         rclcpp::Service<std_srvs::srv::Empty>::SharedPtr save_map_srv_;
         rclcpp::Service<GetClassDistributions>::SharedPtr get_distributions_srv_;
+        rclcpp::Service<UpdateMapResultsSrv>::SharedPtr load_map_srv_;
 
         std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
         std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;

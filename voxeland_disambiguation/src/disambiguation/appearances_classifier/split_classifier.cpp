@@ -12,6 +12,10 @@
 
     for (const std::string& category : categories) {
         std::map<uint32_t,BoundingBox2D> appearances = instance.get_instance()->appearances_timestamps[category];
+        if( appearances.empty()) {
+            VXL_ERROR("No appearances found for category: {}", category);
+            throw std::exception();
+        }
 
         // Take the keys vector
         std::vector<uint32_t> instance_ids_vector;

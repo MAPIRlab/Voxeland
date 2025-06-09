@@ -32,6 +32,8 @@ if(CMAKE_BUILD_TYPE MATCHES "Debug")
     add_compile_definitions(VXL_ENABLE_ASSERTS=1)
 endif()
 
+
+
 ####################################################
 
 find_package(PCL REQUIRED COMPONENTS common io)
@@ -86,7 +88,6 @@ if ( ament_cmake_FOUND )
       INSTALL_TO_SHARE
       voxeland/launch 
       voxeland/rviz 
-      voxeland/params 
     )
 
     # Include directories and library for downstream packages

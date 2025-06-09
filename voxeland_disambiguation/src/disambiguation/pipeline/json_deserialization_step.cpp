@@ -2,7 +2,9 @@
 #include "disambiguation/json_semantics.hpp"
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
+#include <exception>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include "nlohmann/json.hpp"
 #include "voxeland_map/Utils/logging.hpp"
@@ -13,15 +15,21 @@ JsonDeserializationStep::JsonDeserializationStep(const std::string& json_file, c
     this->json_appearances_file = json_appearances_file;
 }
 
-void JsonDeserializationStep::execute() {
+bool JsonDeserializationStep::execute() {
     VXL_INFO("[JSON_DESERIALIZATION] Executing JSON deserialization step...");
     
     auto map = context->get_semantic_map();
-    serialize_map((*map));
+    try {
+        deserialize_map((*map));  
+    } catch (std::runtime_error& e) {
+        VXL_ERROR("[JSON_DESERIALIZATION] Error during JSON deserialization step: {}", e.what());
+        return false;
+    }
 
     std::cout << map->to_string() << std::endl;
 
     VXL_INFO("[JSON_DESERIALIZATION] JSON deserialization step completed.");
+    return true;
 }
 
 /**
@@ -31,9 +39,9 @@ void JsonDeserializationStep::execute() {
  * 
  * @throws std::exception If the file cannot be found or opened.
  */
-void JsonDeserializationStep::serialize_map(JsonSemanticMap& map) {
+void JsonDeserializationStep::deserialize_map(JsonSemanticMap& map) {
     // Get the path to the package
-    std::string package_path = ament_index_cpp::get_package_share_directory("voxeland");
+    std::string package_path = ament_index_cpp::get_package_share_directory("voxeland_disambiguation");
     std::string map_file_path = package_path + "/params/" + json_file;
     std::string appearances_file_path = package_path + "/params/" + json_appearances_file;
 
@@ -41,13 +49,13 @@ void JsonDeserializationStep::serialize_map(JsonSemanticMap& map) {
     std::ifstream map_file(map_file_path);
     if(!map_file.is_open()){
         VXL_ERROR("Cannot open file {}", map_file_path);
-        throw std::exception();
+        throw std::runtime_error("Cannot open file " + map_file_path);
     }
 
     std::ifstream appearances_file(appearances_file_path);
     if(!appearances_file.is_open()){
         VXL_ERROR("Cannot open file {}", json_appearances_file);
-        throw std::exception();
+        throw std::runtime_error("Cannot open file " + appearances_file_path);
     }
     
     // Parse the json file
@@ -58,7 +66,7 @@ void JsonDeserializationStep::serialize_map(JsonSemanticMap& map) {
     for (json::iterator object_it = instances.begin();  object_it != instances.end(); ++object_it) {
         json object_value = object_it.value();
         std::string instance_id = object_it.key();
-        JsonSemanticObject instance = serialize_instance(instance_id, object_value, apppearances_j[instance_id]);
+        JsonSemanticObject instance = deserialize_instance(instance_id, object_value, apppearances_j[instance_id]);
 
         map.add_instance(std::make_shared<JsonSemanticObject>(instance));
     }
@@ -118,7 +126,7 @@ std::map<std::string, std::map<uint32_t,BoundingBox2D>> JsonDeserializationStep:
     return appearances_map;
 }
 
-JsonSemanticObject JsonDeserializationStep::serialize_instance(const std::string& instance_id, json& instance_json, json& instance_appeareances_json) {
+JsonSemanticObject JsonDeserializationStep::deserialize_instance(const std::string& instance_id, json& instance_json, json& instance_appeareances_json) {
     JsonSemanticObject instance;
     instance.InstanceID = instance_id;
     instance.bbox = parse_bbox(instance_json["bbox"]);
