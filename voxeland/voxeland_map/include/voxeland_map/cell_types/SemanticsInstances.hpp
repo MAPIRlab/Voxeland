@@ -56,15 +56,20 @@ namespace voxeland
             if (instances_candidates.size() == 0)
                 return {};
             SemanticMap& semantics = SemanticMap::get_instance();
-            std::vector<double> alphasDirichlet(semantics.default_categories.size(), 1);
+            std::vector<double> alphasDirichlet(semantics.default_categories.size(), 0.01); //arbitrary amount of weight to all classes to avoid 0 probability
 
             for (InstanceID_t localInstanceID = 0; localInstanceID < instances_candidates.size(); localInstanceID++)
             {
-                const SemanticObject& globalInstance = semantics.globalSemanticMap[instances_candidates[localInstanceID]];
+                const SemanticObject* globalInstance = &semantics.globalSemanticMap[instances_candidates[localInstanceID]];
+                
+                // if the instance has been fused with others, find the new instance that represents the fusion
+                while (globalInstance->pointsTo != -1)
+                    globalInstance = &semantics.globalSemanticMap[globalInstance->pointsTo];
+
                 float votesInstance = instances_votes[localInstanceID];
                 for (size_t category = 0; category < semantics.default_categories.size(); category++)
                 {
-                    alphasDirichlet.at(category) +=  votesInstance * globalInstance.alphaParamsCategories.at(category);
+                    alphasDirichlet.at(category) += votesInstance * globalInstance->alphaParamsCategories.at(category);
                 }
             }
             double sum = std::accumulate(alphasDirichlet.begin(), alphasDirichlet.end(), 0.);
