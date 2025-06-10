@@ -1,40 +1,69 @@
 <launch>
-    <!-- Nodo de ros_lm-->
-    <node pkg="ros_lm" exec="server" name="ros_lm"/>
+    <!-- Argumentos/Variables globales -->
+    <arg name="json_map" default="scenenn/206.json"/>
+    <arg name="json_appearances" default="scenenn/206_appearances.json"/>
+    <arg name="bag_path" default="/home/ubuntu/ros2_ws/bag/SceneNN/to_ros/ROS2_bags/206/206.db3"/>
+    <arg name="n_images_per_category" default="3"/>
+    <arg name="n_categories_per_instance" default="3"/>
+    <arg name="lvlm_model" default="Qwen/Qwen2.5-VL-32B-Instruct"/>
+    <arg name="disambiguation_iters" default="100"/>
+    <arg name="output_dir" default="/home/ubuntu/Desktop"/>
+    <arg name="disambiguation_iters" default="100"/>
+    <arg name="update_map_service" default="false"/>
 
     <!-- Nodo con classifier "random" -->
-    <node pkg="voxeland" exec="voxeland_disambiguation_node" name="voxeland_disambiguation_random">
-        <param name="json_map" value="scenenn/061.json"/>
-        <param name="json_appearances" value="scenenn/061_appearances.json"/>
-        <param name="bag_path" value="/home/ubuntu/ros2_ws/bag/SceneNN/to_ros/ROS2_bags/061/061.db3"/>
+    <node pkg="voxeland_disambiguation" exec="voxeland_disambiguation_node" name="voxeland_disambiguation_random">
+        <param name="json_map" value="$(var json_map)"/>
+        <param name="json_appearances" value="$(var json_appearances)"/>
+        <param name="bag_path" value="$(var bag_path)"/>
         <param name="appearances_classifier" value="random"/>
-        <param name="n_images_per_category" value="3"/>
-        <param name="n_categories_per_instance" value="3"/>
-        <param name="output_file" value="/home/ubuntu/Desktop/061_disambiguated.json"/>
-        <param name="lvlm_model" value="openbmb/MiniCPM-o-2_6"/>
+        <param name="n_images_per_category" value="$(var n_images_per_category)"/>
+        <param name="n_categories_per_instance" value="$(var n_categories_per_instance)"/>
+        <param name="output_file" value="$(var output_dir)/206_disambiguated_random.json"/>
+        <param name="lvlm_model" value="$(var lvlm_model)"/>
+        <param name="disambiguation_iters" value="$(var disambiguation_iters)"/>
+        <param name="update_map_service" value="$(var update_map_service)"/>
     </node>
 
     <!-- Nodo con classifier "split" -->
-    <node pkg="voxeland" exec="voxeland_disambiguation_node" name="voxeland_disambiguation_split">
-        <param name="json_map" value="scenenn/061.json"/>
-        <param name="json_appearances" value="scenenn/061_appearances.json"/>
-        <param name="bag_path" value="/home/ubuntu/ros2_ws/bag/SceneNN/to_ros/ROS2_bags/061/061.db3"/>
+    <node pkg="voxeland_disambiguation" exec="voxeland_disambiguation_node" name="voxeland_disambiguation_split">
+        <param name="json_map" value="$(var json_map)"/>
+        <param name="json_appearances" value="$(var json_appearances)"/>
+        <param name="bag_path" value="$(var bag_path)"/>
         <param name="appearances_classifier" value="split"/>
-        <param name="n_images_per_category" value="3"/>
-        <param name="n_categories_per_instance" value="3"/>
-        <param name="output_file" value="/home/ubuntu/Desktop/061_disambiguated.json"/>
-        <param name="lvlm_model" value="openbmb/MiniCPM-o-2_6"/>
+        <param name="n_images_per_category" value="$(var n_images_per_category)"/>
+        <param name="n_categories_per_instance" value="$(var n_categories_per_instance)"/>
+        <param name="output_file" value="$(var output_dir)/206_disambiguated_split.json"/>
+        <param name="lvlm_model" value="$(var lvlm_model)"/>
+        <param name="disambiguation_iters" value="$(var disambiguation_iters)"/>
+        <param name="update_map_service" value="$(var update_map_service)"/>
     </node>
 
     <!-- Nodo con classifier "bbox" -->
-    <node pkg="voxeland" exec="voxeland_disambiguation_node" name="voxeland_disambiguation_bbox">
-        <param name="json_map" value="scenenn/061.json"/>
-        <param name="json_appearances" value="scenenn/061_appearances.json"/>
-        <param name="bag_path" value="/home/ubuntu/ros2_ws/bag/SceneNN/to_ros/ROS2_bags/061/061.db3"/>
+    <node pkg="voxeland_disambiguation" exec="voxeland_disambiguation_node" name="voxeland_disambiguation_bbox">
+        <param name="json_map" value="$(var json_map)"/>
+        <param name="json_appearances" value="$(var json_appearances)"/>
+        <param name="bag_path" value="$(var bag_path)"/>
         <param name="appearances_classifier" value="bbox"/>
-        <param name="n_images_per_category" value="3"/>
-        <param name="n_categories_per_instance" value="3"/>
-        <param name="output_file" value="/home/ubuntu/Desktop/061_disambiguated.json"/>
-        <param name="lvlm_model" value="openbmb/MiniCPM-o-2_6"/>
+        <param name="n_images_per_category" value="$(var n_images_per_category)"/>
+        <param name="n_categories_per_instance" value="$(var n_categories_per_instance)"/>
+        <param name="output_file" value="$(var output_dir)/206_disambiguated_bbox.json"/>
+        <param name="lvlm_model" value="$(var lvlm_model)"/>
+        <param name="disambiguation_iters" value="$(var disambiguation_iters)"/>
+        <param name="update_map_service" value="$(var update_map_service)"/>
+    </node>
+
+    <!-- Nodo con classifier "split_bbox" -->
+    <node pkg="voxeland_disambiguation" exec="voxeland_disambiguation_node" name="voxeland_disambiguation_split_bbox">
+        <param name="json_map" value="$(var json_map)"/>
+        <param name="json_appearances" value="$(var json_appearances)"/>
+        <param name="bag_path" value="$(var bag_path)"/>
+        <param name="appearances_classifier" value="split_bbox"/>
+        <param name="n_images_per_category" value="$(var n_images_per_category)"/>
+        <param name="n_categories_per_instance" value="$(var n_categories_per_instance)"/>
+        <param name="output_file" value="$(var output_dir)/206_disambiguated_split_bbox.json"/>
+        <param name="lvlm_model" value="$(var lvlm_model)"/>
+        <param name="disambiguation_iters" value="$(var disambiguation_iters)"/>
+        <param name="update_map_service" value="$(var update_map_service)"/>
     </node>
 </launch>
