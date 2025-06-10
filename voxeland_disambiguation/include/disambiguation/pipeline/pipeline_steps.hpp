@@ -102,8 +102,10 @@ class LVLMDisambiguationStep : public AbstractPipelineStep{
 
 class UncertainResultsUpdateStep : public AbstractPipelineStep{
     public:
+        UncertainResultsUpdateStep(uint32_t disambiguation_iters);
         bool execute() override;
     private:
+        uint32_t disambiguation_iters;
         void update_uncertain_instances_results(std::vector<UncertainInstance>& uncertain_instances);
 };
 
