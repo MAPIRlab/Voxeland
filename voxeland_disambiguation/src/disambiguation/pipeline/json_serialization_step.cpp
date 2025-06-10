@@ -9,16 +9,19 @@
 
 using json = nlohmann::json;
 
-JsonSerializationStep::JsonSerializationStep(const std::string& output_file){
+JsonSerializationStep::JsonSerializationStep(const std::string& output_file, bool update_map_service){
     this->output_file = output_file;
+    this->update_map_service = update_map_service;
 
-    rclcpp::NodeOptions options;
-    options.allow_undeclared_parameters(true);
-    options.automatically_declare_parameters_from_overrides(true);
-    std::string node_name = "disambiguation_serialization_node_" + std::to_string(std::rand());
-    this->node = std::make_shared<rclcpp::Node>(node_name, options);
-    
-    init_client();
+    if (update_map_service) {
+        VXL_WARN("[JSON_SERIALIZATION] update_map_service is set to false, the map will not be sent to the server.");
+        rclcpp::NodeOptions options;
+        options.allow_undeclared_parameters(true);
+        options.automatically_declare_parameters_from_overrides(true);
+        std::string node_name = "disambiguation_serialization_node_" + std::to_string(std::rand());
+        this->node = std::make_shared<rclcpp::Node>(node_name, options);
+        init_client();
+    }
 }
 
 bool JsonSerializationStep::execute() {
@@ -53,6 +56,10 @@ void JsonSerializationStep::save_map(const json& map_json) {
 }
 
 void JsonSerializationStep::send_map_to_server(const json& map_json) {
+    if (!update_map_service) {
+        VXL_INFO("[JSON_SERIALIZATION] update_map_service is set to false, skipping sending map to server.");
+        return;
+    }
     auto request = std::make_shared<voxeland_msgs::srv::UpdateMapResults::Request>();
     request->json_map = map_json.dump(); // Convert JSON to string
 

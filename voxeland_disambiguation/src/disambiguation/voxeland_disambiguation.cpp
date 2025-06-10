@@ -56,6 +56,12 @@ namespace voxeland_disambiguation {
         lvlm_model = declare_parameter("lvlm_model", "openbmb/MiniCPM-o-2_6");
         VXL_INFO("lvlm_model parameter defined, value: {}", lvlm_model);
 
+        disambiguation_iters = declare_parameter("disambiguation_iters", 50);
+        VXL_INFO("disambiguation_iters parameter defined, value: {}", disambiguation_iters);
+
+        update_map_service = declare_parameter("update_map_service", false);
+        VXL_INFO("update_map_service parameter defined, value: {}", update_map_service);
+
         initialize_pipeline();
         execute_pipeline();
     }
@@ -67,9 +73,9 @@ namespace voxeland_disambiguation {
         auto classifier_instance = ClassifierFactory::create_classifier(appearances_classifier);
         auto appearances_selection = std::make_unique<AppeareancesSelectionStep>(std::move(classifier_instance), n_images_per_category, n_categories_per_instance);
         auto image_bag_reading = std::make_unique<ImageBagReading>(bag_path);
-        auto lvlm_disambiguation = std::make_unique<LVLMDisambiguationStep>(lvlm_model);
+        auto lvlm_disambiguation = std::make_unique<LVLMDisambiguationStep>(lvlm_model, disambiguation_iters);
         auto uncertain_results_updater = std::make_unique<UncertainResultsUpdateStep>();
-        auto json_serialization = std::make_unique<JsonSerializationStep>(output_file);
+        auto json_serialization = std::make_unique<JsonSerializationStep>(output_file, update_map_service);
         auto metrics_save = std::make_unique<MetricsSaveStep>(appearances_classifier, lvlm_model);
         
         pipeline_steps.push_back(std::move(json_deserialization));

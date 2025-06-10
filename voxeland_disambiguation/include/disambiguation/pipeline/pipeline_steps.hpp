@@ -109,10 +109,11 @@ class UncertainResultsUpdateStep : public AbstractPipelineStep{
 
 class JsonSerializationStep : public AbstractPipelineStep{
     public:
-        JsonSerializationStep(const std::string& output_file);
+        JsonSerializationStep(const std::string& output_file, bool update_map_service);
         bool execute() override;
     private:
         std::string output_file;
+        bool update_map_service;
         rclcpp::Node::SharedPtr node;
         rclcpp::Client<voxeland_msgs::srv::UpdateMapResults>::SharedPtr client;
 
