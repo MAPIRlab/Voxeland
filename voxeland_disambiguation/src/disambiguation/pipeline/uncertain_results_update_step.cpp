@@ -51,8 +51,8 @@ void UncertainResultsUpdateStep::update_uncertain_instances_results(std::vector<
             VXL_INFO("  Category: {}, Count: {}", category, result);
             
             double confidence_factor = static_cast<double>(result) / static_cast<double>(disambiguation_iters);
-
             double total_factor = n_categories_factor + observations_factor + confidence_factor;
+
             instance_results[category] += total_factor * result;
         }
     }

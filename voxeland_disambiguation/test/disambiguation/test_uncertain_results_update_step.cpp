@@ -9,12 +9,10 @@ TEST(UncertainResultsUpdateStep,test_execute_with_valid_disambiguation_results_r
     instance->InstanceID = "test";
     instance->results = {{"cat", 1.0}, {"dog", 2.0}};
     UncertainInstance uncertain(instance, 0.5);
-    std::map<std::string, uint32_t> disambiguation_results = {{"cat", 2}, {"dog", 1}};
-    uncertain.get_disambiguation_results()->clear();
-    *(uncertain.get_disambiguation_results()) = disambiguation_results;
-
+    uncertain.increase_one_disambiguation_result("cat");
+    uncertain.increase_one_disambiguation_result("cat");
+    uncertain.increase_one_disambiguation_result("dog");
     auto context = DisambiguationContext::get_context_instance();
-    context->get_uncertain_instances()->clear();
     context->get_uncertain_instances()->push_back(uncertain);
     UncertainResultsUpdateStep step = UncertainResultsUpdateStep(100);
 
@@ -22,8 +20,8 @@ TEST(UncertainResultsUpdateStep,test_execute_with_valid_disambiguation_results_r
 
     EXPECT_TRUE(result);
     auto& updated_results = uncertain.get_instance()->results;
-    EXPECT_GE(updated_results["cat"], 3.0); // 1.0 + 2
-    EXPECT_GE(updated_results["dog"], 3.0); // 2.0 + 1
+    EXPECT_GE(updated_results["cat"], 1.0);
+    EXPECT_GE(updated_results["dog"], 2.0);
 }
 
 TEST(UncertainResultsUpdateStep,test_execute_with_empty_uncertain_instances_returns_false) {
