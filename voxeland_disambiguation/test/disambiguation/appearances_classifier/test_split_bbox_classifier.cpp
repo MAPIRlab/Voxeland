@@ -3,7 +3,7 @@
 #include "disambiguation/json_semantics.hpp"
 
 
-TEST(SplitBboxAreaAppearancesClassifierTest, AppearancesSizeLowerThanMaxAppearances) {
+TEST(SplitBboxAreaAppearancesClassifierTest, test_classify_instance_appearances_with_few_appearances_selects_all) {
     SplitBboxAreaAppearancesClassifier classifier;
     auto instance = std::make_shared<JsonSemanticObject>();
     std::vector<std::string> categories = {"cat", "dog"};
@@ -26,7 +26,7 @@ TEST(SplitBboxAreaAppearancesClassifierTest, AppearancesSizeLowerThanMaxAppearan
     EXPECT_EQ((*selected)["dog"], expected_dog);
 }
 
-TEST(SplitBboxAreaAppearancesClassifierTest, AppearancesSizeGreaterThanMaxAppearances) {
+TEST(SplitBboxAreaAppearancesClassifierTest, test_classify_instance_appearances_with_many_appearances_selects_largest_from_subsets) {
     SplitBboxAreaAppearancesClassifier classifier;
     auto instance = std::make_shared<JsonSemanticObject>();
     std::vector<std::string> categories = {"dog"};
@@ -49,7 +49,7 @@ TEST(SplitBboxAreaAppearancesClassifierTest, AppearancesSizeGreaterThanMaxAppear
     EXPECT_EQ((*selected)["dog"], expected_dog);
 }
 
-TEST(SplitBboxAreaAppearancesClassifierTest, SingleAppearancePerSubset) {
+TEST(SplitBboxAreaAppearancesClassifierTest, test_classify_instance_appearances_with_single_appearance_per_subset_selects_all) {
     SplitBboxAreaAppearancesClassifier classifier;
     auto instance = std::make_shared<JsonSemanticObject>();
     std::vector<std::string> categories = {"cat"};
@@ -67,7 +67,7 @@ TEST(SplitBboxAreaAppearancesClassifierTest, SingleAppearancePerSubset) {
     EXPECT_EQ((*selected)["cat"], expected_cat);
 }
 
-TEST(SplitBboxAreaAppearancesClassifierTest, HandlesEmptyAppearancesGracefully) {
+TEST(SplitBboxAreaAppearancesClassifierTest, test_classify_instance_appearances_with_empty_category_throws_exception) {
     SplitBboxAreaAppearancesClassifier classifier;
     auto instance = std::make_shared<JsonSemanticObject>();
     std::vector<std::string> categories = {"cat"};
@@ -76,7 +76,7 @@ TEST(SplitBboxAreaAppearancesClassifierTest, HandlesEmptyAppearancesGracefully) 
     EXPECT_ANY_THROW(classifier.classify_instance_appearances(uncertain, categories, 1));
 }
 
-TEST(SplitBboxAreaAppearancesClassifierTest, GetNameReturnsCorrectName) {
+TEST(SplitBboxAreaAppearancesClassifierTest, test_get_name_returns_correct_name) {
     SplitBboxAreaAppearancesClassifier classifier;
 
     std::string name = classifier.get_name();

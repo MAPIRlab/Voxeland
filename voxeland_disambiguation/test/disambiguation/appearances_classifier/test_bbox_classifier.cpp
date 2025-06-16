@@ -3,7 +3,7 @@
 #include "disambiguation/json_semantics.hpp"
 
 
-TEST(BBoxAppearancesClassifierTest, SelectsAppearancesWithLargestArea) {
+TEST(BBoxAppearancesClassifierTest, test_classify_instance_appearances_selects_largest_area) {
     BBoxAppearancesClassifier classifier;
     auto instance = std::make_shared<JsonSemanticObject>();
     std::vector<std::string> categories = {"cat"};
@@ -21,7 +21,7 @@ TEST(BBoxAppearancesClassifierTest, SelectsAppearancesWithLargestArea) {
     EXPECT_EQ((*selected)["cat"][1], 3u);
 }
 
-TEST(BBoxAppearancesClassifierTest, SelectsAllIfLessThanMaxAppearances) {
+TEST(BBoxAppearancesClassifierTest, test_classify_instance_appearances_with_few_appearances_selects_all) {
     BBoxAppearancesClassifier classifier;
     auto instance = std::make_shared<JsonSemanticObject>();
     std::vector<std::string> categories = {"dog"};
@@ -38,7 +38,7 @@ TEST(BBoxAppearancesClassifierTest, SelectsAllIfLessThanMaxAppearances) {
     EXPECT_EQ((*selected)["dog"][1], 10u);
 }
 
-TEST(BBoxAppearancesClassifierTest, ThrowsIfNoAppearancesForCategory) {
+TEST(BBoxAppearancesClassifierTest, test_classify_instance_appearances_with_empty_category_throws_exception) {
     BBoxAppearancesClassifier classifier;
     auto instance = std::make_shared<JsonSemanticObject>();
     std::vector<std::string> categories = {"bird"};
@@ -47,7 +47,7 @@ TEST(BBoxAppearancesClassifierTest, ThrowsIfNoAppearancesForCategory) {
     EXPECT_THROW(classifier.classify_instance_appearances(uncertain, categories, 2), std::exception);
 }
 
-TEST(BBoxAppearancesClassifierTest, GetNameReturnsCorrectName) {
+TEST(BBoxAppearancesClassifierTest, test_get_name_returns_correct_name) {
     BBoxAppearancesClassifier classifier;
 
     std::string name = classifier.get_name();

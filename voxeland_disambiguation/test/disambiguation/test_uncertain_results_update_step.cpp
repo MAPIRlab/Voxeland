@@ -4,7 +4,7 @@
 
 // AAA: Arrange, Act, Assert
 
-TEST(UncertainResultsUpdateStep,test_execute_with_valid_disambiguation_results_returns_true_and_updates_results) {
+TEST(UncertainResultsUpdateStep, test_execute_with_valid_disambiguation_results_returns_true_and_updates_results) {
     auto instance = std::make_shared<JsonSemanticObject>();
     instance->InstanceID = "test";
     instance->results = {{"cat", 1.0}, {"dog", 2.0}};
@@ -24,7 +24,7 @@ TEST(UncertainResultsUpdateStep,test_execute_with_valid_disambiguation_results_r
     EXPECT_GE(updated_results["dog"], 2.0);
 }
 
-TEST(UncertainResultsUpdateStep,test_execute_with_empty_uncertain_instances_returns_false) {
+TEST(UncertainResultsUpdateStep, test_execute_with_empty_uncertain_instances_returns_false) {
     UncertainResultsUpdateStep step = UncertainResultsUpdateStep(100);
     auto context = DisambiguationContext::get_context_instance();
     context->get_uncertain_instances()->clear();
@@ -34,7 +34,7 @@ TEST(UncertainResultsUpdateStep,test_execute_with_empty_uncertain_instances_retu
     EXPECT_FALSE(result);
 }
 
-TEST(UncertainResultsUpdateStep,test_execute_with_missing_disambiguation_results_returns_false) {
+TEST(UncertainResultsUpdateStep, test_execute_with_missing_disambiguation_results_returns_false) {
     auto instance = std::make_shared<JsonSemanticObject>();
     instance->InstanceID = "test3";
     instance->results = {{"cat", 1.0}};
