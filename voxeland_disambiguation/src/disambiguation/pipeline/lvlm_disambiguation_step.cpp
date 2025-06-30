@@ -8,8 +8,9 @@
 #include <string>
 #include <vector>
 
-LVLMDisambiguationStep::LVLMDisambiguationStep(const std::string& lvlm_model){
+LVLMDisambiguationStep::LVLMDisambiguationStep(const std::string& lvlm_model, uint32_t disambiguation_iters){
     this->lvlm_model = lvlm_model;
+    this->disambiguation_iters = disambiguation_iters;
 
     rclcpp::NodeOptions options;
     options.allow_undeclared_parameters(true);
@@ -110,7 +111,7 @@ bool LVLMDisambiguationStep::load_model(){
 void LVLMDisambiguationStep::send_and_handle_request(std::shared_ptr<ros_lm_interfaces::srv::OpenLLMRequest::Request> request, std::vector<std::string>& categories, UncertainInstance& instance){
     int valid_responses_count = 0;
 
-    while (valid_responses_count < 100){
+    while (valid_responses_count < this->disambiguation_iters){
         auto future = client -> async_send_request(request);
 
         if (rclcpp::spin_until_future_complete(node->get_node_base_interface(), future) != rclcpp::FutureReturnCode::SUCCESS){

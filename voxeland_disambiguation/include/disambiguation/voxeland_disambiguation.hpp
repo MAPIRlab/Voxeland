@@ -31,6 +31,8 @@ namespace voxeland_disambiguation {
             uint32_t n_categories_per_instance;
             std::string output_file;
             std::string lvlm_model;
+            uint32_t disambiguation_iters;
+            bool update_map_service;
 
             std::vector<std::unique_ptr<PipelineStep>> pipeline_steps;
 

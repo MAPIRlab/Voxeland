@@ -8,6 +8,8 @@ std::unique_ptr<AppearancesClassifier> ClassifierFactory::create_classifier(cons
         return std::make_unique<SplitAppearancesClassifier>();
     } else if (classifier_type == "bbox") {
         return std::make_unique<BBoxAppearancesClassifier>();
+    } else if (classifier_type == "split_bbox") {
+        return std::make_unique<SplitBboxAreaAppearancesClassifier>();
     } else {
         throw std::invalid_argument("Unknown classifier type: " + classifier_type);
     }

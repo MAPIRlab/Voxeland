@@ -2,24 +2,19 @@
 #include "disambiguation/appearances_classifier/appearances_classifier.hpp"
 #include "disambiguation/json_semantics.hpp"
 
-// AAA: Arrange, Act, Assert
 
-TEST(SplitAppearancesClassifierTest, AppearancesSizeLowerThanMaxAppearances) {
-    // Arrange
+TEST(SplitAppearancesClassifierTest, test_classify_instance_appearances_with_few_appearances_selects_all) {
     SplitAppearancesClassifier classifier;
     auto instance = std::make_shared<JsonSemanticObject>();
     std::vector<std::string> categories = {"cat", "dog"};
-    // Añade 3 apariencias para "cat" y 2 para "dog"
     instance->appearances_timestamps["cat"][10] = BoundingBox2D{};
     instance->appearances_timestamps["cat"][30] = BoundingBox2D{};
     instance->appearances_timestamps["dog"][100] = BoundingBox2D{};
     instance->appearances_timestamps["dog"][500] = BoundingBox2D{};
     UncertainInstance uncertain(instance, 0.5);
 
-    // Act
     classifier.classify_instance_appearances(uncertain, categories, 3);
 
-    // Assert
     auto* selected = uncertain.get_selected_appearances();
     ASSERT_EQ(selected->size(), 2);
     EXPECT_EQ((*selected)["cat"].size(), 2);
@@ -30,8 +25,7 @@ TEST(SplitAppearancesClassifierTest, AppearancesSizeLowerThanMaxAppearances) {
     EXPECT_EQ((*selected)["dog"], expected_dog);
 }
 
-TEST(SplitAppearancesClassifierTest, AppearancesSizeGreaterThanMaxAppearances) {
-    // Arrange
+TEST(SplitAppearancesClassifierTest, test_classify_instance_appearances_with_many_appearances_selects_split) {
     SplitAppearancesClassifier classifier;
     auto instance = std::make_shared<JsonSemanticObject>();
     std::vector<std::string> categories = {"dog"};
@@ -45,10 +39,8 @@ TEST(SplitAppearancesClassifierTest, AppearancesSizeGreaterThanMaxAppearances) {
     instance->appearances_timestamps["dog"][800] = BoundingBox2D{};
     UncertainInstance uncertain(instance, 0.5);
 
-    // Act
     classifier.classify_instance_appearances(uncertain, categories, 3);
 
-    // Assert
     auto* selected = uncertain.get_selected_appearances();
     ASSERT_EQ(selected->size(), 1);
     EXPECT_EQ((*selected)["dog"].size(), 3);
@@ -56,24 +48,19 @@ TEST(SplitAppearancesClassifierTest, AppearancesSizeGreaterThanMaxAppearances) {
     EXPECT_EQ((*selected)["dog"], expected_dog);
 }
 
-TEST(SplitAppearancesClassifierTest, HandlesEmptyAppearancesGracefully) {
-    // Arrange
+TEST(SplitAppearancesClassifierTest, test_classify_instance_appearances_with_empty_category_throws_exception) {
     SplitAppearancesClassifier classifier;
     auto instance = std::make_shared<JsonSemanticObject>();
     std::vector<std::string> categories = {"cat"};
     UncertainInstance uncertain(instance, 0.1);
 
-    // Act & Assert
     EXPECT_ANY_THROW(classifier.classify_instance_appearances(uncertain, categories, 1));
 }
 
-TEST(SplitAppearancesClassifierTest, GetNameReturnsCorrectName) {
-    // Arrange
+TEST(SplitAppearancesClassifierTest, test_get_name_returns_correct_name) {
     SplitAppearancesClassifier classifier;
 
-    // Act
     std::string name = classifier.get_name();
 
-    // Assert
     EXPECT_EQ(name, "split");
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <rclcpp/node.hpp>
 #include <ros_lm_interfaces/srv/detail/open_llm_request__struct.hpp>
@@ -83,12 +84,13 @@ class ImageBagReading : public AbstractPipelineStep{
 
 class LVLMDisambiguationStep : public AbstractPipelineStep{
     public:
-        LVLMDisambiguationStep(const std::string& lvlm_model);
+        LVLMDisambiguationStep(const std::string& lvlm_model, uint32_t disambiguation_iters);
         bool execute() override;
     private:
         std::string lvlm_model;
         rclcpp::Node::SharedPtr node;
         rclcpp::Client<ros_lm_interfaces::srv::OpenLLMRequest>::SharedPtr client;
+        uint32_t disambiguation_iters;
 
         void disambiguate_instances(std::vector<UncertainInstance>& uncertain_instances);
         
@@ -100,17 +102,20 @@ class LVLMDisambiguationStep : public AbstractPipelineStep{
 
 class UncertainResultsUpdateStep : public AbstractPipelineStep{
     public:
+        UncertainResultsUpdateStep(uint32_t disambiguation_iters);
         bool execute() override;
     private:
+        uint32_t disambiguation_iters;
         void update_uncertain_instances_results(std::vector<UncertainInstance>& uncertain_instances);
 };
 
 class JsonSerializationStep : public AbstractPipelineStep{
     public:
-        JsonSerializationStep(const std::string& output_file);
+        JsonSerializationStep(const std::string& output_file, bool update_map_service);
         bool execute() override;
     private:
         std::string output_file;
+        bool update_map_service;
         rclcpp::Node::SharedPtr node;
         rclcpp::Client<voxeland_msgs::srv::UpdateMapResults>::SharedPtr client;
 

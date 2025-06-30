@@ -1,6 +1,17 @@
+<!--Qwen/Qwen2.5-VL-32B-Instruct-->
+<!--openbmb/MiniCPM-o-2_6-->
+
 <launch>
-    <node pkg="voxeland" exec="voxeland_disambiguation_node" name="voxeland_disambiguation">
-    </node>
-    <node pkg="ros_lm" exec="ros_lm" name="ros_lm">
+    <node pkg="voxeland_disambiguation" exec="voxeland_disambiguation_node" name="voxeland_disambiguation_split_bbox">
+        <param name="json_map" value="scenenn/206.json"/>
+        <param name="json_appearances" value="scenenn/206_appearances.json"/>
+        <param name="bag_path" value="/home/ubuntu/ros2_ws/bag/SceneNN/to_ros/ROS2_bags/206/206.db3"/>
+        <param name="appearances_classifier" value="split_bbox"/>
+        <param name="n_images_per_category" value="3"/>
+        <param name="n_categories_per_instance" value="3"/>
+        <param name="output_file" value="/home/ubuntu/Desktop/206_disambiguated.json"/>
+        <param name="lvlm_model" value="openbmb/MiniCPM-o-2_6"/>
+        <param name="disambiguation_iters" value="100"/>
+        <param name="update_map_service" value="false"/>
     </node>
 </launch>
