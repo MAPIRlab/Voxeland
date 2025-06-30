@@ -1,6 +1,5 @@
 #pragma once
 #include "Color.hpp"
-#include "voxeland_map/Utils/logging.hpp"
 
 namespace voxeland
 {
@@ -57,40 +56,23 @@ namespace voxeland
             if (instances_candidates.size() == 0)
                 return {};
             SemanticMap& semantics = SemanticMap::get_instance();
-            std::vector<double> alphasDirichlet(semantics.default_categories.size(), 0); //arbitrary amount of weight to all classes to avoid 0 probability
+            std::vector<double> alphasDirichlet(semantics.default_categories.size(), 0.01);  // arbitrary amount of weight to all classes to avoid 0 probability
 
-            InstanceID_t localInstanceID = getMostRepresentativeInstance();
-            auto it = std::find(instances_candidates.begin(), instances_candidates.end(), localInstanceID);
-            if (it == instances_candidates.end()) {
-                VXL_WARN("localInstanceID not found in instances_candidates, returning empty probabilities.");
-                return {};
-            }
-            size_t idx = std::distance(instances_candidates.begin(), it);
-
-            const SemanticObject* globalInstance = &semantics.globalSemanticMap[localInstanceID];
-            
-            // if the instance has been fused with others, find the new instance that represents the fusion
-            while (globalInstance->pointsTo != -1)
-                globalInstance = &semantics.globalSemanticMap[globalInstance->pointsTo];
-            
-            float votesInstance = instances_votes[idx];
-            for (size_t category = 0; category < semantics.default_categories.size(); category++)
+            for (InstanceID_t localInstanceID = 0; localInstanceID < instances_candidates.size(); localInstanceID++)
             {
-                alphasDirichlet.at(category) += votesInstance * globalInstance->alphaParamsCategories.at(category);
+                const SemanticObject* globalInstance = &semantics.globalSemanticMap[instances_candidates[localInstanceID]];
+
+                // if the instance has been fused with others, find the new instance that represents the fusion
+                while (globalInstance->pointsTo != -1)
+                    globalInstance = &semantics.globalSemanticMap[globalInstance->pointsTo];
+
+                float votesInstance = instances_votes[localInstanceID];
+                for (size_t category = 0; category < semantics.default_categories.size(); category++)
+                {
+                    alphasDirichlet.at(category) += votesInstance * globalInstance->alphaParamsCategories.at(category);
+                }
             }
-            
             double sum = std::accumulate(alphasDirichlet.begin(), alphasDirichlet.end(), 0.);
-            if (sum == 0)
-            {
-                VXL_ERROR("Sum of Dirichlet alphas is zero, returning empty probabilities.");
-                return {};
-            }
-
-            auto aux = "obj" + std::to_string(localInstanceID);
-            if (aux != globalInstance->instanceID){
-                VXL_WARN("Instance ID {} does not match global instance ID {}", localInstanceID, globalInstance->instanceID);
-            }
-            
             std::vector<double> probabilities(alphasDirichlet.size());
 
             for (size_t i = 0; i < alphasDirichlet.size(); i++)
