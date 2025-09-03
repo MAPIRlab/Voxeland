@@ -2,13 +2,13 @@
 
 #include <filesystem>
 #include <fstream>
+#include <rclcpp/serialization.hpp>
+#include <segmentation_msgs/msg/instance_semantic_map.hpp>
 #include <stdexcept>
 #include <string>
 #include <voxeland_map/Utils/Stopwatch.hpp>
 #include <voxeland_server.hpp>
-#include <segmentation_msgs/msg/instance_semantic_map.hpp>
-
-#include <rclcpp/serialization.hpp>
+#include <Profiling.hpp>
 
 #include "nlohmann/json.hpp"
 #include "voxeland_map/Utils/logging.hpp"
@@ -178,6 +178,7 @@ namespace voxeland_server
         number_iterations++;
 
         const auto start_time = rclcpp::Clock{}.now();
+        voxeland::ScopedStopwatch watch("Inserting pointcloud");
 
         // Checking the operation mode:
         // XYZ, XYZRGB, XYZSemantics, XYZSemanticsInstances, XYZRGBSemantics, XYZRGBSemanticsInstances
@@ -327,14 +328,13 @@ namespace voxeland_server
             std::string json_appearances_filename = "voxeland_instanceMap_appearances.json";
             std::ofstream appearancesOutfile(json_appearances_filename);
 
-            if(!appearancesOutfile.is_open())
+            if (!appearancesOutfile.is_open())
             {
                 VXL_ERROR("Cannot save .JSON file in: {}/{}", std::filesystem::current_path().string(), json_appearances_filename);
                 return;
             }
             appearancesOutfile << json_appearances.dump(4);
             appearancesOutfile.close();
-
         }
 
         std::string ply;
@@ -357,15 +357,20 @@ namespace voxeland_server
     void VoxelandServer::loadMapSrv(const std::shared_ptr<UpdateMapResultsSrv::Request> req, const std::shared_ptr<UpdateMapResultsSrv::Response> resp)
     {
         VXL_INFO("Loading map files");
-        try {
+        try
+        {
             nlohmann::json json_map = nlohmann::json::parse(req->json_map);
             semantics.updateSemanticMapResultsFromJSON(json_map);
-        } catch (nlohmann::json::parse_error& e) {
+        }
+        catch (nlohmann::json::parse_error& e)
+        {
             VXL_ERROR("Failed to parse JSON map: {}", e.what());
             resp->success = false;
             resp->message = "Failed to parse JSON map";
             return;
-        } catch(std::runtime_error& e) {
+        }
+        catch (std::runtime_error& e)
+        {
             VXL_ERROR("An error occurred while loading the map: {}", e.what());
             resp->success = false;
             resp->message = "Error loading map: " + std::string(e.what());
@@ -376,7 +381,6 @@ namespace voxeland_server
         resp->message = "Map loaded successfully";
         VXL_INFO("Map loaded successfully");
     }
-
 
     bool VoxelandServer::getClassDistributionsSrv(
         const std::shared_ptr<rmw_request_id_t> requestHeader,
@@ -390,9 +394,9 @@ namespace voxeland_server
         }
 
         VXL_WARN("Received class distribution request {}", requestHeader->sequence_number);
-        Stopwatch watch;
+        voxeland::ScopedStopwatch watch("Get class distributions");
+
         AUTO_TEMPLATE_SEMANTICS_ONLY(currentMode, fillClassSrvResponse<DataT>(request, response));
-        VXL_WARN("Took {}s to process the service", watch.ellapsed());
         return true;
     }
 
@@ -497,13 +501,13 @@ namespace voxeland_server
 
         std::set<InstanceID_t> visibleInstances =
             semantics.getCurrentVisibleInstances<DataT>(occupancy_min_z_, occupancy_max_z_);
-        
+
         SemanticsROSWrapper::InstanceMapMsgs msgs = semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp, visibleInstances);
         semantic_map_pub_->publish(msgs.instanceMap);
-        
+
         static auto textPub = create_publisher<visualization_msgs::msg::MarkerArray>("/voxeland/IDs", 1);
         textPub->publish(msgs.textMarkers);
-        
+
         // VXL_INFO("Global map: {} visible and {} active instances", visibleInstances.size(), semantics.globalSemanticMap.size());
     }
 
