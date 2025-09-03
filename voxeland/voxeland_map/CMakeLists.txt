@@ -9,6 +9,7 @@ add_library(voxeland_map
     src/semantics.cpp
 )
 
+find_package(fmt)
 if(NOT TARGET fmt::fmt)
 add_subdirectory(3rdparty/fmt)
 endif()
