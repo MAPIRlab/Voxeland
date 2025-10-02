@@ -9,11 +9,14 @@
 
 ### Citation
 <pre><code>@ARTICLE{matez_voxeland,
-  author={Matez-Bandera, Jose-Luis and Ojeda, Pepe and Monroy, Javier and Gonzalez-Jimenez, Javier and Ruiz-Sarmiento, Jose-Raul},
-  journal={Robotics and Autonomous Systems}, 
   title={Voxeland: Probabilistic Instance-Aware Semantic Mapping with Evidence-based Uncertainty Quantification}, 
+  author={Jose-Luis Matez-Bandera and Pepe Ojeda and Javier Monroy and Javier Gonzalez-Jimenez and Jose-Raul Ruiz-Sarmiento},
   year={2024},
-  note={Submitted and under review}}
+  eprint={2411.08727},
+  archivePrefix={arXiv},
+  primaryClass={cs.RO},
+  url={https://arxiv.org/abs/2411.08727}, 
+  }
 </code></pre>
 
 
