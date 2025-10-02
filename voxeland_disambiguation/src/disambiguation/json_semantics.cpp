@@ -1,5 +1,5 @@
 #include "disambiguation/json_semantics.hpp"
-#include <cv_bridge/cv_bridge.h>
+#include <cv_bridge/cv_bridge.hpp>
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <cstdint>
 #include <iostream>
