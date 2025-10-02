@@ -35,6 +35,8 @@ Move to your colcon workspace and run:
 
 This will download the code for voxeland and some third party libraries. You will also need the `segmentation_msgs` package, available [here](https://github.com/MAPIRlab/instance_segmentation).
 
+It is recommended to also use `rosdep` to make sure you have all ROS-based dependencies, which are defined in the `package.xml` files of this project and its submodules.
+
 Once you have everything downloaded, compile with `colcon build --symlink-install` as usual.
 
 ### Parameters
