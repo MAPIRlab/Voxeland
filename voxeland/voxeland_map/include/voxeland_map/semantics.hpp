@@ -14,6 +14,7 @@
 #include <voxeland_map/Utils/logging.hpp>
 #include <voxeland_map/pcl_utils.hpp>
 #include <voxeland_map/probabilistic_map_templated.hpp>
+#include <voxeland_map/category_manager.hpp>
 
 #include "bonxai/bonxai.hpp"
 
@@ -40,8 +41,13 @@ struct SemanticObject
     // Note: For now, it is supposed that in the globalSemanticMap, instances are not going to disappear.
     // Otherwise, it should be considered, as the instanceID cannot be the globalSemanticMap.size()+1
     std::string instanceID;
-    std::vector<double> alphaParamsCategories; // concentration parameters for the Dirichlet distribution
-    std::vector<std::map<uint32_t,BoundingBox2D>> appearancesTimestamps;
+    
+    // Dynamic storage for category probabilities - grows as needed
+    std::unordered_map<CategoryManager::CategoryIndex, double> alphaParamsCategories;
+    
+    // Dynamic storage for appearances per category - grows as needed  
+    std::unordered_map<CategoryManager::CategoryIndex, std::map<uint32_t, BoundingBox2D>> appearancesTimestamps;
+    
     uint32_t numberObservations = 1;
     BoundingBox3D bbox;
 
@@ -51,28 +57,64 @@ struct SemanticObject
     // need to be set with the instanceID of the main object, hence if pointsTo is not empty, it won't check
     // the data in this SemanticObject, but instead it will check the data in the instanceID set in pointsTo.
 
-    SemanticObject(size_t numCategories, InstanceID_t _instanceID)
-        : alphaParamsCategories(numCategories, 0)
-        , instanceID("obj" + std::to_string(_instanceID))
-        , appearancesTimestamps(numCategories)
+    SemanticObject(InstanceID_t _instanceID)
+        : instanceID("obj" + std::to_string(_instanceID))
     {}
-    SemanticObject(const std::vector<double>& alphas, InstanceID_t _instanceID)
-        : alphaParamsCategories(alphas)
-        , instanceID("obj" + std::to_string(_instanceID))
-        , appearancesTimestamps(alphas.size())
-    {}
-    SemanticObject(size_t numCategories, InstanceID_t _instanceID, BoundingBox3D _bbox)
-        : alphaParamsCategories(numCategories, 0)
-        , instanceID("obj" + std::to_string(_instanceID))
+    
+    SemanticObject(InstanceID_t _instanceID, BoundingBox3D _bbox)
+        : instanceID("obj" + std::to_string(_instanceID))
         , bbox(_bbox)
-        , appearancesTimestamps(numCategories)
     {}
-    SemanticObject(const std::vector<double>& alphas, InstanceID_t _instanceID, BoundingBox3D _bbox)
-        : alphaParamsCategories(alphas)
-        , instanceID("obj" + std::to_string(_instanceID))
-        , bbox(_bbox)
-        , appearancesTimestamps(alphas.size())
-    {}
+    
+    // Get probability for a specific category (returns 0 if category not found)
+    double getCategoryProbability(CategoryManager::CategoryIndex categoryIndex) const
+    {
+        auto it = alphaParamsCategories.find(categoryIndex);
+        return it != alphaParamsCategories.end() ? it->second : 0.0;
+    }
+    
+    // Set probability for a specific category
+    void setCategoryProbability(CategoryManager::CategoryIndex categoryIndex, double probability)
+    {
+        alphaParamsCategories[categoryIndex] = probability;
+    }
+    
+    // Add to probability for a specific category
+    void addToCategoryProbability(CategoryManager::CategoryIndex categoryIndex, double probability)
+    {
+        alphaParamsCategories[categoryIndex] += probability;
+    }
+    
+    // Get all category probabilities as a vector (for compatibility with existing code)
+    std::vector<double> getCategoryProbabilityVector() const
+    {
+        CategoryManager& catManager = CategoryManager::getInstance();
+        size_t numCategories = catManager.getNumCategories();
+        std::vector<double> probabilities(numCategories, 0.0);
+        
+        for (const auto& [categoryIndex, probability] : alphaParamsCategories)
+        {
+            if (categoryIndex < numCategories)
+            {
+                probabilities[categoryIndex] = probability;
+            }
+        }
+        
+        return probabilities;
+    }
+    
+    // Set category probabilities from vector (for compatibility with existing code)
+    void setCategoryProbabilityVector(const std::vector<double>& probabilities)
+    {
+        alphaParamsCategories.clear();
+        for (size_t i = 0; i < probabilities.size(); ++i)
+        {
+            if (probabilities[i] > 0.0)
+            {
+                alphaParamsCategories[i] = probabilities[i];
+            }
+        }
+    }
 };
 
 class SemanticMap
@@ -80,8 +122,10 @@ class SemanticMap
 public:
     SemanticMap();
 
+    // Legacy support - these will delegate to CategoryManager
     std::vector<std::string> default_categories; //list of category names. The last one is always "background"
     std::unordered_map<std::string, size_t> categoryIndexMap;
+    
     std::vector<SemanticObject> globalSemanticMap;
     std::vector<SemanticObject> lastLocalSemanticMap;
 
@@ -122,7 +166,14 @@ public:
     void setLocalSemanticMap(const std::vector<SemanticObject>& localMap);
     InstanceID_t localToGlobalInstance(InstanceID_t localInstance);
     uint32_t indexToHexColor(InstanceID_t index);
+    
+    // Updated methods to work with CategoryManager
     void updateCategoryProbability(SemanticObject& semanticObject, const std::string& categoryName, double probability);
+    CategoryManager::CategoryIndex addCategory(const std::string& categoryName);
+    CategoryManager::CategoryIndex getCategoryIndex(const std::string& categoryName) const;
+    std::string getCategoryName(CategoryManager::CategoryIndex index) const;
+    size_t getNumCategories() const;
+    
     bool checkBBoxIntersect(const BoundingBox3D& box1, const BoundingBox3D& box2);
     void updateAlphaCategories(SemanticObject& original, const SemanticObject& update);
     void updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D& update);
@@ -370,7 +421,8 @@ public:
         lastMapLocalToGlobal.resize(localMap.size());
         if (globalSemanticMap.empty())
         {
-            SemanticObject unknown = SemanticObject(localMap[0].alphaParamsCategories, 0, localMap[0].bbox);
+            SemanticObject unknown = SemanticObject(0, localMap[0].bbox);
+            unknown.alphaParamsCategories = localMap[0].alphaParamsCategories;
             updateAppearancesTimestamps(unknown, localMap[0]);
 
             globalSemanticMap.push_back(unknown);
@@ -395,16 +447,32 @@ public:
             if (!localInstance.localGeometry.has_value())
                 continue;
 
-            std::vector<double>::const_iterator itLocal =
-                std::max_element(localInstance.alphaParamsCategories.begin(), localInstance.alphaParamsCategories.end());
-            uint8_t localClassIdx = std::distance(localInstance.alphaParamsCategories.begin(), itLocal);
+            // Find category with maximum probability for local instance
+            CategoryManager::CategoryIndex localClassIdx = CategoryManager::UNKNOWN_CATEGORY;
+            double maxLocalProbability = 0.0;
+            for (const auto& [categoryIndex, probability] : localInstance.alphaParamsCategories)
+            {
+                if (probability > maxLocalProbability)
+                {
+                    maxLocalProbability = probability;
+                    localClassIdx = categoryIndex;
+                }
+            }
 
             for (InstanceID_t globalInstanceID = 1; globalInstanceID < currentInstancesNumber; globalInstanceID++)
             {
                 SemanticObject& globalInstance = globalSemanticMap[globalInstanceID];
-                std::vector<double>::iterator itGlobal =
-                    std::max_element(globalInstance.alphaParamsCategories.begin(), globalInstance.alphaParamsCategories.end());
-                uint8_t globalClassIdx = std::distance(globalInstance.alphaParamsCategories.begin(), itGlobal);
+                // Find category with maximum probability for global instance
+                CategoryManager::CategoryIndex globalClassIdx = CategoryManager::UNKNOWN_CATEGORY;
+                double maxGlobalProbability = 0.0;
+                for (const auto& [categoryIndex, probability] : globalInstance.alphaParamsCategories)
+                {
+                    if (probability > maxGlobalProbability)
+                    {
+                        maxGlobalProbability = probability;
+                        globalClassIdx = categoryIndex;
+                    }
+                }
 
                 if (globalInstance.pointsTo == -1 && checkBBoxIntersect(localInstance.bbox, globalInstance.bbox))
                 {
@@ -427,7 +495,8 @@ public:
             {
                 lastMapLocalToGlobal[localInstanceID] = globalSemanticMap.size();
                 // Create new object integrating localMap information
-                SemanticObject newObject = SemanticObject(localInstance.alphaParamsCategories, globalSemanticMap.size(), localInstance.bbox);
+                SemanticObject newObject = SemanticObject(globalSemanticMap.size(), localInstance.bbox);
+                newObject.alphaParamsCategories = localInstance.alphaParamsCategories;
                 updateAppearancesTimestamps(newObject, localInstance);
                 
                 // Add it to the global map
@@ -530,12 +599,17 @@ public:
                 data_json["instances"][globalSemanticMap[i].instanceID]["bbox"]["size"] = size;
 
                 data_json["instances"][globalSemanticMap[i].instanceID]["results"] = {};
-                for (InstanceID_t j = 0; j < default_categories.size(); j++)
+                
+                // Convert dynamic category probabilities to JSON
+                for (const auto& [categoryIndex, probability] : globalSemanticMap[i].alphaParamsCategories)
                 {
-                    if (globalSemanticMap[i].alphaParamsCategories[j] > 0)
+                    if (probability > 0)
                     {
-                        data_json["instances"][globalSemanticMap[i].instanceID]["results"][default_categories[j]] =
-                            globalSemanticMap[i].alphaParamsCategories[j];
+                        std::string categoryName = getCategoryName(categoryIndex);
+                        if (!categoryName.empty())
+                        {
+                            data_json["instances"][globalSemanticMap[i].instanceID]["results"][categoryName] = probability;
+                        }
                     }
                 }
 
@@ -568,8 +642,11 @@ public:
             const nlohmann::json& instance_json = index_iter.value();
             for (const auto& [category, alpha] : instance_json["results"].items())
             {
-                size_t category_index = categoryIndexMap[category];
-                instance.alphaParamsCategories[category_index] = alpha;
+                CategoryManager::CategoryIndex categoryIndex = getCategoryIndex(category);
+                if (categoryIndex != CategoryManager::INVALID_CATEGORY)
+                {
+                    instance.setCategoryProbability(categoryIndex, alpha);
+                }
             }
         }
     }

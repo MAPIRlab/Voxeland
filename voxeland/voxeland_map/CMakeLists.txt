@@ -5,8 +5,10 @@ add_library(voxeland_map
     include/voxeland_map/probabilistic_map.hpp
     include/voxeland_map/probabilistic_map_templated.hpp
     include/voxeland_map/semantics.hpp
+    include/voxeland_map/category_manager.hpp
     src/pcl_utils.cpp
     src/semantics.cpp
+    src/category_manager.cpp
 )
 
 find_package(fmt)
