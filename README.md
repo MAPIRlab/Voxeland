@@ -100,19 +100,70 @@ Once you have everything downloaded, compile with `colcon build --symlink-instal
 
 ### Usage
 
-First, run the instance segmentation network (e.g., Mask R-CNN). A ROS2 implementation can be found at: [Detectron2](https://github.com/MAPIRlab/Detectron2_ros). To run detectron2 framework:
+Voxeland can be executed with different instance segmentation detectors. Choose one based on your needs:
 
-`ros2 run detectron_ros detectron_ros_node`
+#### **Available Detectors**
 
-Next, run the robot perception node as follows:
+1. **Detectron2** (80 COCO categories; default: Mask R-CNN)
+   - Closed-vocabulary detector limited to COCO dataset categories
+   - High accuracy within known categories
+   - Fastest inference time
+   - See [Detectron2_ros README](https://github.com/MAPIRlab/Detectron2_ros) for installation and configuration
 
-`ros2 launch voxeland_robot_perception semantic_mapping.launch.xml`
+2. **TALOS** (Open vocabulary; Large-scale model-based system)
+   - Open-vocabulary detector that can identify objects beyond training datasets
+   - Modular three-stage pipeline: Tagging → Location → Segmentation
+   - Integrates LVLMs (Large Vision-Language Models) and LLMs for semantic understanding
+   - Natural-language customization support
+   - See [TALOS README](https://github.com/macorisd/TALOS) for installation and configuration
 
-Finally, execute Voxeland to start the mapping session:
+3. **YOLOE** (Open vocabulary; YOLO extended to large category sets)
+   - Open-vocabulary detector based on YOLO architecture
+   - Extended to handle a large number of categories beyond COCO
+   - Balance between speed and open-vocabulary capabilities
+   - See [YOLOE-Voxeland README](https://github.com/macorisd/YOLOE-Voxeland) for installation and configuration
 
-`ros2 launch voxeland voxeland_server.launch.xml`
+#### **Running Voxeland**
 
-(Now, everything is ready for the semantic mapping session, as soon as you play your dataset.)
+**Step 1:** Launch the detector node of your choice:
+
+```bash
+# For Detectron2:
+ros2 run detectron_ros detectron_ros_node
+
+# For TALOS:
+ros2 run talos_ros2 talos_node
+
+# For YOLOE:
+ros2 run yoloe_ros2 yoloe_node
+```
+
+**Step 2:** Launch the robot perception node with the corresponding detector parameter:
+
+```bash
+# For Detectron2:
+ros2 launch voxeland_robot_perception semantic_mapping.launch.py object_detector:=detectron2
+
+# For TALOS:
+ros2 launch voxeland_robot_perception semantic_mapping.launch.py object_detector:=talos
+
+# For YOLOE:
+ros2 launch voxeland_robot_perception semantic_mapping.launch.py object_detector:=yoloe
+```
+
+**Step 3:** Execute Voxeland to start the mapping session:
+
+```bash
+ros2 launch voxeland voxeland_server.launch.xml
+```
+
+**Step 4:** Play your dataset (e.g., ROS bag):
+
+```bash
+ros2 bag play <your_bag_file>.db3
+```
+
+Now everything is ready for the semantic mapping session. The detector will process incoming images and Voxeland will build the 3D semantic map in real-time.
 
 ## Voxeland Disambiguation
 
