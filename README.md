@@ -142,7 +142,7 @@ ros2 run yoloe_ros2 yoloe_node
 
 ```bash
 # For Detectron2:
-ros2 launch voxeland_robot_perception semantic_mapping.launch.py object_detector:=detectron2
+ros2 launch voxeland_robot_perception semantic_mapping.launch.py object_detector:=detectron
 
 # For TALOS:
 ros2 launch voxeland_robot_perception semantic_mapping.launch.py object_detector:=talos
