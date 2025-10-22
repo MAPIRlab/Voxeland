@@ -39,3 +39,8 @@ build
 
 # Exclude map json files
 *.json
+
+# Map outputs
+*map*.ply
+*map*.html
+categories.json

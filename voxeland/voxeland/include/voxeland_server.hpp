@@ -96,6 +96,13 @@ namespace voxeland_server
         template <typename DataT>
         std::string mapToPLY();
 
+        std::string semanticsMapToPLY();
+
+        void autoSaveMapCallback();
+        
+        template <typename DataT>
+        std::string fullSemanticMapToPLY();
+
         template <typename DataT>
         void insertPointCloudBasic(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
 
@@ -120,6 +127,8 @@ namespace voxeland_server
         rclcpp::Service<std_srvs::srv::Empty>::SharedPtr save_map_srv_;
         rclcpp::Service<GetClassDistributions>::SharedPtr get_distributions_srv_;
         rclcpp::Service<UpdateMapResultsSrv>::SharedPtr load_map_srv_;
+        
+        rclcpp::TimerBase::SharedPtr auto_save_timer_;
 
         std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
         std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;
@@ -147,6 +156,7 @@ namespace voxeland_server
 
         // Added by JL Matez: SemanticBonxai Parameters
         bool semantics_as_instances_;
+        bool auto_save_enabled_;
         u_int32_t number_iterations = 0;
     };
 

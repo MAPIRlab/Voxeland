@@ -19,5 +19,8 @@
 		<!-- SemanticBonxai Parameters-->
 		<param name="semantics_as_instances" value="true" />
 
+		<!-- Auto-save map parameters -->
+		<param name="auto_save_map" value="true" />
+
 	</node>
 </launch>

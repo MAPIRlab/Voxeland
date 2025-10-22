@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <rclcpp/serialization.hpp>
 #include <segmentation_msgs/msg/instance_semantic_map.hpp>
 #include <stdexcept>
@@ -45,6 +46,10 @@ namespace voxeland_server
 
         {
             semantics_as_instances_ = declare_parameter("semantics_as_instances", false);
+        }
+
+        {
+            auto_save_enabled_ = declare_parameter("auto_save_map", true);
         }
 
         latched_topics_ = declare_parameter("latch", true);
@@ -92,6 +97,20 @@ namespace voxeland_server
         save_map_srv_ = create_service<ResetSrv>("~/save_map", std::bind(&VoxelandServer::saveMapSrv, this, _1, _2));
 
         load_map_srv_ = create_service<UpdateMapResultsSrv>("~/update_map_results", std::bind(&VoxelandServer::loadMapSrv, this, _1, _2));
+
+        // Auto-save timer: save map every 30 seconds (only if enabled)
+        if (auto_save_enabled_)
+        {
+            auto_save_timer_ = create_wall_timer(
+                std::chrono::seconds(30),
+                std::bind(&VoxelandServer::autoSaveMapCallback, this));
+            
+            VXL_INFO("Auto-save timer initialized: map will be saved every 30 seconds");
+        }
+        else
+        {
+            VXL_INFO("Auto-save disabled");
+        }
 
         // set parameter callback
         set_param_res_ = this->add_on_set_parameters_callback(std::bind(&VoxelandServer::onParameter, this, _1));
@@ -352,6 +371,25 @@ namespace voxeland_server
         }
         outfile << ply;
         outfile.close();
+
+        // If PLY is empty and we have semantics instances, generate PLY from semantic map
+        if (ply.empty() && modeHas(DataMode::SemanticsInstances))
+        {
+            VXL_INFO("Generating PLY from semantic instances map");
+            std::string instances_ply = semanticsMapToPLY();
+            
+            std::string instances_ply_filename = "voxeland_instances_map.ply";
+            std::ofstream instances_outfile(instances_ply_filename);
+            
+            if (!instances_outfile.is_open())
+            {
+                VXL_ERROR("Cannot save instances .PLY file in: {}/{}", std::filesystem::current_path().string(), instances_ply_filename);
+                return;
+            }
+            instances_outfile << instances_ply;
+            instances_outfile.close();
+            VXL_INFO("Saved semantic instances to PLY: {} vertices", semantics.globalSemanticMap.size());
+        }
     }
 
     void VoxelandServer::loadMapSrv(const std::shared_ptr<UpdateMapResultsSrv::Request> req, const std::shared_ptr<UpdateMapResultsSrv::Response> resp)
@@ -637,6 +675,265 @@ namespace voxeland_server
         }
 
         return ply;
+    }
+
+    std::string VoxelandServer::semanticsMapToPLY()
+    {
+        // Generate PLY from semantic instances (bounding box centers only)
+        std::stringstream ply_header;
+        std::stringstream ply_data;
+        size_t vertex_count = 0;
+
+        for (const auto& instance : semantics.globalSemanticMap)
+        {
+            if (instance.pointsTo != -1)
+                continue;
+
+            float center_x = (instance.bbox.minX + instance.bbox.maxX) / 2.0f;
+            float center_y = (instance.bbox.minY + instance.bbox.maxY) / 2.0f;
+            float center_z = (instance.bbox.minZ + instance.bbox.maxZ) / 2.0f;
+
+            std::string dominant_category = "unknown";
+            float max_probability = 0.0f;
+            
+            for (const auto& [categoryIndex, probability] : instance.alphaParamsCategories)
+            {
+                if (probability > max_probability)
+                {
+                    max_probability = static_cast<float>(probability);
+                    dominant_category = semantics.getCategoryName(categoryIndex);
+                }
+            }
+
+            int instance_id = 0;
+            try
+            {
+                if (instance.instanceID.length() > 3 && instance.instanceID.substr(0, 3) == "obj")
+                {
+                    instance_id = std::stoi(instance.instanceID.substr(3));
+                }
+            }
+            catch (const std::exception& e)
+            {
+                VXL_WARN("Failed to parse instance ID: {}", instance.instanceID);
+                continue;
+            }
+
+            uint32_t hexColor = semantics.indexToHexColor(instance_id);
+            uint8_t r = (hexColor >> 16) & 0xFF;
+            uint8_t g = (hexColor >> 8) & 0xFF;
+            uint8_t b = hexColor & 0xFF;
+
+            ply_data << fmt::format("{} {} {} {} {} {} {} {} {}\n",
+                                   center_x, center_y, center_z,
+                                   static_cast<int>(r), static_cast<int>(g), static_cast<int>(b),
+                                   instance_id,
+                                   dominant_category,
+                                   max_probability);
+            vertex_count++;
+        }
+
+        ply_header << "ply\n"
+                   << "format ascii 1.0\n"
+                   << "element vertex " << vertex_count << "\n"
+                   << "property float x\n"
+                   << "property float y\n"
+                   << "property float z\n"
+                   << "property uchar red\n"
+                   << "property uchar green\n"
+                   << "property uchar blue\n"
+                   << "property int instance_id\n"
+                   << "property string dominant_category\n"
+                   << "property float confidence\n"
+                   << "end_header\n";
+
+        return ply_header.str() + ply_data.str();
+    }
+
+    template <typename DataT>
+    std::string VoxelandServer::fullSemanticMapToPLY()
+    {
+        // Generate complete PLY with all voxels including semantic information
+        std::vector<DataT> cell_data;
+        std::vector<Bonxai::Point3D> cell_points;
+
+        bonxai_->With<DataT>()->getOccupiedVoxels(cell_points, cell_data);
+
+        if (cell_points.size() == 0)
+        {
+            VXL_WARN("No voxels to save in map");
+            return "";
+        }
+
+        std::stringstream ply_header;
+        std::stringstream ply_data;
+        size_t vertex_count = 0;
+
+        // Process each voxel
+        for (size_t i = 0; i < cell_points.size(); i++)
+        {
+            const auto& voxel = cell_points[i];
+            
+            // Apply height filter (same as visualization)
+            if (voxel.z < occupancy_min_z_ || voxel.z > occupancy_max_z_)
+                continue;
+
+            // Get color from visualization
+            voxeland::Color viz_color = cell_data[i].toColor();
+            
+            // Get instance ID and find dominant category
+            InstanceID_t instanceID = 0;
+            std::string category = "unknown";
+            
+            if (!cell_data[i].instances_candidates.empty() && !cell_data[i].instances_votes.empty())
+            {
+                auto itInstances = std::max_element(cell_data[i].instances_votes.begin(), 
+                                                   cell_data[i].instances_votes.end());
+                auto idxMaxVotes = std::distance(cell_data[i].instances_votes.begin(), itInstances);
+                instanceID = cell_data[i].instances_candidates[idxMaxVotes];
+                
+                // Find the instance in global semantic map to get its category
+                for (const auto& instance : semantics.globalSemanticMap)
+                {
+                    if (instance.pointsTo != -1)
+                        continue;
+                        
+                    int instance_numeric_id = 0;
+                    try
+                    {
+                        if (instance.instanceID.length() > 3 && instance.instanceID.substr(0, 3) == "obj")
+                        {
+                            instance_numeric_id = std::stoi(instance.instanceID.substr(3));
+                        }
+                    }
+                    catch (...) { continue; }
+                    
+                    if (instance_numeric_id == static_cast<int>(instanceID))
+                    {
+                        // Get dominant category for this instance
+                        float max_prob = 0.0f;
+                        for (const auto& [catIdx, prob] : instance.alphaParamsCategories)
+                        {
+                            if (prob > max_prob)
+                            {
+                                max_prob = static_cast<float>(prob);
+                                category = semantics.getCategoryName(catIdx);
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Write voxel data: x y z r g b instance_id category
+            ply_data << fmt::format("{} {} {} {} {} {} {} {}\n",
+                                   voxel.x, voxel.y, voxel.z,
+                                   static_cast<int>(viz_color.r),
+                                   static_cast<int>(viz_color.g),
+                                   static_cast<int>(viz_color.b),
+                                   instanceID,
+                                   category);
+            vertex_count++;
+        }
+
+        // Build PLY header
+        ply_header << "ply\n"
+                   << "format ascii 1.0\n"
+                   << "comment Voxeland semantic map with " << semantics.globalSemanticMap.size() << " instances\n"
+                   << "element vertex " << vertex_count << "\n"
+                   << "property float x\n"
+                   << "property float y\n"
+                   << "property float z\n"
+                   << "property uchar red\n"
+                   << "property uchar green\n"
+                   << "property uchar blue\n"
+                   << "property int instance_id\n"
+                   << "property string semantic_category\n"
+                   << "end_header\n";
+
+        return ply_header.str() + ply_data.str();
+    }
+
+    void VoxelandServer::autoSaveMapCallback()
+    {
+        if (currentMode == DataMode::Uninitialized || !bonxai_)
+        {
+            VXL_WARN("Map not initialized yet, skipping auto-save");
+            return;
+        }
+
+        VXL_INFO("Auto-saving map...");
+
+        // Define output directory (relative path from workspace root)
+        std::string output_dir = "src/Voxeland/map_output/";
+        
+        // Create directory if it doesn't exist
+        std::filesystem::create_directories(output_dir);
+
+        // Save full semantic voxel map
+        if (modeHas(DataMode::SemanticsInstances))
+        {
+            std::string ply_content;
+            AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, ply_content = fullSemanticMapToPLY<DataT>());
+            
+            if (!ply_content.empty())
+            {
+                std::string filename = output_dir + "voxeland_semantic_map_auto.ply";
+                std::ofstream outfile(filename);
+                
+                if (outfile.is_open())
+                {
+                    outfile << ply_content;
+                    outfile.close();
+                    VXL_INFO("Saved semantic map to {}", filename);
+                }
+                else
+                {
+                    VXL_ERROR("Failed to open file: {}", filename);
+                }
+            }
+
+            // Save list of unique semantic categories
+            std::set<std::string> unique_categories;
+            for (const auto& instance : semantics.globalSemanticMap)
+            {
+                if (instance.pointsTo == -1)
+                {
+                    // Get all categories from this instance
+                    for (const auto& [catIdx, prob] : instance.alphaParamsCategories)
+                    {
+                        std::string category_name = semantics.getCategoryName(catIdx);
+                        if (!category_name.empty())
+                        {
+                            unique_categories.insert(category_name);
+                        }
+                    }
+                }
+            }
+            
+            if (!unique_categories.empty())
+            {
+                nlohmann::json categories_json = nlohmann::json::array();
+                for (const auto& category : unique_categories)
+                {
+                    categories_json.push_back(category);
+                }
+                
+                std::string categories_filename = output_dir + "categories.json";
+                std::ofstream categories_file(categories_filename);
+                
+                if (categories_file.is_open())
+                {
+                    categories_file << categories_json.dump(2);
+                    categories_file.close();
+                    VXL_INFO("Saved {} unique categories to {}", unique_categories.size(), categories_filename);
+                }
+                else
+                {
+                    VXL_ERROR("Failed to open file: {}", categories_filename);
+                }
+            }
+        }
     }
 
 }  // namespace voxeland_server
