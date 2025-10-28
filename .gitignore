@@ -41,6 +41,5 @@ build
 *.json
 
 # Map outputs
-*map*.ply
-*map*.html
-categories.json
+evaluation/**/*.ply
+evaluation/**/*.html
