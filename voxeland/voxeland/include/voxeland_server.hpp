@@ -158,6 +158,12 @@ namespace voxeland_server
         bool semantics_as_instances_;
         bool auto_save_enabled_;
         u_int32_t number_iterations = 0;
+        
+        // Scene and detector parameters for output organization
+        std::string scene_name_;
+        std::string detector_name_;
+        std::string output_ply_path_;  // Full path to the PLY file determined at startup
+        std::string output_dir_;       // Directory path for outputs
     };
 
 } // namespace voxeland_server

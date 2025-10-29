@@ -1,5 +1,7 @@
 #include <tf2_ros/create_timer_ros.h>
 
+#include <chrono>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -49,7 +51,60 @@ namespace voxeland_server
         }
 
         {
-            auto_save_enabled_ = declare_parameter("auto_save_map", true);
+            auto_save_enabled_ = declare_parameter("automatic_map_saving", false);
+            
+            // Only declare scene and detector parameters if automatic saving is enabled
+            if (auto_save_enabled_)
+            {
+                scene_name_ = declare_parameter("scene_name", "unknown_scene");
+                detector_name_ = declare_parameter("detector_name", "unknown_detector");
+                VXL_INFO("Automatic map saving ENABLED - Scene: {}, Detector: {}", scene_name_, detector_name_);
+                
+                // Determine output directory and file path at startup (only once)
+                // Use current working directory (usually the workspace root)
+                std::filesystem::path workspace_root = std::filesystem::current_path();
+                std::filesystem::path base_output_dir = workspace_root / "src" / "Voxeland" / "evaluation" / "voxeland_output";
+                output_dir_ = (base_output_dir / scene_name_).string();
+                
+                // Create scene directory if it doesn't exist
+                std::filesystem::create_directories(output_dir_);
+                
+                // Create short scene name for filename (e.g., scene0000_01 -> s0000_01)
+                std::string short_scene_name = scene_name_;
+                if (scene_name_.substr(0, 5) == "scene")
+                {
+                    short_scene_name = "s" + scene_name_.substr(5);
+                }
+                
+                // Check if PLY file already exists
+                std::string base_filename = "voxeland_semantic_map_" + detector_name_ + "_" + short_scene_name;
+                std::string candidate_path = output_dir_ + "/" + base_filename + ".ply";
+                
+                if (std::filesystem::exists(candidate_path))
+                {
+                    // File exists, add timestamp
+                    auto now = std::chrono::system_clock::now();
+                    auto time_t_now = std::chrono::system_clock::to_time_t(now);
+                    std::tm tm_now;
+                    localtime_r(&time_t_now, &tm_now);
+                    
+                    char timestamp[64];
+                    std::strftime(timestamp, sizeof(timestamp), "%Y%m%d_%H%M%S", &tm_now);
+                    
+                    output_ply_path_ = output_dir_ + "/" + base_filename + "_" + timestamp + ".ply";
+                    VXL_INFO("Output file already exists. Will save to: {}", output_ply_path_);
+                }
+                else
+                {
+                    // File doesn't exist, use base name
+                    output_ply_path_ = candidate_path;
+                    VXL_INFO("Will save map to: {}", output_ply_path_);
+                }
+            }
+            else
+            {
+                VXL_INFO("Automatic map saving DISABLED");
+            }
         }
 
         latched_topics_ = declare_parameter("latch", true);
@@ -105,11 +160,7 @@ namespace voxeland_server
                 std::chrono::seconds(30),
                 std::bind(&VoxelandServer::autoSaveMapCallback, this));
             
-            VXL_INFO("Auto-save timer initialized: map will be saved every 30 seconds");
-        }
-        else
-        {
-            VXL_INFO("Auto-save disabled");
+            VXL_INFO("Auto-save timer initialized: map will be saved every 30 seconds to {}", output_ply_path_);
         }
 
         // set parameter callback
@@ -864,12 +915,6 @@ namespace voxeland_server
 
         VXL_INFO("Auto-saving map...");
 
-        // Define output directory (relative path from workspace root)
-        std::string output_dir = "src/Voxeland/map_output/";
-        
-        // Create directory if it doesn't exist
-        std::filesystem::create_directories(output_dir);
-
         // Save full semantic voxel map
         if (modeHas(DataMode::SemanticsInstances))
         {
@@ -878,59 +923,18 @@ namespace voxeland_server
             
             if (!ply_content.empty())
             {
-                std::string filename = output_dir + "voxeland_semantic_map_auto.ply";
-                std::ofstream outfile(filename);
+                // Use the pre-determined output path
+                std::ofstream outfile(output_ply_path_);
                 
                 if (outfile.is_open())
                 {
                     outfile << ply_content;
                     outfile.close();
-                    VXL_INFO("Saved semantic map to {}", filename);
+                    VXL_INFO("Saved semantic map to {}", output_ply_path_);
                 }
                 else
                 {
-                    VXL_ERROR("Failed to open file: {}", filename);
-                }
-            }
-
-            // Save list of unique semantic categories
-            std::set<std::string> unique_categories;
-            for (const auto& instance : semantics.globalSemanticMap)
-            {
-                if (instance.pointsTo == -1)
-                {
-                    // Get all categories from this instance
-                    for (const auto& [catIdx, prob] : instance.alphaParamsCategories)
-                    {
-                        std::string category_name = semantics.getCategoryName(catIdx);
-                        if (!category_name.empty())
-                        {
-                            unique_categories.insert(category_name);
-                        }
-                    }
-                }
-            }
-            
-            if (!unique_categories.empty())
-            {
-                nlohmann::json categories_json = nlohmann::json::array();
-                for (const auto& category : unique_categories)
-                {
-                    categories_json.push_back(category);
-                }
-                
-                std::string categories_filename = output_dir + "categories.json";
-                std::ofstream categories_file(categories_filename);
-                
-                if (categories_file.is_open())
-                {
-                    categories_file << categories_json.dump(2);
-                    categories_file.close();
-                    VXL_INFO("Saved {} unique categories to {}", unique_categories.size(), categories_filename);
-                }
-                else
-                {
-                    VXL_ERROR("Failed to open file: {}", categories_filename);
+                    VXL_ERROR("Failed to open file: {}", output_ply_path_);
                 }
             }
         }
