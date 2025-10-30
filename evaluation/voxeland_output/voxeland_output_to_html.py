@@ -3,7 +3,7 @@
 Interactive 3D Voxeland Semantic Map Visualizer (multi-scene, multi-detector)
 
 Folder layout (this script's directory):
-  ./visualize_voxeland_map.py
+  ./voxeland_output_to_html.py
   ./scene0000_01/
       voxeland_semantic_map_detectron_s0000_01.ply
       voxeland_semantic_map_talos_s0000_01.ply
@@ -13,19 +13,19 @@ Folder layout (this script's directory):
 
 Usage examples:
   # Process ALL scenes and ALL detectors
-  python3 visualize_voxeland_map.py
+  python3 voxeland_output_to_html.py
 
   # Process one scene (all detectors)
-  python3 visualize_voxeland_map.py -s 0000_01
+  python3 voxeland_output_to_html.py -s 0000_01
 
   # Process one scene + one detector
-  python3 visualize_voxeland_map.py -s 0000_01 -d detectron
+  python3 voxeland_output_to_html.py -s 0000_01 -d detectron
 
   # Error (detector alone is not allowed)
-  python3 visualize_voxeland_map.py -d detectron
+  python3 voxeland_output_to_html.py -d detectron
 
   # Hide "unknown" (filename will end with _nu.html)
-  python3 visualize_voxeland_map.py -s 0000_01 -d detectron -u
+  python3 voxeland_output_to_html.py -s 0000_01 -d detectron -u
 """
 
 import argparse
