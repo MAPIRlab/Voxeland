@@ -39,7 +39,9 @@ def read_ply_file(ply_path: str) -> dict:
                 x, y, z = float(parts[0]), float(parts[1]), float(parts[2])
                 # r, g, b = int(parts[3]), int(parts[4]), int(parts[5])
                 instance_id = int(parts[6])
-                semantic_category = parts[7]
+                # Category can have multiple words (e.g., "washing machine")
+                # Join all remaining parts from index 7 onwards
+                semantic_category = ' '.join(parts[7:])
                 
                 vertices.append([x, y, z])
                 instance_ids.append(instance_id)
