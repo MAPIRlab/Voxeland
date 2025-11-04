@@ -43,3 +43,4 @@ build
 # Map outputs
 evaluation/**/*.ply
 evaluation/**/*.html
+evaluation/**/*.txt
