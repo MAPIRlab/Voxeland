@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """
-ScanNet Evaluation Script for Voxeland
-Compares Voxeland detector outputs (detectron, talos, yoloe) against ScanNet ground truth.
+Evaluation Script for Voxeland
+Compares Voxeland detector outputs (detectron, talos, yoloe) against ground truth.
+Supports both ScanNet and SceneNN datasets.
 Computes Precision, Recall, and F1-score at IoU thresholds of 0.25 and 0.5.
+
+Usage:
+    python3 evaluation.py scannet
+    python3 evaluation.py scenenn
 """
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Dict, List, Tuple, Set
 import numpy as np
@@ -251,14 +257,14 @@ def aggregate_metrics(scene_results: List[Dict]) -> Dict:
     }
 
 
-def write_text_report(all_results: Dict, scenes: List[str], output_file: Path):
+def write_text_report(all_results: Dict, scenes: List[str], output_file: Path, dataset_name: str):
     """
     Write a human-readable text report with all metrics and detector ranking.
     Organized in two main blocks: IoU@0.25 and IoU@0.5
     """
     with open(output_file, 'w') as f:
         f.write("="*80 + "\n")
-        f.write("SCANNET EVALUATION RESULTS - VOXELAND\n")
+        f.write(f"{dataset_name.upper()} EVALUATION RESULTS - VOXELAND\n")
         f.write("="*80 + "\n\n")
         
         # ========================================================================
@@ -450,22 +456,60 @@ def write_text_report(all_results: Dict, scenes: List[str], output_file: Path):
         f.write("-"*80 + "\n")
 
 
+def get_prediction_filename(scene_id: str, detector: str, dataset: str) -> str:
+    """
+    Get the prediction filename based on dataset and scene_id.
+    
+    Args:
+        scene_id: Scene identifier (e.g., "scene0000_01" for ScanNet, "011" for SceneNN)
+        detector: Detector name (detectron, talos, yoloe)
+        dataset: Dataset name (scannet or scenenn)
+    
+    Returns:
+        Prediction filename
+    """
+    if dataset == 'scannet':
+        # ScanNet format: voxeland_semantic_map_detectron_s0000_01.json
+        scene_suffix = scene_id.replace('scene', '')
+        return f"voxeland_semantic_map_{detector}_s{scene_suffix}.json"
+    else:  # scenenn
+        # SceneNN format: voxeland_semantic_map_detectron_s011.json
+        return f"voxeland_semantic_map_{detector}_s{scene_id}.json"
+
+
 def main():
     """
     Main evaluation function.
     """
+    # Check command line arguments
+    if len(sys.argv) != 2 or sys.argv[1].lower() not in ['scannet', 'scenenn']:
+        print("Usage: python3 evaluation.py <dataset>")
+        print("  dataset: 'scannet' or 'scenenn'")
+        sys.exit(1)
+    
+    dataset = sys.argv[1].lower()
+    
     # Define paths
     script_dir = Path(__file__).parent
-    gt_dir = script_dir / 'scannet_groundtruth'
+    gt_dir = script_dir / f'{dataset}_groundtruth'
     pred_dir = script_dir / 'voxeland_output'
-    output_json = script_dir / 'scannet_evaluation_results.json'
-    output_txt = script_dir / 'scannet_evaluation_results.txt'
+    output_json = script_dir / f'{dataset}_evaluation_results.json'
+    output_txt = script_dir / f'{dataset}_evaluation_results.txt'
+    
+    # Check if ground truth directory exists
+    if not gt_dir.exists():
+        print(f"ERROR: Ground truth directory not found: {gt_dir}")
+        sys.exit(1)
+    
+    if not pred_dir.exists():
+        print(f"ERROR: Prediction directory not found: {pred_dir}")
+        sys.exit(1)
     
     # Get list of scenes
     scenes = sorted([d.name for d in gt_dir.iterdir() if d.is_dir()])
     detectors = ['detectron', 'talos', 'yoloe']
     
-    print(f"Starting evaluation...")
+    print(f"Starting {dataset.upper()} evaluation...")
     print(f"Found {len(scenes)} scenes: {scenes}")
     print(f"Evaluating {len(detectors)} detectors: {detectors}")
     print()
@@ -492,7 +536,8 @@ def main():
                 gt_data = json.load(f)
             
             # Load prediction
-            pred_file = pred_dir / scene_id / f"voxeland_semantic_map_{detector}_s{scene_id.replace('scene', '')}.json"
+            pred_filename = get_prediction_filename(scene_id, detector, dataset)
+            pred_file = pred_dir / scene_id / pred_filename
             if not pred_file.exists():
                 print(f"  [WARNING] Prediction not found for {scene_id} with {detector}, skipping...")
                 continue
@@ -527,7 +572,9 @@ def main():
                   f"F1: {aggregated['metrics_iou_0.25']['f1_score']:.3f}")
             print(f"    IoU@0.50 - P: {aggregated['metrics_iou_0.5']['precision']:.3f}, "
                   f"R: {aggregated['metrics_iou_0.5']['recall']:.3f}, "
-                  f"F1: {aggregated['metrics_iou_0.5']['f1_score']:.3f}")            # Simplify scene results - remove match_details
+                  f"F1: {aggregated['metrics_iou_0.5']['f1_score']:.3f}")
+            
+            # Simplify scene results - remove match_details
             simplified_scene_results = []
             for scene_result in detector_scene_results:
                 simplified_scene_results.append({
@@ -555,7 +602,7 @@ def main():
         json.dump(output, f, indent=2)
     
     # Write text report
-    write_text_report(all_results, scenes, output_txt)
+    write_text_report(all_results, scenes, output_txt, dataset)
     
     print(f"\n{'='*60}")
     print(f"Evaluation complete!")
