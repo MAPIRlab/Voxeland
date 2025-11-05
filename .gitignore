@@ -44,3 +44,5 @@ build
 evaluation/**/*.ply
 evaluation/**/*.html
 evaluation/**/*.txt
+evaluation/**/*.xml
+evaluation/**/*.png
