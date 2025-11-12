@@ -456,25 +456,19 @@ def write_text_report(all_results: Dict, scenes: List[str], output_file: Path, d
         f.write("-"*80 + "\n")
 
 
-def get_prediction_filename(scene_id: str, detector: str, dataset: str) -> str:
+def get_prediction_filename(scene_folder: str, detector: str) -> str:
     """
-    Get the prediction filename based on dataset and scene_id.
+    Get the prediction filename based on scene folder name.
     
     Args:
-        scene_id: Scene identifier (e.g., "scene0000_01" for ScanNet, "011" for SceneNN)
+        scene_folder: Scene folder name (e.g., "scannet_scene0000_01", "scenenn_011")
         detector: Detector name (detectron, talos, yoloe)
-        dataset: Dataset name (scannet or scenenn)
     
     Returns:
         Prediction filename
     """
-    if dataset == 'scannet':
-        # ScanNet format: voxeland_semantic_map_detectron_s0000_01.json
-        scene_suffix = scene_id.replace('scene', '')
-        return f"voxeland_semantic_map_{detector}_s{scene_suffix}.json"
-    else:  # scenenn
-        # SceneNN format: voxeland_semantic_map_detectron_s011.json
-        return f"voxeland_semantic_map_{detector}_s{scene_id}.json"
+    # The filename format is: voxeland_semantic_map_{detector}_{scene_folder}.json
+    return f"voxeland_semantic_map_{detector}_{scene_folder}.json"
 
 
 def main():
@@ -505,12 +499,12 @@ def main():
         print(f"ERROR: Prediction directory not found: {pred_dir}")
         sys.exit(1)
     
-    # Get list of scenes
-    scenes = sorted([d.name for d in gt_dir.iterdir() if d.is_dir()])
+    # Get list of scenes from ground truth directory
+    gt_scenes = sorted([d.name for d in gt_dir.iterdir() if d.is_dir()])
     detectors = ['detectron', 'talos', 'yoloe']
     
     print(f"Starting {dataset.upper()} evaluation...")
-    print(f"Found {len(scenes)} scenes: {scenes}")
+    print(f"Found {len(gt_scenes)} ground truth scenes: {gt_scenes}")
     print(f"Evaluating {len(detectors)} detectors: {detectors}")
     print()
     
@@ -525,31 +519,39 @@ def main():
         
         detector_scene_results = []
         
-        for scene_id in scenes:
+        for gt_scene_id in gt_scenes:
+            # Map GT scene name to voxeland output folder name
+            # GT: "scene0000_01" or "011"
+            # Output: "scannet_scene0000_01" or "scenenn_011"
+            if dataset == 'scannet':
+                voxeland_scene_folder = f"scannet_{gt_scene_id}"
+            else:  # scenenn
+                voxeland_scene_folder = f"scenenn_{gt_scene_id}"
+            
             # Load ground truth
-            gt_file = gt_dir / scene_id / f"{scene_id}_gt_instances_aabb_synonyms.json"
+            gt_file = gt_dir / gt_scene_id / f"{gt_scene_id}_gt_instances_aabb_synonyms.json"
             if not gt_file.exists():
-                print(f"  [WARNING] Ground truth not found for {scene_id}, skipping...")
+                print(f"  [WARNING] Ground truth not found for {gt_scene_id}, skipping...")
                 continue
             
             with open(gt_file, 'r') as f:
                 gt_data = json.load(f)
             
             # Load prediction
-            pred_filename = get_prediction_filename(scene_id, detector, dataset)
-            pred_file = pred_dir / scene_id / pred_filename
+            pred_filename = get_prediction_filename(voxeland_scene_folder, detector)
+            pred_file = pred_dir / voxeland_scene_folder / pred_filename
             if not pred_file.exists():
-                print(f"  [WARNING] Prediction not found for {scene_id} with {detector}, skipping...")
+                print(f"  [WARNING] Prediction not found: {pred_file.name} in {voxeland_scene_folder}, skipping...")
                 continue
             
             with open(pred_file, 'r') as f:
                 pred_data = json.load(f)
             
-            # Evaluate scene
-            scene_result = evaluate_scene(scene_id, gt_data, pred_data, detector)
+            # Evaluate scene (use gt_scene_id for reporting)
+            scene_result = evaluate_scene(gt_scene_id, gt_data, pred_data, detector)
             detector_scene_results.append(scene_result)
             
-            print(f"  {scene_id}:")
+            print(f"  {gt_scene_id} (output: {voxeland_scene_folder}):")
             print(f"    GT instances: {scene_result['num_gt_instances']}, "
                   f"Pred instances: {scene_result['num_pred_instances']}")
             print(f"    IoU@0.25 - P: {scene_result['metrics_iou_0.25']['precision']:.3f}, "
@@ -602,7 +604,7 @@ def main():
         json.dump(output, f, indent=2)
     
     # Write text report
-    write_text_report(all_results, scenes, output_txt, dataset)
+    write_text_report(all_results, gt_scenes, output_txt, dataset)
     
     print(f"\n{'='*60}")
     print(f"Evaluation complete!")
