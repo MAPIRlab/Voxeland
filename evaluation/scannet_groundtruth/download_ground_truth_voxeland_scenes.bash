@@ -22,15 +22,15 @@ fi
 shopt -s nullglob
 
 found_any=false
-for dirpath in "$VOX_DIR"/scene[0-9][0-9][0-9][0-9]_[0-9][0-9]; do
+for dirpath in "$VOX_DIR"/scannet_scene[0-9][0-9][0-9][0-9]_[0-9][0-9]; do
   [[ -d "$dirpath" ]] || continue
   found_any=true
-  scenedir="$(basename "$dirpath")"      # e.g., scene0000_01
-  suffix="${scenedir#scene}"             # -> 0000_01
+  scenedir="$(basename "$dirpath")"      # e.g., scannet_scene0000_01
+  suffix="${scenedir#scannet_scene}"     # -> 0000_01
   echo "[Info] Processing $scenedir (suffix: $suffix)"
   "$DL_SCRIPT" "$suffix"
 done
 
 if ! $found_any; then
-  echo "No matching directories found under $VOX_DIR (expected names like 'scene0000_01')."
+  echo "No matching directories found under $VOX_DIR (expected names like 'scannet_scene0000_01')."
 fi
