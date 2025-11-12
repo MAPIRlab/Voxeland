@@ -4,11 +4,12 @@ Interactive 3D Voxeland Semantic Map Visualizer (multi-scene, multi-detector)
 
 Folder layout (this script's directory):
   ./voxeland_output_to_html.py
-  ./scene0000_01/
-      voxeland_semantic_map_detectron_s0000_01.ply
-      voxeland_semantic_map_talos_s0000_01.ply
-      voxeland_semantic_map_yoloe_s0000_01.ply
-  ./scene0001_02/
+  ./scannet_scene0000_01/
+      voxeland_semantic_map_detectron_scannet_scene0000_01.ply
+      voxeland_semantic_map_talos_scannet_scene0000_01.ply
+      voxeland_semantic_map_yoloe_scannet_scene0000_01.ply
+  ./scenenn_011/
+      voxeland_semantic_map_detectron_scenenn_011.ply
       ...
 
 Usage examples:
@@ -16,16 +17,16 @@ Usage examples:
   python3 voxeland_output_to_html.py
 
   # Process one scene (all detectors)
-  python3 voxeland_output_to_html.py -s 0000_01
+  python3 voxeland_output_to_html.py -s scannet_scene0000_01
 
   # Process one scene + one detector
-  python3 voxeland_output_to_html.py -s 0000_01 -d detectron
+  python3 voxeland_output_to_html.py -s scannet_scene0000_01 -d detectron
 
   # Error (detector alone is not allowed)
   python3 voxeland_output_to_html.py -d detectron
 
   # Hide "unknown" (filename will end with _nu.html)
-  python3 voxeland_output_to_html.py -s 0000_01 -d detectron -u
+  python3 voxeland_output_to_html.py -s scannet_scene0000_01 -d detectron -u
 """
 
 import argparse
@@ -39,7 +40,8 @@ import plotly.graph_objects as go
 
 
 DETECTORS = ("detectron", "talos", "yoloe")
-SCENE_DIR_PATTERN = re.compile(r"^scene\d{4}_\d{2}$")
+# Updated pattern to match both scannet_scene####_## and scenenn_###
+SCENE_DIR_PATTERN = re.compile(r"^(scannet_scene\d{4}_\d{2}|scenenn_\d{3})$")
 
 
 def read_ply_file(ply_path: Path):
@@ -209,28 +211,28 @@ def create_interactive_visualization(ply_data, output_html: Path, show_unknown: 
     fig.write_html(str(output_html))
 
 
-def expected_ply_path(script_dir: Path, scene_suffix: str, detector: str) -> Path:
-    """Returns the expected PLY path for a (scene_suffix, detector) pair."""
-    scene_dir = script_dir / f"scene{scene_suffix}"
-    fname = f"voxeland_semantic_map_{detector}_s{scene_suffix}.ply"
+def expected_ply_path(script_dir: Path, scene_name: str, detector: str) -> Path:
+    """Returns the expected PLY path for a (scene_name, detector) pair."""
+    scene_dir = script_dir / scene_name
+    fname = f"voxeland_semantic_map_{detector}_{scene_name}.ply"
     return scene_dir / fname
 
 
-def output_html_path(script_dir: Path, scene_suffix: str, detector: str, no_unknown: bool) -> Path:
+def output_html_path(script_dir: Path, scene_name: str, detector: str, no_unknown: bool = False) -> Path:
     """Returns the output HTML path; saved inside the scene directory.
        If no_unknown=True, filename ends with _nu.html."""
-    scene_dir = script_dir / f"scene{scene_suffix}"
+    scene_dir = script_dir / scene_name
     suffix = "_nu" if no_unknown else ""
-    return scene_dir / f"voxeland_map_3d_{detector}_s{scene_suffix}{suffix}.html"
+    return scene_dir / f"voxeland_map_3d_{detector}_{scene_name}{suffix}.html"
 
 
-def list_all_scene_suffixes(script_dir: Path) -> list[str]:
-    """Scans this folder for scene directories and returns their suffixes ####_##."""
-    suffixes = []
+def list_all_scene_names(script_dir: Path) -> list[str]:
+    """Scans this folder for scene directories and returns their names."""
+    scene_names = []
     for p in sorted(script_dir.iterdir()):
         if p.is_dir() and SCENE_DIR_PATTERN.match(p.name):
-            suffixes.append(p.name.replace("scene", ""))  # -> "0000_01"
-    return suffixes
+            scene_names.append(p.name)
+    return scene_names
 
 
 def main():
@@ -238,7 +240,7 @@ def main():
         description="Interactive 3D visualizer for Voxeland semantic maps (multi-scene/multi-detector)"
     )
     parser.add_argument("-s", "--scene", type=str, default=None,
-                        help='Scene suffix in the form "####_##", e.g., 0000_01')
+                        help='Scene name, e.g., "scannet_scene0000_01" or "scenenn_011"')
     parser.add_argument("-d", "--detector", type=str, choices=DETECTORS, default=None,
                         help='Detector name: one of {"detectron","talos","yoloe"}')
     parser.add_argument("-u", "--no-unknown", action="store_true",
@@ -249,10 +251,10 @@ def main():
 
     # Validate combinations:
     if args.detector and not args.scene:
-        print("ERROR: --detector requires --scene. Provide a scene suffix (e.g., -s 0000_01).", file=sys.stderr)
+        print("ERROR: --detector requires --scene. Provide a scene name (e.g., -s scannet_scene0000_01).", file=sys.stderr)
         sys.exit(2)
 
-    # Build worklist of (scene_suffix, detector)
+    # Build worklist of (scene_name, detector)
     worklist: list[tuple[str, str]] = []
 
     if args.scene and args.detector:
@@ -262,26 +264,26 @@ def main():
         worklist = [(args.scene, d) for d in DETECTORS]
     else:
         # Neither scene nor detector -> process all scenes and all detectors
-        all_scenes = list_all_scene_suffixes(script_dir)
+        all_scenes = list_all_scene_names(script_dir)
         if not all_scenes:
-            print("No scene directories found (expected names like 'scene0000_01').", file=sys.stderr)
+            print("No scene directories found (expected names like 'scannet_scene0000_01' or 'scenenn_011').", file=sys.stderr)
             sys.exit(1)
-        for sfx in all_scenes:
-            worklist.extend((sfx, d) for d in DETECTORS)
+        for scene_name in all_scenes:
+            worklist.extend((scene_name, d) for d in DETECTORS)
 
     any_ok = False
-    for scene_suffix, detector in worklist:
+    for scene_name, detector in worklist:
         # Determine output HTML path first; if it already exists, skip processing early.
-        out_html = output_html_path(script_dir, scene_suffix, detector, args.no_unknown)
+        out_html = output_html_path(script_dir, scene_name, detector, args.no_unknown)
         if out_html.exists():
             print(f"[Skip] Output already exists, skipping: {out_html}")
             any_ok = True  # consider as handled
             continue
 
         # Check input PLY
-        ply_path = expected_ply_path(script_dir, scene_suffix, detector)
+        ply_path = expected_ply_path(script_dir, scene_name, detector)
         if not ply_path.exists():
-            print(f"[Skip] Missing PLY for scene {scene_suffix} / detector {detector}: {ply_path}")
+            print(f"[Skip] Missing PLY for scene {scene_name} / detector {detector}: {ply_path}")
             continue
 
         try:
@@ -291,10 +293,10 @@ def main():
                 output_html=out_html,
                 show_unknown=not args.no_unknown
             )
-            print(f"[OK] Scene {scene_suffix} / {detector} -> {out_html}\n")
+            print(f"[OK] Scene {scene_name} / {detector} -> {out_html}\n")
             any_ok = True
         except Exception as e:
-            print(f"[Error] Scene {scene_suffix} / {detector}: {e}", file=sys.stderr)
+            print(f"[Error] Scene {scene_name} / {detector}: {e}", file=sys.stderr)
 
     if not any_ok:
         print("Nothing was processed. Check paths and file names.", file=sys.stderr)

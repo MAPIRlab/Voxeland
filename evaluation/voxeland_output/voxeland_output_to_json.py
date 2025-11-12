@@ -54,13 +54,14 @@ def read_ply_file(ply_path: str) -> dict:
     }
 
 
-def compute_instances_aabb(ply_data: dict, scene_id: str) -> dict:
+def compute_instances_aabb(ply_data: dict, scene_id: str, probabilities: dict = None) -> dict:
     """
     Compute AABB for each instance in the PLY data.
     
     Args:
         ply_data: Dictionary with vertices, instance_ids, and semantic_categories
         scene_id: Scene identifier (e.g., "scene0000_01")
+        probabilities: Optional dictionary mapping instance_id to category scores
     
     Returns:
         Dictionary in the ground truth JSON format with scene_id and instances
@@ -94,7 +95,7 @@ def compute_instances_aabb(ply_data: dict, scene_id: str) -> dict:
         mins = inst_vertices.min(axis=0)
         maxs = inst_vertices.max(axis=0)
         
-        instances_list.append({
+        instance_dict = {
             "instance_id": int(inst_id),
             "class_name": class_name,
             "aabb": {
@@ -105,7 +106,13 @@ def compute_instances_aabb(ply_data: dict, scene_id: str) -> dict:
                 "y_max": float(maxs[1]),
                 "z_max": float(maxs[2])
             }
-        })
+        }
+        
+        # Add scores if available
+        if probabilities and str(inst_id) in probabilities:
+            instance_dict["scores"] = probabilities[str(inst_id)]
+        
+        instances_list.append(instance_dict)
     
     return {
         "scene_id": scene_id,
@@ -128,8 +135,20 @@ def convert_ply_to_json(ply_path: str, json_path: str, scene_id: str):
         # Read PLY file
         ply_data = read_ply_file(ply_path)
         
+        # Try to load probabilities JSON if it exists
+        probabilities = None
+        ply_path_obj = Path(ply_path)
+        prob_json_path = ply_path_obj.parent / (ply_path_obj.stem + "_probabilities.json")
+        
+        if prob_json_path.exists():
+            print(f"[Info] Loading probabilities from: {prob_json_path}")
+            with open(prob_json_path, 'r') as f:
+                probabilities = json.load(f)
+        else:
+            print(f"[Warning] No probabilities file found at: {prob_json_path}")
+        
         # Compute instances and AABB
-        result = compute_instances_aabb(ply_data, scene_id)
+        result = compute_instances_aabb(ply_data, scene_id, probabilities)
         
         # Save to JSON
         with open(json_path, 'w') as f:
@@ -137,9 +156,14 @@ def convert_ply_to_json(ply_path: str, json_path: str, scene_id: str):
         
         print(f"[Done] Saved: {json_path}")
         print(f"       Found {len(result['instances'])} instances")
+        if probabilities:
+            instances_with_scores = sum(1 for inst in result['instances'] if 'scores' in inst)
+            print(f"       {instances_with_scores} instances have probability scores")
         
     except Exception as e:
         print(f"[Error] Failed to convert {ply_path}: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def main():
