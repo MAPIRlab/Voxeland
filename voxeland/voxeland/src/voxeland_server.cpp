@@ -64,20 +64,15 @@ namespace voxeland_server
                 // Use current working directory (usually the workspace root)
                 std::filesystem::path workspace_root = std::filesystem::current_path();
                 std::filesystem::path base_output_dir = workspace_root / "src" / "Voxeland" / "evaluation" / "voxeland_output";
+                
+                // Use scene_name directly as folder name (e.g., scannet_scene0000_01 or scenenn_011)
                 output_dir_ = (base_output_dir / scene_name_).string();
                 
                 // Create scene directory if it doesn't exist
                 std::filesystem::create_directories(output_dir_);
                 
-                // Create short scene name for filename (e.g., scene0000_01 -> s0000_01)
-                std::string short_scene_name = scene_name_;
-                if (scene_name_.substr(0, 5) == "scene")
-                {
-                    short_scene_name = "s" + scene_name_.substr(5);
-                }
-                
                 // Check if PLY file already exists
-                std::string base_filename = "voxeland_semantic_map_" + detector_name_ + "_" + short_scene_name;
+                std::string base_filename = "voxeland_semantic_map_" + detector_name_ + "_" + scene_name_;
                 std::string candidate_path = output_dir_ + "/" + base_filename + ".ply";
                 
                 if (std::filesystem::exists(candidate_path))
@@ -936,6 +931,50 @@ namespace voxeland_server
                 {
                     VXL_ERROR("Failed to open file: {}", output_ply_path_);
                 }
+            }
+            
+            // Save instance probabilities to JSON file
+            std::filesystem::path ply_path(output_ply_path_);
+            std::string json_path = ply_path.parent_path() / (ply_path.stem().string() + "_probabilities.json");
+            
+            nlohmann::json probabilities_json;
+            
+            for (const auto& instance : semantics.globalSemanticMap)
+            {
+                if (instance.pointsTo != -1)
+                    continue;
+                
+                int instance_id = 0;
+                try
+                {
+                    if (instance.instanceID.length() > 3 && instance.instanceID.substr(0, 3) == "obj")
+                    {
+                        instance_id = std::stoi(instance.instanceID.substr(3));
+                    }
+                }
+                catch (...) { continue; }
+                
+                // Build category scores dictionary
+                nlohmann::json scores;
+                for (const auto& [categoryIndex, probability] : instance.alphaParamsCategories)
+                {
+                    std::string category_name = semantics.getCategoryName(categoryIndex);
+                    scores[category_name] = probability;
+                }
+                
+                probabilities_json[std::to_string(instance_id)] = scores;
+            }
+            
+            std::ofstream json_outfile(json_path);
+            if (json_outfile.is_open())
+            {
+                json_outfile << probabilities_json.dump(2);
+                json_outfile.close();
+                VXL_INFO("Saved instance probabilities to {}", json_path);
+            }
+            else
+            {
+                VXL_ERROR("Failed to save probabilities JSON: {}", json_path);
             }
         }
     }

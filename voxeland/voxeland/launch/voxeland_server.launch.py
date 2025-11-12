@@ -15,8 +15,8 @@ def launch_arguments():
         
         DeclareLaunchArgument("automatic_map_saving", default_value="false",
                             description="Enable automatic map saving to evaluation folder"),
-        DeclareLaunchArgument("scene_name", default_value="unknown_scene", 
-                            description="Name of the scene being mapped (e.g., scene0000_01). Required if automatic_map_saving=true"),
+        DeclareLaunchArgument("scene_name", default_value="unknown_scene",
+                            description="Name of the scene in format dataset_scene (e.g., scannet_scene0000_01 or scenenn_011)"),
         DeclareLaunchArgument("detector_name", default_value="unknown_detector",
                             description="Name of the detector being used (detectron/talos/yoloe). Required if automatic_map_saving=true"),
 
