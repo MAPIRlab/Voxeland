@@ -827,9 +827,8 @@ namespace voxeland_server
             // Get color from visualization
             voxeland::Color viz_color = cell_data[i].toColor();
             
-            // Get instance ID and find dominant category
+            // Get instance ID
             InstanceID_t instanceID = 0;
-            std::string category = "unknown";
             
             if (!cell_data[i].instances_candidates.empty() && !cell_data[i].instances_votes.empty())
             {
@@ -837,8 +836,37 @@ namespace voxeland_server
                                                    cell_data[i].instances_votes.end());
                 auto idxMaxVotes = std::distance(cell_data[i].instances_votes.begin(), itInstances);
                 instanceID = cell_data[i].instances_candidates[idxMaxVotes];
+            }
+
+            // Calculate uncertainty_instances and uncertainty_categories
+            float uncertainty_instances = 0.0f;
+            float uncertainty_categories = 0.0f;
+            
+            // For instances uncertainty: entropy of instance votes if available
+            if (!cell_data[i].instances_votes.empty())
+            {
+                float total_votes = 0.0f;
+                for (const auto& vote : cell_data[i].instances_votes)
+                {
+                    total_votes += vote;
+                }
                 
-                // Find the instance in global semantic map to get its category
+                if (total_votes > 0)
+                {
+                    for (const auto& vote : cell_data[i].instances_votes)
+                    {
+                        if (vote > 0)
+                        {
+                            float p = vote / total_votes;
+                            uncertainty_instances -= p * std::log(p);
+                        }
+                    }
+                }
+            }
+            
+            // For categories uncertainty: get from the instance's alpha parameters
+            if (instanceID > 0)
+            {
                 for (const auto& instance : semantics.globalSemanticMap)
                 {
                     if (instance.pointsTo != -1)
@@ -856,36 +884,48 @@ namespace voxeland_server
                     
                     if (instance_numeric_id == static_cast<int>(instanceID))
                     {
-                        // Get dominant category for this instance
-                        float max_prob = 0.0f;
-                        for (const auto& [catIdx, prob] : instance.alphaParamsCategories)
+                        // Calculate expected Shannon entropy from Dirichlet parameters
+                        double alpha_sum = 0.0;
+                        for (const auto& [catIdx, alpha] : instance.alphaParamsCategories)
                         {
-                            if (prob > max_prob)
+                            alpha_sum += alpha;
+                        }
+                        
+                        if (alpha_sum > 0)
+                        {
+                            double expected_entropy = 0.0;
+                            // E[H] = ψ(α₀) - (1/α₀) Σ αᵢ ψ(αᵢ)
+                            // Simplified approximation for efficiency
+                            for (const auto& [catIdx, alpha] : instance.alphaParamsCategories)
                             {
-                                max_prob = static_cast<float>(prob);
-                                category = semantics.getCategoryName(catIdx);
+                                double p = alpha / alpha_sum;
+                                if (p > 0)
+                                {
+                                    expected_entropy -= p * std::log(p);
+                                }
                             }
+                            uncertainty_categories = static_cast<float>(expected_entropy);
                         }
                         break;
                     }
                 }
             }
 
-            // Write voxel data: x y z r g b instance_id category
-            ply_data << fmt::format("{} {} {} {} {} {} {} {}\n",
+            // Write voxel data: x y z r g b instanceid uncertainty_instances uncertainty_categories
+            ply_data << fmt::format("{} {} {} {} {} {} {} {} {}\n",
                                    voxel.x, voxel.y, voxel.z,
                                    static_cast<int>(viz_color.r),
                                    static_cast<int>(viz_color.g),
                                    static_cast<int>(viz_color.b),
                                    instanceID,
-                                   category);
+                                   uncertainty_instances,
+                                   uncertainty_categories);
             vertex_count++;
         }
 
-        // Build PLY header
+        // Build PLY header (old format without string field)
         ply_header << "ply\n"
                    << "format ascii 1.0\n"
-                   << "comment Voxeland semantic map with " << semantics.globalSemanticMap.size() << " instances\n"
                    << "element vertex " << vertex_count << "\n"
                    << "property float x\n"
                    << "property float y\n"
@@ -893,8 +933,9 @@ namespace voxeland_server
                    << "property uchar red\n"
                    << "property uchar green\n"
                    << "property uchar blue\n"
-                   << "property int instance_id\n"
-                   << "property string semantic_category\n"
+                   << "property int instanceid\n"
+                   << "property float uncertainty_instances\n"
+                   << "property float uncertainty_categories\n"
                    << "end_header\n";
 
         return ply_header.str() + ply_data.str();
@@ -933,11 +974,12 @@ namespace voxeland_server
                 }
             }
             
-            // Save instance probabilities to JSON file
+            // Save instance map to JSON file (old format)
             std::filesystem::path ply_path(output_ply_path_);
-            std::string json_path = ply_path.parent_path() / (ply_path.stem().string() + "_probabilities.json");
+            std::string json_path = ply_path.parent_path() / (ply_path.stem().string() + ".json");
             
-            nlohmann::json probabilities_json;
+            nlohmann::json map_json;
+            nlohmann::json instances_json;
             
             for (const auto& instance : semantics.globalSemanticMap)
             {
@@ -951,30 +993,103 @@ namespace voxeland_server
                     {
                         instance_id = std::stoi(instance.instanceID.substr(3));
                     }
+                    else
+                    {
+                        continue;
+                    }
                 }
-                catch (...) { continue; }
+                catch (const std::exception& e) 
+                { 
+                    VXL_WARN("Failed to parse instance ID from {}: {}", instance.instanceID, e.what());
+                    continue; 
+                }
                 
-                // Build category scores dictionary
-                nlohmann::json scores;
+                // Build category scores dictionary (results)
+                nlohmann::json results;
                 for (const auto& [categoryIndex, probability] : instance.alphaParamsCategories)
                 {
-                    std::string category_name = semantics.getCategoryName(categoryIndex);
-                    scores[category_name] = probability;
+                    try
+                    {
+                        std::string category_name = semantics.getCategoryName(categoryIndex);
+                        results[category_name] = probability;
+                    }
+                    catch (const std::out_of_range& e)
+                    {
+                        VXL_WARN("Category index {} out of range for instance {}", categoryIndex, instance.instanceID);
+                        continue;
+                    }
+                    catch (const std::exception& e)
+                    {
+                        VXL_WARN("Error getting category name for index {} in instance {}: {}", 
+                                categoryIndex, instance.instanceID, e.what());
+                        continue;
+                    }
                 }
                 
-                probabilities_json[std::to_string(instance_id)] = scores;
+                // Skip instances with no valid categories
+                if (results.empty())
+                {
+                    VXL_WARN("Instance {} has no valid categories, skipping", instance.instanceID);
+                    continue;
+                }
+                
+                // Calculate bounding box center and size from bbox
+                const BoundingBox3D& bbox = instance.bbox;
+                
+                // Check if bbox is valid (not all infinity values)
+                if (std::isinf(bbox.minX) || std::isinf(bbox.minY) || std::isinf(bbox.minZ) ||
+                    std::isinf(bbox.maxX) || std::isinf(bbox.maxY) || std::isinf(bbox.maxZ))
+                {
+                    VXL_WARN("Instance {} has invalid bounding box, using default values", instance.instanceID);
+                    nlohmann::json bbox_json;
+                    bbox_json["center"] = {0.0, 0.0, 0.0};
+                    bbox_json["size"] = {0.1, 0.1, 0.1};
+                    
+                    nlohmann::json instance_entry;
+                    instance_entry["bbox"] = bbox_json;
+                    instance_entry["n_observations"] = 1;
+                    instance_entry["results"] = results;
+                    
+                    instances_json["obj" + std::to_string(instance_id)] = instance_entry;
+                    continue;
+                }
+                
+                // Calculate center
+                float centerX = (bbox.minX + bbox.maxX) / 2.0f;
+                float centerY = (bbox.minY + bbox.maxY) / 2.0f;
+                float centerZ = (bbox.minZ + bbox.maxZ) / 2.0f;
+                
+                // Calculate size
+                float sizeX = bbox.maxX - bbox.minX;
+                float sizeY = bbox.maxY - bbox.minY;
+                float sizeZ = bbox.maxZ - bbox.minZ;
+                
+                nlohmann::json bbox_json;
+                bbox_json["center"] = {centerX, centerY, centerZ};
+                bbox_json["size"] = {sizeX, sizeY, sizeZ};
+                
+                // Build instance entry
+                nlohmann::json instance_entry;
+                instance_entry["bbox"] = bbox_json;
+                instance_entry["n_observations"] = 1;  // Always 1 as requested
+                instance_entry["results"] = results;
+                
+                // Add to instances map with objN key
+                instances_json["obj" + std::to_string(instance_id)] = instance_entry;
             }
+            
+            map_json["instances"] = instances_json;
             
             std::ofstream json_outfile(json_path);
             if (json_outfile.is_open())
             {
-                json_outfile << probabilities_json.dump(2);
+                json_outfile << map_json.dump(4);  // Pretty print with 4 spaces
                 json_outfile.close();
-                VXL_INFO("Saved instance probabilities to {}", json_path);
+                VXL_INFO("Saved instance map to {}", json_path);
             }
             else
             {
-                VXL_ERROR("Failed to save probabilities JSON: {}", json_path);
+                VXL_ERROR("Failed to save map JSON: {}", json_path);
             }
         }
     }
