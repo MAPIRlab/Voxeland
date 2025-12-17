@@ -65,7 +65,12 @@ namespace Bonxai
 
         [[nodiscard]] bool isFree(const Bonxai::CoordT& coord) const;
 
+        std::string getOccProbability(const Bonxai::Point3D& coord);
+
         void getFreeVoxels(std::vector<Bonxai::CoordT>& coords);
+        
+        template <typename PointT>
+        void getFreeVoxels(std::vector<PointT>& cells_points);
 
     private:
         VoxelGrid<ProbabilisticCell<DataT>> _grid;
@@ -79,6 +84,8 @@ namespace Bonxai
         void updateFreeCells(const Vector3D& origin) override;
 
         Point3D coordToPos(CoordT coord) override { return _grid.coordToPos(coord); }
+        CoordT posToCoord(Point3D point) override { return _grid.posToCoord(point); }
+
     };
 
     // Method template definitions
@@ -206,6 +213,34 @@ namespace Bonxai
         return false;
     }
 
+
+    template <typename DataT>
+    std::string ProbabilisticMapT<DataT>::getOccProbability(const Bonxai::Point3D& p)
+    {
+       auto coord = posToCoord(p);
+
+        // if (auto* cell = _accessor.value(coord, false))
+        // {
+        //     return (1.0 - 1.0 / (1.0 + std::exp(cell->probability_log)));
+        // }
+        return std::to_string(-1.0);
+    }
+
+    template <typename DataT>
+    template <typename PointT>
+    void ProbabilisticMapT<DataT>::getFreeVoxels(std::vector<PointT>& cells_points)
+    {
+        std::vector<Bonxai::CoordT> coords;
+        coords.clear();
+        getFreeVoxels(coords);
+        for (const auto& coord : coords)
+        {
+            const auto p = coordToPos(coord);
+            cells_points.emplace_back(p.x, p.y, p.z);
+        }
+    }
+
+
     template <typename DataT>
     void ProbabilisticMapT<DataT>::getFreeVoxels(std::vector<Bonxai::CoordT>& coords)
     {
@@ -255,6 +290,7 @@ namespace Bonxai
             _update_count = 1;
         }
     }
+
 
     //--------------------------------------------------
 
