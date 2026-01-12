@@ -218,12 +218,14 @@ namespace Bonxai
     std::string ProbabilisticMapT<DataT>::getOccProbability(const Bonxai::Point3D& p)
     {
        auto coord = posToCoord(p);
+       float occ_prob;
 
-        // if (auto* cell = _accessor.value(coord, false))
-        // {
-        //     return (1.0 - 1.0 / (1.0 + std::exp(cell->probability_log)));
-        // }
-        return std::to_string(-1.0);
+        if (auto* cell = _accessor.value(coord, false))
+        {
+            occ_prob = prob(cell->probability_log);
+        }
+
+        return " " + std::to_string(occ_prob) + "\n";
     }
 
     template <typename DataT>
@@ -246,7 +248,7 @@ namespace Bonxai
     {
         coords.clear();
         auto visitor = [&](ProbabilisticCell<DataT>& cell, const CoordT& coord) {
-            if (cell.probability_log < _options.occupancy_threshold_log)
+            if (cell.probability_log <= _options.occupancy_threshold_log)
             {
                 coords.push_back(coord);
             }

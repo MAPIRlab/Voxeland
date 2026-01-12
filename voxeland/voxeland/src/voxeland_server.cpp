@@ -627,7 +627,9 @@ namespace voxeland_server
 
         std::string ply = fmt::format("ply\nformat ascii 1.0\nelement vertex {}\n{}\nend_header\n", cell_points.size(), DataT::getHeaderPLY());
 
-        for (size_t i = 0; i < cell_points.size(); i++)
+        size_t i;
+        
+        for (i = 0; i < cell_points.size(); i++)
         {
 
             fila = cell_data[i].toPLY(cell_points[i]);
@@ -640,11 +642,11 @@ namespace voxeland_server
         
         bonxai_->With<DataT>()->getFreeVoxels(cell_points);
 
-        for (size_t i = 0; i < cell_points.size(); i++){
+        for (size_t j = i; j < cell_points.size(); j++){ // Make it start from the preivous for loop end.
             
-            fila = cell_data[i].toPLY(cell_points[i]);
+            fila = cell_data[j].toPLY(cell_points[j]);
             fila.pop_back();        //Deletes \n at the end of every cell "ply - representation" string
-            fila += bonxai_->With<DataT>()->getOccProbability(cell_points[i]);
+            fila += bonxai_->With<DataT>()->getOccProbability(cell_points[j]);
             ply += fila;
 
         }
