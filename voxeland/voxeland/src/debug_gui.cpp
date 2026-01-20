@@ -32,7 +32,11 @@ namespace voxeland_server
         for (size_t i = 0; i < semantics.globalSemanticMap.size(); i++)
         {
             if (semantics.globalSemanticMap.at(i).isStillValid())
+            {
                 ImGui::Checkbox(fmt::format("Object_{}", i).c_str(), (bool*)&globalObjectsToDraw[i]);
+                ImGui::SameLine();
+                ImGui::Text("%s", fmt::format("- {}", semantics.default_categories.at(semantics.globalSemanticMap.at(i).mostLikelyCategory())).c_str());
+            }
             else
                 globalObjectsToDraw[i] = false;
         }

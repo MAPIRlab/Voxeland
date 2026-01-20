@@ -83,6 +83,12 @@ struct SemanticObject
     {
         return pointsTo == -1;
     }
+
+    uint32_t mostLikelyCategory() const
+    {
+        auto it = std::max_element(alphaParamsCategories.begin(), alphaParamsCategories.end());
+        return std::distance(alphaParamsCategories.begin(), it);
+    }
 };
 
 class SemanticMap
@@ -191,8 +197,8 @@ public:
         if (voxels2_coarse.size() > 0)
             IoS = std::max(IoS, ((double)intersection_.size()) / voxels2_coarse.size());
 
-        VXL_INFO("IoU: {:.2f}\nIoS: {:.2f}", IoU, IoS);
-        return std::max(IoU, IoS); //TODO probably a good idea to just return both and let the caller decide what to do with them
+        // VXL_INFO("IoU: {:.2f}\nIoS: {:.2f}", IoU, IoS);
+        return std::max(IoU, IoS);  // TODO probably a good idea to just return both and let the caller decide what to do with them
     }
 
     template <typename DataT>
@@ -321,9 +327,6 @@ public:
             for (InstanceID_t globalInstanceID = 1; globalInstanceID < currentInstancesNumber; globalInstanceID++)
             {
                 SemanticObject& globalInstance = globalSemanticMap[globalInstanceID];
-                std::vector<double>::iterator itGlobal =
-                    std::max_element(globalInstance.alphaParamsCategories.begin(), globalInstance.alphaParamsCategories.end());
-                uint8_t globalClassIdx = std::distance(globalInstance.alphaParamsCategories.begin(), itGlobal);
 
                 if (globalInstance.isStillValid() && checkBBoxIntersect(localInstance.bbox, globalInstance.bbox))
                 {

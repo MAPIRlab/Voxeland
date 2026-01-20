@@ -105,6 +105,7 @@ public:
                 visualization_msgs::msg::Marker textMarker;
                 {
                     textMarker.header.frame_id = "map";
+                    textMarker.lifetime.sec = 1;
                     textMarker.id = i;
                     textMarker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
                     textMarker.scale.z = 0.2;
