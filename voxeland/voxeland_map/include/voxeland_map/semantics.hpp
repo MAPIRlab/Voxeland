@@ -10,8 +10,8 @@
 #include <set>
 #include <unordered_map>
 #include <vector>
-#include <voxeland_map/data_modes.hpp>
 #include <voxeland_map/Utils/logging.hpp>
+#include <voxeland_map/data_modes.hpp>
 #include <voxeland_map/pcl_utils.hpp>
 #include <voxeland_map/probabilistic_map_templated.hpp>
 
@@ -40,8 +40,8 @@ struct SemanticObject
     // Note: For now, it is supposed that in the globalSemanticMap, instances are not going to disappear.
     // Otherwise, it should be considered, as the instanceID cannot be the globalSemanticMap.size()+1
     std::string instanceID;
-    std::vector<double> alphaParamsCategories; // concentration parameters for the Dirichlet distribution
-    std::vector<std::map<uint32_t,BoundingBox2D>> appearancesTimestamps;
+    std::vector<double> alphaParamsCategories;  // concentration parameters for the Dirichlet distribution
+    std::vector<std::map<uint32_t, BoundingBox2D>> appearancesTimestamps;
     uint32_t numberObservations = 1;
     BoundingBox3D bbox;
 
@@ -80,7 +80,7 @@ class SemanticMap
 public:
     SemanticMap();
 
-    std::vector<std::string> default_categories; //list of category names. The last one is always "background"
+    std::vector<std::string> default_categories;  // list of category names. The last one is always "background"
     std::unordered_map<std::string, size_t> categoryIndexMap;
     std::vector<SemanticObject> globalSemanticMap;
     std::vector<SemanticObject> lastLocalSemanticMap;
@@ -131,11 +131,10 @@ public:
     InstanceID_t getCategoryMaxProbability(InstanceID_t objID);
 
     template <typename DataT>
-    double compute3DIoU(const BoundingBox3D& globalBbox,
-                        InstanceID_t globalID,
+    double compute3DIoU(const SemanticObject& globalObject,
                         const std::unordered_set<Bonxai::CoordT>& localVoxels)
     {
-        std::vector<Bonxai::CoordT> voxels1 = listOfVoxelsInsideBBox<DataT>(globalBbox, globalID);
+        std::vector<Bonxai::CoordT> voxels1 = listOfVoxelsInObject<DataT>(globalObject);
         std::vector<Bonxai::CoordT> voxels2;
         voxels2.assign(localVoxels.begin(), localVoxels.end());
 
@@ -155,10 +154,6 @@ public:
         auto orderFunc = [](const Bonxai::CoordT& c1, const Bonxai::CoordT& c2) {
             return c1.x < c2.x || (c1.x == c2.x && c1.y < c2.y) || (c1.x == c2.x && c1.y == c2.y && c1.z < c2.z);
         };
-
-        // VXL_INFO("Global voxels size: %d / Local voxels size %d", globalVoxels.size(), localVoxels_.size());
-        // std::sort(voxels1_coarse.begin(), voxels1_coarse.end(), orderFunc);
-        // std::sort(voxels2_coarse.begin(), voxels2_coarse.end(), orderFunc);
 
         std::vector<Bonxai::CoordT> intersection_;
         std::vector<Bonxai::CoordT> union_;
@@ -192,25 +187,21 @@ public:
             iou = (double)intersection_.size() / union_.size();
         }
 
-        // VXL_INFO("IoU --> Local: {} // Global: {} // Total: {}", iouLocal, iouGlobal, iou);
         if (iouLocal > 0.3 || iouGlobal > 0.3 || iou > 0.3)
         {
-            // if(iou > 0.3){
-            iou = 0.35;
+            iou = 0.35;  // TODO: ????
         }
 
         return iou;
     }
 
     template <typename DataT>
-    double compute3DIoU(const BoundingBox3D& bBox1,
-                        InstanceID_t id1,
-                        const BoundingBox3D& bBox2,
-                        InstanceID_t id2,
+    double compute3DIoU(const SemanticObject& obj1,
+                        const SemanticObject& obj2,
                         bool customIoU)
     {
-        std::vector<Bonxai::CoordT> voxels1 = listOfVoxelsInsideBBox<DataT>(bBox1, id1);
-        std::vector<Bonxai::CoordT> voxels2 = listOfVoxelsInsideBBox<DataT>(bBox2, id2);
+        std::vector<Bonxai::CoordT> voxels1 = listOfVoxelsInObject<DataT>(obj1);
+        std::vector<Bonxai::CoordT> voxels2 = listOfVoxelsInObject<DataT>(obj2);
 
         std::set<Bonxai::CoordT> voxels1_coarse;
         std::set<Bonxai::CoordT> voxels2_coarse;
@@ -228,10 +219,6 @@ public:
         auto orderFunc = [](const Bonxai::CoordT& c1, const Bonxai::CoordT& c2) {
             return c1.x < c2.x || (c1.x == c2.x && c1.y < c2.y) || (c1.x == c2.x && c1.y == c2.y && c1.z < c2.z);
         };
-
-        // VXL_INFO("Global voxels size: %d / Local voxels size %d", globalVoxels.size(), localVoxels_.size());
-        // std::sort(voxels1_coarse.begin(), voxels1_coarse.end(), orderFunc);
-        // std::sort(voxels2_coarse.begin(), voxels2_coarse.end(), orderFunc);
 
         std::vector<Bonxai::CoordT> intersection_;
         std::vector<Bonxai::CoordT> union_;
@@ -268,7 +255,7 @@ public:
 
         if (iouLocal > 0.3 || iouGlobal > 0.3 || iou > 0.3)
         {
-            iou = 0.35;
+            iou = 0.35; //TODO: ????
         }
         VXL_INFO("local: {}, global: {}, iou: {}",
                  (double)intersection_.size() / voxels1_coarse.size(),
@@ -279,16 +266,16 @@ public:
     }
 
     template <typename DataT>
-    std::vector<Bonxai::CoordT> listOfVoxelsInsideBBox(const BoundingBox3D& bbox, InstanceID_t id)
+    std::vector<Bonxai::CoordT> listOfVoxelsInObject(const SemanticObject object)
     {
         std::vector<Bonxai::CoordT> cellsInside;
 
         Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>* bonxai = BonxaiQuery<DataT>::getBonxai()->grid();
 
         const Bonxai::CoordT coordMin = bonxai->posToCoord(Bonxai::Point3D(
-            bbox.minX - bonxai->resolution, bbox.minY - bonxai->resolution, bbox.minZ - bonxai->resolution));
+            object.bbox.minX - bonxai->resolution, object.bbox.minY - bonxai->resolution, object.bbox.minZ - bonxai->resolution));
         const Bonxai::CoordT coordMax = bonxai->posToCoord(Bonxai::Point3D(
-            bbox.maxX + bonxai->resolution, bbox.maxY + bonxai->resolution, bbox.maxZ + bonxai->resolution));
+            object.bbox.maxX + bonxai->resolution, object.bbox.maxY + bonxai->resolution, object.bbox.maxZ + bonxai->resolution));
 
         // Iterate over all points inside the bounding box
         for (int x = coordMin.x; x <= coordMax.x; x++)
@@ -301,15 +288,20 @@ public:
                     Bonxai::ProbabilisticCell<DataT>* cell = BonxaiQuery<DataT>::getAccessor().value(coord);
                     if (!cell)
                         continue;
-                    // VXL_INFO("Inicio: %d, fin: %d", cell->data.instances_candidates.begin(),
-                    // cell->data.instances_candidates.end());
-                    auto it =
-                        std::find(cell->data.instances_candidates.begin(), cell->data.instances_candidates.end(), id);
+
+                    // do we want to consider all voxels in which a single vote exists for this instance, or only the ones where the instance wins?
+#define CONSIDER_ANY_VOTE 0
+#if CONSIDER_ANY_VOTE
+                    auto it = std::find(cell->data.instances_candidates.begin(), cell->data.instances_candidates.end(), object.instanceID);
                     if (it != cell->data.instances_candidates.end())
                     {
                         size_t idx = std::distance(cell->data.instances_candidates.begin(), it);
                         cellsInside.push_back(coord);
                     }
+#else
+                    if (cell->data.getMostRepresentativeInstance() == object.instanceID)
+                        cellsInside.push_back(coord);
+#endif
                 }
             }
         }
@@ -340,7 +332,7 @@ public:
                     {
                         customIoU = true;
                     }
-                    double iou = compute3DIoU<DataT>(firstInstance.bbox, i, secondInstance.bbox, j, true);
+                    double iou = compute3DIoU<DataT>(firstInstance, secondInstance, true);
                     if (iou > 0.3)
                     {
                         // Fuse the second instance with the first one
@@ -409,7 +401,7 @@ public:
                 if (globalInstance.pointsTo == -1 && checkBBoxIntersect(localInstance.bbox, globalInstance.bbox))
                 {
                     double iou =
-                        compute3DIoU<DataT>(globalInstance.bbox, globalInstanceID, localInstance.localGeometry.value());
+                        compute3DIoU<DataT>(globalInstance, localInstance.localGeometry.value());
                     if (iou > 0.3)
                     {
                         fuseSemanticObjects(globalInstance, localInstance);
@@ -429,7 +421,7 @@ public:
                 // Create new object integrating localMap information
                 SemanticObject newObject = SemanticObject(localInstance.alphaParamsCategories, globalSemanticMap.size(), localInstance.bbox);
                 updateAppearancesTimestamps(newObject, localInstance);
-                
+
                 // Add it to the global map
                 globalSemanticMap.push_back(newObject);
                 added += 1;
@@ -556,10 +548,11 @@ public:
 
         for (SemanticObject& instance : globalSemanticMap)
         {
-            if (instance.pointsTo != -1){
+            if (instance.pointsTo != -1)
+            {
                 continue;
             }
-            
+
             auto index_iter = data_json["instances"].find(instance.instanceID);
             if (index_iter == data_json["instances"].end())
             {
@@ -574,7 +567,8 @@ public:
         }
     }
 
-    nlohmann::json appearancesToJson(){
+    nlohmann::json appearancesToJson()
+    {
         nlohmann::json data_json;
 
         data_json = {};
@@ -584,10 +578,12 @@ public:
             {
                 data_json[globalSemanticMap[i].instanceID] = {};
                 data_json[globalSemanticMap[i].instanceID]["timestamps"] = {};
-                for (size_t j = 0; j < globalSemanticMap[i].appearancesTimestamps.size(); j++){
+                for (size_t j = 0; j < globalSemanticMap[i].appearancesTimestamps.size(); j++)
+                {
                     std::string category = default_categories[j];
                     const auto& appearances_map = globalSemanticMap[i].appearancesTimestamps[j];
-                    if (appearances_map.empty()){
+                    if (appearances_map.empty())
+                    {
                         continue;
                     }
 
