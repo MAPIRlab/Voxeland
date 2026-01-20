@@ -142,8 +142,7 @@ public:
 
     template <typename DataT>
     double compute3DIoU(const std::vector<Bonxai::CoordT>& voxels1,
-                        const std::vector<Bonxai::CoordT>& voxels2,
-                        bool customIoU)
+                        const std::vector<Bonxai::CoordT>& voxels2)
     {
         std::set<Bonxai::CoordT> voxels1_coarse;
         std::set<Bonxai::CoordT> voxels2_coarse;
@@ -159,7 +158,7 @@ public:
         for (size_t i = 0; i < voxels2.size(); i++)
         {
             Bonxai::CoordT coord = voxels2[i];
-            voxels1_coarse.insert(coord / coarse_factor);
+            voxels2_coarse.insert(coord / coarse_factor);
         }
 
         auto orderFunc = [](const Bonxai::CoordT& c1, const Bonxai::CoordT& c2) {
@@ -182,32 +181,18 @@ public:
                        std::back_inserter(union_),
                        orderFunc);
 
-        double iouLocal = 0.;
-        if (voxels1_coarse.size() > 0 && customIoU)
-        {
-            iouLocal = (double)intersection_.size() / voxels1_coarse.size();
-        }
-        double iouGlobal = 0.;
-        if (voxels2_coarse.size() > 0 && customIoU)
-        {
-            iouGlobal = (double)intersection_.size() / voxels2_coarse.size();
-        }
-        double iou = 0.;
+        double IoU = 0.;
         if (union_.size() > 0)
-        {
-            iou = (double)intersection_.size() / union_.size();
-        }
+            IoU = ((double)intersection_.size()) / union_.size();
 
-        if (iouLocal > 0.3 || iouGlobal > 0.3 || iou > 0.3)
-        {
-            iou = 0.35;  // TODO: ????
-        }
-        VXL_INFO("local: {}, global: {}, iou: {}",
-                 (double)intersection_.size() / voxels1_coarse.size(),
-                 (double)intersection_.size() / voxels2_coarse.size(),
-                 iou);
+        double IoS = 0.;
+        if (voxels1_coarse.size() > 0)
+            IoS = ((double)intersection_.size()) / voxels1_coarse.size();
+        if (voxels2_coarse.size() > 0)
+            IoS = std::max(IoS, ((double)intersection_.size()) / voxels2_coarse.size());
 
-        return iou;
+        VXL_INFO("IoU: {:.2f}\nIoS: {:.2f}", IoU, IoS);
+        return std::max(IoU, IoS); //TODO probably a good idea to just return both and let the caller decide what to do with them
     }
 
     template <typename DataT>
@@ -277,7 +262,7 @@ public:
                     }
                     std::vector<Bonxai::CoordT> voxelsSecond = listOfVoxelsInObject<DataT>(secondInstance);
 
-                    double iou = compute3DIoU<DataT>(voxelsFirst, voxelsSecond, true);
+                    double iou = compute3DIoU<DataT>(voxelsFirst, voxelsSecond);
                     if (iou > 0.3)
                     {
                         // Fuse the second instance with the first one

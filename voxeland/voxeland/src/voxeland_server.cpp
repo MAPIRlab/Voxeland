@@ -204,10 +204,9 @@ namespace voxeland_server
                 currentMode = currentMode | DataMode::SemanticsInstances;
             }
 
-            rmw_qos_profile_t qos{ .reliability = RMW_QOS_POLICY_RELIABILITY_RELIABLE };
             get_distributions_srv_ = create_service<GetClassDistributions>("voxeland/get_class_distributions",
                                                                            std::bind(&VoxelandServer::getClassDistributionsSrv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
-                                                                           qos);
+                                                                           rclcpp::QoS(1).reliable());
         }
 
         if (bonxai_.get() == nullptr)
