@@ -49,10 +49,8 @@ uint32_t SemanticMap::getCurrentActiveInstances()
     uint32_t activeInstances = 0;
     for (InstanceID_t i = 0; i < globalSemanticMap.size(); i++)
     {
-        if (globalSemanticMap[i].pointsTo == -1)
-        {
+        if (globalSemanticMap[i].isStillValid())
             activeInstances += 1;
-        }
     }
     return activeInstances;
 }
@@ -66,49 +64,6 @@ InstanceID_t SemanticMap::localToGlobalInstance(InstanceID_t localInstance)
 {
     return lastMapLocalToGlobal[localInstance];
 }
-
-/*
-void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& localMap)
-  {
-    lastMapLocalToGlobal.resize(localMap.size());
-
-    for (size_t localInstanceID = 0; localInstanceID < localMap.size();
-         localInstanceID++)
-    {
-      const SemanticObject& localInstance = localMap[localInstanceID];
-      std::vector<double>::const_iterator itLocal = std::max_element(
-          localInstance.probabilities.begin(), localInstance.probabilities.end());
-      uint8_t localClassIdx = std::distance(localInstance.probabilities.begin(), itLocal);
-      bool fused = false;
-      for (size_t globalInstanceID = 0; globalInstanceID < globalSemanticMap.size();
-           globalInstanceID++)
-      {
-        SemanticObject& globalInstance = globalSemanticMap[globalInstanceID];
-        std::vector<double>::iterator itGlobal =
-            std::max_element(globalInstance.probabilities.begin(),
-                             globalInstance.probabilities.end());
-        uint8_t globalClassIdx =
-            std::distance(globalInstance.probabilities.begin(), itGlobal);
-
-        if (localClassIdx == globalClassIdx)
-        {
-          for (uint8_t i = 0; i < globalInstance.probabilities.size(); i++)
-          {
-            globalInstance.probabilities[i] += localInstance.probabilities[i];
-            lastMapLocalToGlobal[localInstanceID] = globalInstanceID;
-          }
-          fused = true;
-          break;
-        }
-      }
-      if (!fused)
-      {
-        lastMapLocalToGlobal[localInstanceID] = globalSemanticMap.size();
-        globalSemanticMap.push_back(SemanticObject(localInstance.probabilities, globalSemanticMap.size()+1));
-      }
-    }
-  }
-*/
 
 uint32_t SemanticMap::indexToHexColor(InstanceID_t index)
 {

@@ -1,5 +1,6 @@
 #include <tf2_ros/create_timer_ros.h>
 
+#include <Profiling.hpp>
 #include <filesystem>
 #include <fstream>
 #include <rclcpp/serialization.hpp>
@@ -8,10 +9,11 @@
 #include <string>
 #include <voxeland_map/Utils/Stopwatch.hpp>
 #include <voxeland_server.hpp>
-#include <Profiling.hpp>
 
 #include "nlohmann/json.hpp"
 #include "voxeland_map/Utils/logging.hpp"
+
+using namespace std::placeholders;
 
 namespace
 {
@@ -35,8 +37,9 @@ namespace voxeland_server
     VoxelandServer::VoxelandServer(const rclcpp::NodeOptions& node_options)
         : Node("voxeland_server_node", node_options)
     {
-        using std::placeholders::_1;
-        using std::placeholders::_2;
+#if ENABLE_DEBUG_GUI
+        SetupGUI();
+#endif
 
         {
             world_frame_id_ = declare_parameter("frame_id", "map");
@@ -581,9 +584,9 @@ namespace voxeland_server
 
             for (size_t i = 0; i < cell_points.size(); i++)
             {
-                const auto& voxel = cell_points[i];
+                const auto& point = cell_points[i];
 
-                if (voxel.z >= occupancy_min_z_ && voxel.z <= occupancy_max_z_)
+                if (point.z >= occupancy_min_z_ && point.z <= occupancy_max_z_)
                 {
                     voxeland::Color vizualization_color = cell_data[i].toColor();
                     std::uint32_t rgb = ((std::uint32_t)vizualization_color.r << 16 | (std::uint32_t)vizualization_color.g << 8 |
@@ -591,7 +594,7 @@ namespace voxeland_server
                     auto itInstances = std::max_element(cell_data[i].instances_votes.begin(), cell_data[i].instances_votes.end());
                     auto idxMaxVotes = std::distance(cell_data[i].instances_votes.begin(), itInstances);
                     InstanceID_t instanceID = cell_data[i].instances_candidates[idxMaxVotes];
-                    pcl_cloud.emplace_back((float)voxel.x, (float)voxel.y, (float)voxel.z, *reinterpret_cast<float*>(&rgb), instanceID);
+                    pcl_cloud.emplace_back((float)point.x, (float)point.y, (float)point.z, *reinterpret_cast<float*>(&rgb), instanceID);
                 }
             }
             PointCloud2 cloud;
@@ -637,8 +640,11 @@ namespace voxeland_server
 
         return ply;
     }
-
 }  // namespace voxeland_server
+
+#if ENABLE_DEBUG_GUI
+#include "debug_gui.cpp"
+#endif
 
 #include <rclcpp_components/register_node_macro.hpp>
 

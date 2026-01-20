@@ -56,12 +56,12 @@ namespace voxeland
             if (instances_candidates.size() == 0)
                 return {};
             SemanticMap& semantics = SemanticMap::get_instance();
-            std::vector<double> alphasDirichlet(semantics.default_categories.size(), 0.01); //arbitrary amount of weight to all classes to avoid 0 probability
+            std::vector<double> alphasDirichlet(semantics.default_categories.size(), 0.01);  // arbitrary amount of weight to all classes to avoid 0 probability
 
             for (InstanceID_t localInstanceID = 0; localInstanceID < instances_candidates.size(); localInstanceID++)
             {
                 const SemanticObject* globalInstance = &semantics.globalSemanticMap[instances_candidates[localInstanceID]];
-                
+
                 // if the instance has been fused with others, find the new instance that represents the fusion
                 while (globalInstance->pointsTo != -1)
                     globalInstance = &semantics.globalSemanticMap[globalInstance->pointsTo];
@@ -81,10 +81,12 @@ namespace voxeland
             return probabilities;
         }
 
-    protected:
         // if the instance with the most votes is background, but there is a real instance very close behind, returns the second one
         InstanceID_t getMostRepresentativeInstance()
         {
+            if (instances_votes.size() == 0)
+                return 0;
+            
             InstanceID_t idxMaxVotes1 = 0;
 
             if (instances_votes.size() > 1)
@@ -118,6 +120,7 @@ namespace voxeland
             return instances_candidates[idxMaxVotes1];
         }
 
+    protected:
         void AddVote(InstanceID_t thisGlobalID)
         {
             auto it = std::find(instances_candidates.begin(), instances_candidates.end(), thisGlobalID);
@@ -141,7 +144,7 @@ namespace voxeland
 
             for (InstanceID_t i = 0; i < instances_candidates.size(); i++)
             {
-                if (semantics.globalSemanticMap[instances_candidates[i]].pointsTo == -1)
+                if (semantics.globalSemanticMap[instances_candidates[i]].isStillValid())
                     candidates_temp.push_back(instances_candidates[i]);
                 else
                     candidates_temp.push_back(semantics.globalSemanticMap[instances_candidates[i]].pointsTo);

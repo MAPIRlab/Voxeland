@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(voxeland)
 
 SET(CMAKE_BUILD_TYPE "Release")
+SET(ENABLE_DEBUG_GUI ON)
 set(CMAKE_VERBOSE_MAKEFILE ON) #Outputs the compiler command to the build log file
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -77,6 +78,12 @@ if ( ament_cmake_FOUND )
       ${PCL_LIBRARIES}
       OpenMP::OpenMP_CXX
     )
+
+    if(ENABLE_DEBUG_GUI)
+        include(cmake/ament_imgui.cmake)
+        target_link_libraries(voxeland_server imgui_gl)
+        target_compile_definitions(voxeland_server PUBLIC "ENABLE_DEBUG_GUI=1")
+    endif()
 
     rclcpp_components_register_node(voxeland_server
       PLUGIN "voxeland_server::VoxelandServer"

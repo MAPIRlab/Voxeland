@@ -119,8 +119,6 @@ namespace Bonxai
         const auto coord = _grid.posToCoord(point);
         ProbabilisticCell<DataT>* cell = _accessor.value(coord, true);
 
-        // TODO updating the data here should call a function in DataT that specifies how
-        // the information is to be fused, rather than just overwriting with the latest
         cell->data.update(data);
 
         if (cell->update_id != _update_count)
