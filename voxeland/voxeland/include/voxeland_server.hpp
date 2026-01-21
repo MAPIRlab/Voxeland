@@ -8,9 +8,9 @@
 #include <pcl/segmentation/sac_segmentation.h>
 
 #include <semantics_ros_wrapper.hpp>
+#include <voxeland_map/Utils/logging.hpp>
 #include <voxeland_map/cell_types.hpp>
 #include <voxeland_map/data_modes.hpp>
-#include <voxeland_map/Utils/logging.hpp>
 #include <voxeland_map/semantics.hpp>
 
 #include "bonxai/bonxai.hpp"
@@ -27,16 +27,12 @@
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
-
-#include "tf2_eigen/tf2_eigen.hpp" // IWYU pragma: keep
-#include "tf2_ros/buffer.h"
-#include "tf2_ros/transform_listener.h"
 #include <voxeland_msgs/srv/get_class_distributions.hpp>
 #include <voxeland_msgs/srv/update_map_results.hpp>
 
-
-
-
+#include "tf2_eigen/tf2_eigen.hpp"  // IWYU pragma: keep
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/transform_listener.h"
 
 namespace voxeland_server
 {
@@ -129,8 +125,8 @@ namespace voxeland_server
         std::vector<Bonxai::CoordT> key_ray_;
 
         double max_range_;
-        std::string world_frame_id_; // the map frame
-        std::string base_frame_id_; // base of the robot for ground plane filtering
+        std::string world_frame_id_;  // the map frame
+        std::string base_frame_id_;   // base of the robot for ground plane filtering
 
         bool latched_topics_;
 
@@ -148,8 +144,28 @@ namespace voxeland_server
         // Added by JL Matez: SemanticBonxai Parameters
         bool semantics_as_instances_;
         u_int32_t number_iterations = 0;
+
+#if ENABLE_DEBUG_GUI
+        void SetupGUI();
+        void RenderGUI();
+
+        template <typename DataT>
+        void SelectObjectsAndDraw();
+        void GetQueryPoint();
+
+        template <typename DataT>
+        void PrintVoxelInfo(const Bonxai::Point3D& point);
+
+        void PrintInstanceInfo();
+
+        rclcpp::TimerBase::SharedPtr renderTimer;
+        std::vector<uint8_t> globalObjectsToDraw;
+        rclcpp::Publisher<PointCloud2>::SharedPtr debugMarkersPub;
+        Bonxai::Point3D selectedCoordinates;
+        rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr clickedPointSub;
+#endif
     };
 
-} // namespace voxeland_server
+}  // namespace voxeland_server
 
 #endif  // voxeland_server__voxeland_server_HPP_

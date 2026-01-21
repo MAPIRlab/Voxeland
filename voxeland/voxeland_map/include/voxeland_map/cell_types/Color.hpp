@@ -40,4 +40,9 @@ namespace voxeland
         return fmt::format("{} {} {}", rgb.r, rgb.g, rgb.b);
     }
 
+    inline std::uint32_t serializeColor(Color color)
+    {
+        return (std::uint32_t)color.r << 16 | (std::uint32_t)color.g << 8 | (std::uint32_t)color.b;
+    }
+
 }  // namespace voxeland

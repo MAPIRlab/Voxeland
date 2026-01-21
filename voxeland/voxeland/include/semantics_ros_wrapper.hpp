@@ -21,7 +21,7 @@ public:
 
     SemanticObject convertDetection2DToSemanticObject(const vision_msgs::msg::Detection2D& instance)
     {
-        SemanticObject semanticObject(semantics.default_categories.size(), semantics.globalSemanticMap.size() + 1);
+        SemanticObject semanticObject(semantics.default_categories.size(), -1);
 
         for (const auto& result : instance.results)
         {
@@ -73,10 +73,10 @@ public:
 
         for (size_t i = 0; i < semantics.globalSemanticMap.size(); i++)
         {
-            if (visibleInstances.count(i) > 0 && semantics.globalSemanticMap[i].pointsTo == -1)
+            if (visibleInstances.count(i) > 0 && semantics.globalSemanticMap[i].isStillValid())
             {
                 vision_msgs::msg::Detection3D instance;
-                instance.id = semantics.globalSemanticMap[i].instanceID;
+                instance.id = semantics.globalSemanticMap[i].instanceName;
                 instance.bbox.center.position.x =
                     (semantics.globalSemanticMap[i].bbox.minX + semantics.globalSemanticMap[i].bbox.maxX) / 2.0;
                 instance.bbox.center.position.y =
@@ -105,6 +105,7 @@ public:
                 visualization_msgs::msg::Marker textMarker;
                 {
                     textMarker.header.frame_id = "map";
+                    textMarker.lifetime.sec = 1;
                     textMarker.id = i;
                     textMarker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
                     textMarker.scale.z = 0.2;
