@@ -575,9 +575,11 @@ namespace voxeland_server
         PointCloudType pc;
         pcl::fromROSMsg(cloud->cloud, pc);
         pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, DataT>(pc, cloud->pose);
-        semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, DataT>(cloud->instances, pc);
+        semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, DataT>(
+            cloud->instances, pc, sensorPosition.x, sensorPosition.y, sensorPosition.z);
         bonxai_->With<DataT>()->insertPointCloud(pc.points, sensorPosition, max_range_);
-        if (number_iterations % 20 == 0)
+        // Refine more frequently (every 10 frames instead of 20) to catch over-segmentation earlier
+        if (number_iterations % 10 == 0)
         {
             const auto stime3 = rclcpp::Clock{}.now();
             semantics.refineGlobalSemanticMap<DataT>(5);

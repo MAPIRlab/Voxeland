@@ -144,13 +144,14 @@ public:
 
     template <typename PointCloudTypeT, typename DataT>
     void addLocalInstanceSemanticMap(const std::vector<vision_msgs::msg::Detection2D>& instances,
-                                     const PointCloudTypeT& pc)
+                                     const PointCloudTypeT& pc,
+                                     float sensorX = 0.0f, float sensorY = 0.0f, float sensorZ = 0.0f)
     {
         std::vector<SemanticObject> localMap = convertROSMessageToSemanticMap(instances);
 
         semantics.addInstancesGeometryToLocalSemanticMap<DataT, PointCloudTypeT>(localMap, pc);
 
-        semantics.integrateNewSemantics<DataT>(localMap);
+        semantics.integrateNewSemantics<DataT>(localMap, sensorX, sensorY, sensorZ);
     }
 
     template <typename PointCloudTypeT>

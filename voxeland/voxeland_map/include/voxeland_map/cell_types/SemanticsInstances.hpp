@@ -81,7 +81,6 @@ namespace voxeland
             return probabilities;
         }
 
-    protected:
         // if the instance with the most votes is background, but there is a real instance very close behind, returns the second one
         InstanceID_t getMostRepresentativeInstance()
         {
@@ -118,6 +117,7 @@ namespace voxeland
             return instances_candidates[idxMaxVotes1];
         }
 
+    protected:
         void AddVote(InstanceID_t thisGlobalID)
         {
             auto it = std::find(instances_candidates.begin(), instances_candidates.end(), thisGlobalID);

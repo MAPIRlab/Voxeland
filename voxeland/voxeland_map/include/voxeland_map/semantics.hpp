@@ -193,23 +193,22 @@ public:
         std::set<Bonxai::CoordT> voxels1_coarse;
         std::set<Bonxai::CoordT> voxels2_coarse;
 
+        // Use a smaller coarsening factor to preserve geometric precision
+        const int COARSE_FACTOR = 1;
+        
         for (size_t i = 0; i < voxels1.size(); i++)
         {
-            voxels1_coarse.insert(voxels1[i] / 5);
+            voxels1_coarse.insert(voxels1[i] / COARSE_FACTOR);
         }
 
         for (size_t i = 0; i < voxels2.size(); i++)
         {
-            voxels2_coarse.insert(voxels2[i] / 5);
+            voxels2_coarse.insert(voxels2[i] / COARSE_FACTOR);
         }
 
         auto orderFunc = [](const Bonxai::CoordT& c1, const Bonxai::CoordT& c2) {
             return c1.x < c2.x || (c1.x == c2.x && c1.y < c2.y) || (c1.x == c2.x && c1.y == c2.y && c1.z < c2.z);
         };
-
-        // VXL_INFO("Global voxels size: %d / Local voxels size %d", globalVoxels.size(), localVoxels_.size());
-        // std::sort(voxels1_coarse.begin(), voxels1_coarse.end(), orderFunc);
-        // std::sort(voxels2_coarse.begin(), voxels2_coarse.end(), orderFunc);
 
         std::vector<Bonxai::CoordT> intersection_;
         std::vector<Bonxai::CoordT> union_;
@@ -227,28 +226,29 @@ public:
                        std::back_inserter(union_),
                        orderFunc);
 
-        double iouLocal = 0.;
+        // Calculate directional IoUs: how much of local is in global and vice versa
+        double iouLocalContainment = 0.;  // What fraction of local voxels overlap with global
         if (voxels2_coarse.size() > 0)
         {
-            iouLocal = (double)intersection_.size() / voxels2_coarse.size();
+            iouLocalContainment = (double)intersection_.size() / voxels2_coarse.size();
         }
-        double iouGlobal = 0.;
+        double iouGlobalContainment = 0.;  // What fraction of global voxels overlap with local
         if (voxels1_coarse.size() > 0)
         {
-            iouGlobal = (double)intersection_.size() / voxels1_coarse.size();
+            iouGlobalContainment = (double)intersection_.size() / voxels1_coarse.size();
         }
-        double iou = 0.;
+        double iouStandard = 0.;  // Standard IoU (intersection over union)
         if (union_.size() > 0)
         {
-            iou = (double)intersection_.size() / union_.size();
+            iouStandard = (double)intersection_.size() / union_.size();
         }
 
-        // VXL_INFO("IoU --> Local: {} // Global: {} // Total: {}", iouLocal, iouGlobal, iou);
-        if (iouLocal > 0.3 || iouGlobal > 0.3 || iou > 0.3)
-        {
-            // if(iou > 0.3){
-            iou = 0.35;
-        }
+        // Return the maximum of the directional IoUs and standard IoU
+        // This helps detect both containment scenarios (one inside another) and partial overlaps
+        double iou = std::max({iouLocalContainment, iouGlobalContainment, iouStandard});
+
+        // VXL_INFO("IoU --> LocalContainment: {} // GlobalContainment: {} // Standard: {} // Final: {}", 
+        //          iouLocalContainment, iouGlobalContainment, iouStandard, iou);
 
         return iou;
     }
@@ -266,23 +266,22 @@ public:
         std::set<Bonxai::CoordT> voxels1_coarse;
         std::set<Bonxai::CoordT> voxels2_coarse;
 
+        // Use a smaller coarsening factor to preserve geometric precision
+        const int COARSE_FACTOR = 1;
+        
         for (size_t i = 0; i < voxels1.size(); i++)
         {
-            voxels1_coarse.insert(voxels1[i] / 5);
+            voxels1_coarse.insert(voxels1[i] / COARSE_FACTOR);
         }
 
         for (size_t i = 0; i < voxels2.size(); i++)
         {
-            voxels2_coarse.insert(voxels2[i] / 5);
+            voxels2_coarse.insert(voxels2[i] / COARSE_FACTOR);
         }
 
         auto orderFunc = [](const Bonxai::CoordT& c1, const Bonxai::CoordT& c2) {
             return c1.x < c2.x || (c1.x == c2.x && c1.y < c2.y) || (c1.x == c2.x && c1.y == c2.y && c1.z < c2.z);
         };
-
-        // VXL_INFO("Global voxels size: %d / Local voxels size %d", globalVoxels.size(), localVoxels_.size());
-        // std::sort(voxels1_coarse.begin(), voxels1_coarse.end(), orderFunc);
-        // std::sort(voxels2_coarse.begin(), voxels2_coarse.end(), orderFunc);
 
         std::vector<Bonxai::CoordT> intersection_;
         std::vector<Bonxai::CoordT> union_;
@@ -300,37 +299,34 @@ public:
                        std::back_inserter(union_),
                        orderFunc);
 
-        // VXL_INFO("GLOBAL WITH GLOBAL: {} voxels en 1 y {} voxels en 2", voxels1.size(), voxels2.size());
-        double iouLocal = 0.;
-        if (voxels1_coarse.size() > 0 && customIoU)
+        // Calculate directional IoUs (containment ratios)
+        double iouContainment1 = 0.;  // What fraction of instance1 overlaps with instance2
+        if (voxels1_coarse.size() > 0)
         {
-            iouLocal = (double)intersection_.size() / voxels1_coarse.size();
+            iouContainment1 = (double)intersection_.size() / voxels1_coarse.size();
         }
-        double iouGlobal = 0.;
-        if (voxels2_coarse.size() > 0 && customIoU)
+        double iouContainment2 = 0.;  // What fraction of instance2 overlaps with instance1
+        if (voxels2_coarse.size() > 0)
         {
-            iouGlobal = (double)intersection_.size() / voxels2_coarse.size();
+            iouContainment2 = (double)intersection_.size() / voxels2_coarse.size();
         }
-        double iou = 0.;
+        double iouStandard = 0.;  // Standard IoU
         if (union_.size() > 0)
         {
-            iou = (double)intersection_.size() / union_.size();
+            iouStandard = (double)intersection_.size() / union_.size();
         }
 
-        if (iouLocal > 0.3 || iouGlobal > 0.3 || iou > 0.3)
-        {
-            iou = 0.35;
-        }
-        VXL_INFO("local: {}, global: {}, iou: {}",
-                 (double)intersection_.size() / voxels1_coarse.size(),
-                 (double)intersection_.size() / voxels2_coarse.size(),
-                 iou);
+        // Return the maximum of directional IoUs and standard IoU for better overlap detection. This is the IoS (Intersection over Smaller)
+        double iou = std::max({iouContainment1, iouContainment2, iouStandard});
+
+        VXL_INFO("Containment1: {}, Containment2: {}, Standard: {}, Final IoU: {}",
+                 iouContainment1, iouContainment2, iouStandard, iou);
 
         return iou;
     }
 
     template <typename DataT>
-    std::vector<Bonxai::CoordT> listOfVoxelsInsideBBox(const BoundingBox3D& bbox, InstanceID_t id)
+    std::vector<Bonxai::CoordT> listOfVoxelsInsideBBox(const BoundingBox3D& bbox, InstanceID_t id, bool onlyMostProbable = true)
     {
         std::vector<Bonxai::CoordT> cellsInside;
 
@@ -352,14 +348,25 @@ public:
                     Bonxai::ProbabilisticCell<DataT>* cell = BonxaiQuery<DataT>::getAccessor().value(coord);
                     if (!cell)
                         continue;
-                    // VXL_INFO("Inicio: %d, fin: %d", cell->data.instances_candidates.begin(),
-                    // cell->data.instances_candidates.end());
-                    auto it =
-                        std::find(cell->data.instances_candidates.begin(), cell->data.instances_candidates.end(), id);
-                    if (it != cell->data.instances_candidates.end())
+                    
+                    if (onlyMostProbable)
                     {
-                        size_t idx = std::distance(cell->data.instances_candidates.begin(), it);
-                        cellsInside.push_back(coord);
+                        // Only consider voxels where this instance is the most representative (has most votes)
+                        // This avoids including voxels that once had a vote for this instance but have been
+                        // corrected with more observations to belong to a different instance
+                        if (cell->data.getMostRepresentativeInstance() == id)
+                            cellsInside.push_back(coord);
+                    }
+                    else
+                    {
+                        // Consider any voxel where this instance has at least one vote
+                        // (original behavior - may include stale votes from incorrect masks)
+                        auto it =
+                            std::find(cell->data.instances_candidates.begin(), cell->data.instances_candidates.end(), id);
+                        if (it != cell->data.instances_candidates.end())
+                        {
+                            cellsInside.push_back(coord);
+                        }
                     }
                 }
             }
@@ -386,18 +393,58 @@ public:
 
                 if (secondInstance.pointsTo == -1 && checkBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
                 {
-                    bool customIoU = false;
-                    if (firstInstance.numberObservations > 5 && secondInstance.numberObservations > 5)
+                    // Find the most probable category for each instance
+                    CategoryManager::CategoryIndex firstClassIdx = CategoryManager::UNKNOWN_CATEGORY;
+                    double maxFirstProb = 0.0;
+                    for (const auto& [catIdx, prob] : firstInstance.alphaParamsCategories)
                     {
-                        customIoU = true;
+                        if (prob > maxFirstProb)
+                        {
+                            maxFirstProb = prob;
+                            firstClassIdx = catIdx;
+                        }
                     }
+                    
+                    CategoryManager::CategoryIndex secondClassIdx = CategoryManager::UNKNOWN_CATEGORY;
+                    double maxSecondProb = 0.0;
+                    for (const auto& [catIdx, prob] : secondInstance.alphaParamsCategories)
+                    {
+                        if (prob > maxSecondProb)
+                        {
+                            maxSecondProb = prob;
+                            secondClassIdx = catIdx;
+                        }
+                    }
+                    
                     double iou = compute3DIoU<DataT>(firstInstance.bbox, i, secondInstance.bbox, j, true);
-                    if (iou > 0.3)
+                    
+                    // Adaptive threshold based on:
+                    // 1. Semantic similarity (same class = lower threshold)
+                    // 2. Number of observations (more observations = more confident, need higher IoU)
+                    double iouThreshold = 0.25;  // Base threshold (lowered from 0.3)
+                    
+                    // If both instances have the same category, be more permissive
+                    bool sameCategory = (firstClassIdx == secondClassIdx && firstClassIdx != CategoryManager::UNKNOWN_CATEGORY);
+                    if (sameCategory)
+                    {
+                        iouThreshold = 0.15;
+                    }
+                    
+                    // For instances with many observations, require slightly higher IoU
+                    // (they are more established, need stronger evidence to merge)
+                    if (firstInstance.numberObservations > 10 && secondInstance.numberObservations > 10)
+                    {
+                        iouThreshold += 0.05;
+                    }
+                    
+                    if (iou > iouThreshold)
                     {
                         // Fuse the second instance with the first one
                         secondInstance.pointsTo = i;
                         fuseSemanticObjects(firstInstance, secondInstance);
                         firstInstance.numberObservations += secondInstance.numberObservations;
+                        VXL_INFO("Refined: Fused instance {} into {} (IoU: {}, threshold: {}, sameClass: {})",
+                                 j, i, iou, iouThreshold, sameCategory);
                     }
                 }
             }
@@ -413,7 +460,8 @@ public:
     }
 
     template <typename DataT>
-    void integrateNewSemantics(const std::vector<SemanticObject>& localMap)
+    void integrateNewSemantics(const std::vector<SemanticObject>& localMap, 
+                               float sensorX = 0.0f, float sensorY = 0.0f, float sensorZ = 0.0f)
     {
         uint8_t integrated = 0;
         uint8_t added = 0;
@@ -478,7 +526,57 @@ public:
                 {
                     double iou =
                         compute3DIoU<DataT>(globalInstance.bbox, globalInstanceID, localInstance.localGeometry.value());
-                    if (iou > 0.3)
+                    
+                    // Calculate distance from sensor to the local instance center
+                    float localCenterX = (localInstance.bbox.minX + localInstance.bbox.maxX) / 2.0f;
+                    float localCenterY = (localInstance.bbox.minY + localInstance.bbox.maxY) / 2.0f;
+                    float localCenterZ = (localInstance.bbox.minZ + localInstance.bbox.maxZ) / 2.0f;
+                    float distanceToSensor = std::sqrt(
+                        (localCenterX - sensorX) * (localCenterX - sensorX) +
+                        (localCenterY - sensorY) * (localCenterY - sensorY) +
+                        (localCenterZ - sensorZ) * (localCenterZ - sensorZ)
+                    );
+                    
+                    // Dynamic IoU threshold based on distance
+                    // Close objects (< 1.5m): high IoU threshold (0.35) - we expect precise segmentation
+                    // Medium distance (1.5-3m): medium threshold (0.25)
+                    // Far objects (> 3m): low IoU threshold (0.15) but rely more on semantics
+                    double iouThreshold;
+                    double semanticBonus = 0.0;
+                    
+                    if (distanceToSensor < 1.5f)
+                    {
+                        iouThreshold = 0.35;
+                        semanticBonus = 0.05;  // Small bonus for same class when close
+                    }
+                    else if (distanceToSensor < 3.0f)
+                    {
+                        iouThreshold = 0.25;
+                        semanticBonus = 0.10;  // Medium bonus for same class at medium distance
+                    }
+                    else
+                    {
+                        iouThreshold = 0.15;
+                        semanticBonus = 0.15;  // Large bonus for same class when far (rely more on semantics)
+                    }
+                    
+                    // Apply semantic bonus: if same class, effectively lower the threshold
+                    // by adding a bonus to the IoU value instead of lowering threshold
+                    double effectiveIoU = iou;
+                    if (localClassIdx == globalClassIdx && localClassIdx != CategoryManager::UNKNOWN_CATEGORY)
+                    {
+                        // Same semantic class - add bonus to make fusion more likely
+                        effectiveIoU += semanticBonus;
+                        
+                        // Additionally, if semantic confidence is high, add extra bonus
+                        double semanticConfidence = std::min(maxLocalProbability, maxGlobalProbability);
+                        if (semanticConfidence > 0.7)
+                        {
+                            effectiveIoU += 0.05;  // Extra bonus for high confidence matches
+                        }
+                    }
+                    
+                    if (effectiveIoU > iouThreshold)
                     {
                         fuseSemanticObjects(globalInstance, localInstance);
 
@@ -487,6 +585,8 @@ public:
                         globalInstance.numberObservations += 1;
                         fused = true;
                         integrated += 1;
+                        // VXL_INFO("Fused local {} with global {} (dist: {:.2f}m, IoU: {:.3f}, effIoU: {:.3f}, thresh: {:.3f})",
+                        //          localInstanceID, globalInstanceID, distanceToSensor, iou, effectiveIoU, iouThreshold);
                         continue;
                     }
                 }
