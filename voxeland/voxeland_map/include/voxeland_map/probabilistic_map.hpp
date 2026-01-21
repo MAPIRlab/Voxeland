@@ -75,9 +75,11 @@ namespace Bonxai
 
         virtual ~ProbabilisticMap() {}
 
+        virtual Point3D coordToPos(CoordT coord) = 0;
+        virtual CoordT posToCoord(Point3D point) = 0;
+
     protected:
         virtual void updateFreeCells(const Vector3D& origin) = 0;
-        virtual Point3D coordToPos(CoordT coord) = 0;
 
         Options _options;
     };
@@ -94,7 +96,7 @@ namespace Bonxai
 
         ProbabilisticCell()
             : update_id(0)
-            , probability_log(ProbabilisticMap::UnknownProbability){};
+            , probability_log(ProbabilisticMap::UnknownProbability) {};
     };
 
     //--------------------------------------------------

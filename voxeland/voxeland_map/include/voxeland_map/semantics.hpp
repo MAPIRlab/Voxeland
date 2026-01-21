@@ -10,8 +10,8 @@
 #include <set>
 #include <unordered_map>
 #include <vector>
-#include <voxeland_map/data_modes.hpp>
 #include <voxeland_map/Utils/logging.hpp>
+#include <voxeland_map/data_modes.hpp>
 #include <voxeland_map/pcl_utils.hpp>
 #include <voxeland_map/probabilistic_map_templated.hpp>
 
@@ -39,9 +39,10 @@ struct SemanticObject
 {
     // Note: For now, it is supposed that in the globalSemanticMap, instances are not going to disappear.
     // Otherwise, it should be considered, as the instanceID cannot be the globalSemanticMap.size()+1
-    std::string instanceID;
-    std::vector<double> alphaParamsCategories; // concentration parameters for the Dirichlet distribution
-    std::vector<std::map<uint32_t,BoundingBox2D>> appearancesTimestamps;
+    InstanceID_t instanceID;
+    std::string instanceName;
+    std::vector<double> alphaParamsCategories;  // concentration parameters for the Dirichlet distribution
+    std::vector<std::map<uint32_t, BoundingBox2D>> appearancesTimestamps;
     uint32_t numberObservations = 1;
     BoundingBox3D bbox;
 
@@ -52,27 +53,42 @@ struct SemanticObject
     // the data in this SemanticObject, but instead it will check the data in the instanceID set in pointsTo.
 
     SemanticObject(size_t numCategories, InstanceID_t _instanceID)
-        : alphaParamsCategories(numCategories, 0)
-        , instanceID("obj" + std::to_string(_instanceID))
+        : instanceID(_instanceID)
+        , alphaParamsCategories(numCategories, 0)
+        , instanceName("obj" + std::to_string(_instanceID))
         , appearancesTimestamps(numCategories)
     {}
     SemanticObject(const std::vector<double>& alphas, InstanceID_t _instanceID)
-        : alphaParamsCategories(alphas)
-        , instanceID("obj" + std::to_string(_instanceID))
+        : instanceID(_instanceID)
+        , alphaParamsCategories(alphas)
+        , instanceName("obj" + std::to_string(_instanceID))
         , appearancesTimestamps(alphas.size())
     {}
     SemanticObject(size_t numCategories, InstanceID_t _instanceID, BoundingBox3D _bbox)
-        : alphaParamsCategories(numCategories, 0)
-        , instanceID("obj" + std::to_string(_instanceID))
+        : instanceID(_instanceID)
+        , alphaParamsCategories(numCategories, 0)
+        , instanceName("obj" + std::to_string(_instanceID))
         , bbox(_bbox)
         , appearancesTimestamps(numCategories)
     {}
     SemanticObject(const std::vector<double>& alphas, InstanceID_t _instanceID, BoundingBox3D _bbox)
-        : alphaParamsCategories(alphas)
-        , instanceID("obj" + std::to_string(_instanceID))
+        : instanceID(_instanceID)
+        , alphaParamsCategories(alphas)
+        , instanceName("obj" + std::to_string(_instanceID))
         , bbox(_bbox)
         , appearancesTimestamps(alphas.size())
     {}
+
+    bool isStillValid() const
+    {
+        return pointsTo == -1;
+    }
+
+    uint32_t mostLikelyCategory() const
+    {
+        auto it = std::max_element(alphaParamsCategories.begin(), alphaParamsCategories.end());
+        return std::distance(alphaParamsCategories.begin(), it);
+    }
 };
 
 class SemanticMap
@@ -80,7 +96,7 @@ class SemanticMap
 public:
     SemanticMap();
 
-    std::vector<std::string> default_categories; //list of category names. The last one is always "background"
+    std::vector<std::string> default_categories;  // list of category names. The last one is always "background"
     std::unordered_map<std::string, size_t> categoryIndexMap;
     std::vector<SemanticObject> globalSemanticMap;
     std::vector<SemanticObject> lastLocalSemanticMap;
@@ -131,34 +147,29 @@ public:
     InstanceID_t getCategoryMaxProbability(InstanceID_t objID);
 
     template <typename DataT>
-    double compute3DIoU(const BoundingBox3D& globalBbox,
-                        InstanceID_t globalID,
-                        const std::unordered_set<Bonxai::CoordT>& localVoxels)
+    double compute3DIoU(const std::vector<Bonxai::CoordT>& voxels1,
+                        const std::vector<Bonxai::CoordT>& voxels2)
     {
-        std::vector<Bonxai::CoordT> voxels1 = listOfVoxelsInsideBBox<DataT>(globalBbox, globalID);
-        std::vector<Bonxai::CoordT> voxels2;
-        voxels2.assign(localVoxels.begin(), localVoxels.end());
-
         std::set<Bonxai::CoordT> voxels1_coarse;
         std::set<Bonxai::CoordT> voxels2_coarse;
 
+        constexpr uint coarse_factor = 2;
+
         for (size_t i = 0; i < voxels1.size(); i++)
         {
-            voxels1_coarse.insert(voxels1[i] / 5);
+            Bonxai::CoordT coord = voxels1[i];
+            voxels1_coarse.insert(coord / coarse_factor);
         }
 
         for (size_t i = 0; i < voxels2.size(); i++)
         {
-            voxels2_coarse.insert(voxels2[i] / 5);
+            Bonxai::CoordT coord = voxels2[i];
+            voxels2_coarse.insert(coord / coarse_factor);
         }
 
         auto orderFunc = [](const Bonxai::CoordT& c1, const Bonxai::CoordT& c2) {
             return c1.x < c2.x || (c1.x == c2.x && c1.y < c2.y) || (c1.x == c2.x && c1.y == c2.y && c1.z < c2.z);
         };
-
-        // VXL_INFO("Global voxels size: %d / Local voxels size %d", globalVoxels.size(), localVoxels_.size());
-        // std::sort(voxels1_coarse.begin(), voxels1_coarse.end(), orderFunc);
-        // std::sort(voxels2_coarse.begin(), voxels2_coarse.end(), orderFunc);
 
         std::vector<Bonxai::CoordT> intersection_;
         std::vector<Bonxai::CoordT> union_;
@@ -176,119 +187,31 @@ public:
                        std::back_inserter(union_),
                        orderFunc);
 
-        double iouLocal = 0.;
-        if (voxels2_coarse.size() > 0)
-        {
-            iouLocal = (double)intersection_.size() / voxels2_coarse.size();
-        }
-        double iouGlobal = 0.;
+        double IoU = 0.;
+        if (union_.size() > 0)
+            IoU = ((double)intersection_.size()) / union_.size();
+
+        double IoS = 0.;
         if (voxels1_coarse.size() > 0)
-        {
-            iouGlobal = (double)intersection_.size() / voxels1_coarse.size();
-        }
-        double iou = 0.;
-        if (union_.size() > 0)
-        {
-            iou = (double)intersection_.size() / union_.size();
-        }
+            IoS = ((double)intersection_.size()) / voxels1_coarse.size();
+        if (voxels2_coarse.size() > 0)
+            IoS = std::max(IoS, ((double)intersection_.size()) / voxels2_coarse.size());
 
-        // VXL_INFO("IoU --> Local: {} // Global: {} // Total: {}", iouLocal, iouGlobal, iou);
-        if (iouLocal > 0.3 || iouGlobal > 0.3 || iou > 0.3)
-        {
-            // if(iou > 0.3){
-            iou = 0.35;
-        }
-
-        return iou;
+        // VXL_INFO("IoU: {:.2f}\nIoS: {:.2f}", IoU, IoS);
+        return std::max(IoU, IoS);  // TODO probably a good idea to just return both and let the caller decide what to do with them
     }
 
     template <typename DataT>
-    double compute3DIoU(const BoundingBox3D& bBox1,
-                        InstanceID_t id1,
-                        const BoundingBox3D& bBox2,
-                        InstanceID_t id2,
-                        bool customIoU)
-    {
-        std::vector<Bonxai::CoordT> voxels1 = listOfVoxelsInsideBBox<DataT>(bBox1, id1);
-        std::vector<Bonxai::CoordT> voxels2 = listOfVoxelsInsideBBox<DataT>(bBox2, id2);
-
-        std::set<Bonxai::CoordT> voxels1_coarse;
-        std::set<Bonxai::CoordT> voxels2_coarse;
-
-        for (size_t i = 0; i < voxels1.size(); i++)
-        {
-            voxels1_coarse.insert(voxels1[i] / 5);
-        }
-
-        for (size_t i = 0; i < voxels2.size(); i++)
-        {
-            voxels2_coarse.insert(voxels2[i] / 5);
-        }
-
-        auto orderFunc = [](const Bonxai::CoordT& c1, const Bonxai::CoordT& c2) {
-            return c1.x < c2.x || (c1.x == c2.x && c1.y < c2.y) || (c1.x == c2.x && c1.y == c2.y && c1.z < c2.z);
-        };
-
-        // VXL_INFO("Global voxels size: %d / Local voxels size %d", globalVoxels.size(), localVoxels_.size());
-        // std::sort(voxels1_coarse.begin(), voxels1_coarse.end(), orderFunc);
-        // std::sort(voxels2_coarse.begin(), voxels2_coarse.end(), orderFunc);
-
-        std::vector<Bonxai::CoordT> intersection_;
-        std::vector<Bonxai::CoordT> union_;
-
-        std::set_intersection(voxels1_coarse.begin(),
-                              voxels1_coarse.end(),
-                              voxels2_coarse.begin(),
-                              voxels2_coarse.end(),
-                              std::back_inserter(intersection_),
-                              orderFunc);
-        std::set_union(voxels1_coarse.begin(),
-                       voxels1_coarse.end(),
-                       voxels2_coarse.begin(),
-                       voxels2_coarse.end(),
-                       std::back_inserter(union_),
-                       orderFunc);
-
-        // VXL_INFO("GLOBAL WITH GLOBAL: {} voxels en 1 y {} voxels en 2", voxels1.size(), voxels2.size());
-        double iouLocal = 0.;
-        if (voxels1_coarse.size() > 0 && customIoU)
-        {
-            iouLocal = (double)intersection_.size() / voxels1_coarse.size();
-        }
-        double iouGlobal = 0.;
-        if (voxels2_coarse.size() > 0 && customIoU)
-        {
-            iouGlobal = (double)intersection_.size() / voxels2_coarse.size();
-        }
-        double iou = 0.;
-        if (union_.size() > 0)
-        {
-            iou = (double)intersection_.size() / union_.size();
-        }
-
-        if (iouLocal > 0.3 || iouGlobal > 0.3 || iou > 0.3)
-        {
-            iou = 0.35;
-        }
-        VXL_INFO("local: {}, global: {}, iou: {}",
-                 (double)intersection_.size() / voxels1_coarse.size(),
-                 (double)intersection_.size() / voxels2_coarse.size(),
-                 iou);
-
-        return iou;
-    }
-
-    template <typename DataT>
-    std::vector<Bonxai::CoordT> listOfVoxelsInsideBBox(const BoundingBox3D& bbox, InstanceID_t id)
+    std::vector<Bonxai::CoordT> listOfVoxelsInObject(const SemanticObject object)
     {
         std::vector<Bonxai::CoordT> cellsInside;
 
         Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>* bonxai = BonxaiQuery<DataT>::getBonxai()->grid();
 
         const Bonxai::CoordT coordMin = bonxai->posToCoord(Bonxai::Point3D(
-            bbox.minX - bonxai->resolution, bbox.minY - bonxai->resolution, bbox.minZ - bonxai->resolution));
+            object.bbox.minX - bonxai->resolution, object.bbox.minY - bonxai->resolution, object.bbox.minZ - bonxai->resolution));
         const Bonxai::CoordT coordMax = bonxai->posToCoord(Bonxai::Point3D(
-            bbox.maxX + bonxai->resolution, bbox.maxY + bonxai->resolution, bbox.maxZ + bonxai->resolution));
+            object.bbox.maxX + bonxai->resolution, object.bbox.maxY + bonxai->resolution, object.bbox.maxZ + bonxai->resolution));
 
         // Iterate over all points inside the bounding box
         for (int x = coordMin.x; x <= coordMax.x; x++)
@@ -301,15 +224,17 @@ public:
                     Bonxai::ProbabilisticCell<DataT>* cell = BonxaiQuery<DataT>::getAccessor().value(coord);
                     if (!cell)
                         continue;
-                    // VXL_INFO("Inicio: %d, fin: %d", cell->data.instances_candidates.begin(),
-                    // cell->data.instances_candidates.end());
-                    auto it =
-                        std::find(cell->data.instances_candidates.begin(), cell->data.instances_candidates.end(), id);
+
+                    // do we want to consider all voxels in which a single vote exists for this instance, or only the ones where the instance wins?
+#define CONSIDER_ANY_VOTE 1
+#if CONSIDER_ANY_VOTE
+                    auto it = std::find(cell->data.instances_candidates.begin(), cell->data.instances_candidates.end(), object.instanceID);
                     if (it != cell->data.instances_candidates.end())
-                    {
-                        size_t idx = std::distance(cell->data.instances_candidates.begin(), it);
                         cellsInside.push_back(coord);
-                    }
+#else
+                    if (cell->data.getMostRepresentativeInstance() == object.instanceID)
+                        cellsInside.push_back(coord);
+#endif
                 }
             }
         }
@@ -328,19 +253,22 @@ public:
             {
                 continue;
             }
+            std::vector<Bonxai::CoordT> voxelsFirst = listOfVoxelsInObject<DataT>(firstInstance);
 
             for (InstanceID_t j = i + 1; j < globalSemanticMap.size(); j++)
             {
                 SemanticObject& secondInstance = globalSemanticMap[j];
 
-                if (secondInstance.pointsTo == -1 && checkBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
+                if (secondInstance.isStillValid() && checkBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
                 {
                     bool customIoU = false;
                     if (firstInstance.numberObservations > 5 && secondInstance.numberObservations > 5)
                     {
                         customIoU = true;
                     }
-                    double iou = compute3DIoU<DataT>(firstInstance.bbox, i, secondInstance.bbox, j, true);
+                    std::vector<Bonxai::CoordT> voxelsSecond = listOfVoxelsInObject<DataT>(secondInstance);
+
+                    double iou = compute3DIoU<DataT>(voxelsFirst, voxelsSecond);
                     if (iou > 0.3)
                     {
                         // Fuse the second instance with the first one
@@ -354,7 +282,7 @@ public:
 
         for (InstanceID_t i = 1; i < globalSemanticMap.size(); i++)
         {
-            if (globalSemanticMap[i].pointsTo == -1 && globalSemanticMap[i].numberObservations <= nObservationsToRemove)
+            if (globalSemanticMap[i].isStillValid() && globalSemanticMap[i].numberObservations <= nObservationsToRemove)
             {
                 globalSemanticMap[i].pointsTo = 0;
             }
@@ -394,22 +322,16 @@ public:
 
             if (!localInstance.localGeometry.has_value())
                 continue;
-
-            std::vector<double>::const_iterator itLocal =
-                std::max_element(localInstance.alphaParamsCategories.begin(), localInstance.alphaParamsCategories.end());
-            uint8_t localClassIdx = std::distance(localInstance.alphaParamsCategories.begin(), itLocal);
+            std::vector<Bonxai::CoordT> voxelsLocal(localInstance.localGeometry->begin(), localInstance.localGeometry->end());
 
             for (InstanceID_t globalInstanceID = 1; globalInstanceID < currentInstancesNumber; globalInstanceID++)
             {
                 SemanticObject& globalInstance = globalSemanticMap[globalInstanceID];
-                std::vector<double>::iterator itGlobal =
-                    std::max_element(globalInstance.alphaParamsCategories.begin(), globalInstance.alphaParamsCategories.end());
-                uint8_t globalClassIdx = std::distance(globalInstance.alphaParamsCategories.begin(), itGlobal);
 
-                if (globalInstance.pointsTo == -1 && checkBBoxIntersect(localInstance.bbox, globalInstance.bbox))
+                if (globalInstance.isStillValid() && checkBBoxIntersect(localInstance.bbox, globalInstance.bbox))
                 {
-                    double iou =
-                        compute3DIoU<DataT>(globalInstance.bbox, globalInstanceID, localInstance.localGeometry.value());
+                    std::vector<Bonxai::CoordT> voxelsGlobal = listOfVoxelsInObject<DataT>(globalInstance);
+                    double iou = compute3DIoU<DataT>(voxelsGlobal, voxelsLocal);
                     if (iou > 0.3)
                     {
                         fuseSemanticObjects(globalInstance, localInstance);
@@ -429,7 +351,7 @@ public:
                 // Create new object integrating localMap information
                 SemanticObject newObject = SemanticObject(localInstance.alphaParamsCategories, globalSemanticMap.size(), localInstance.bbox);
                 updateAppearancesTimestamps(newObject, localInstance);
-                
+
                 // Add it to the global map
                 globalSemanticMap.push_back(newObject);
                 added += 1;
@@ -445,29 +367,29 @@ public:
 
         for (size_t i = 0; i < pc.points.size(); i++)
         {
-            if (!localMap[pc.points[i].instance_id].localGeometry.has_value())
-            {
-                localMap[pc.points[i].instance_id].localGeometry.emplace();
-            }
+            InstanceID_t instanceID = pc.points[i].instance_id;
 
-            localMap[pc.points[i].instance_id].localGeometry.value().insert(
+            if (!localMap[instanceID].localGeometry.has_value())
+                localMap[instanceID].localGeometry.emplace();
+
+            localMap[instanceID].localGeometry.value().insert(
                 bonxai->posToCoord(Bonxai::Point3D(pc.points[i].x, pc.points[i].y, pc.points[i].z)));
 
             // Update min bounds
-            localMap[pc.points[i].instance_id].bbox.minX =
-                std::min(pc.points[i].x, localMap[pc.points[i].instance_id].bbox.minX);
-            localMap[pc.points[i].instance_id].bbox.minY =
-                std::min(pc.points[i].y, localMap[pc.points[i].instance_id].bbox.minY);
-            localMap[pc.points[i].instance_id].bbox.minZ =
-                std::min(pc.points[i].z, localMap[pc.points[i].instance_id].bbox.minZ);
+            localMap[instanceID].bbox.minX =
+                std::min(pc.points[i].x, localMap[instanceID].bbox.minX);
+            localMap[instanceID].bbox.minY =
+                std::min(pc.points[i].y, localMap[instanceID].bbox.minY);
+            localMap[instanceID].bbox.minZ =
+                std::min(pc.points[i].z, localMap[instanceID].bbox.minZ);
 
             // Update max bounds
-            localMap[pc.points[i].instance_id].bbox.maxX =
-                std::max(pc.points[i].x, localMap[pc.points[i].instance_id].bbox.maxX);
-            localMap[pc.points[i].instance_id].bbox.maxY =
-                std::max(pc.points[i].y, localMap[pc.points[i].instance_id].bbox.maxY);
-            localMap[pc.points[i].instance_id].bbox.maxZ =
-                std::max(pc.points[i].z, localMap[pc.points[i].instance_id].bbox.maxZ);
+            localMap[instanceID].bbox.maxX =
+                std::max(pc.points[i].x, localMap[instanceID].bbox.maxX);
+            localMap[instanceID].bbox.maxY =
+                std::max(pc.points[i].y, localMap[instanceID].bbox.maxY);
+            localMap[instanceID].bbox.maxZ =
+                std::max(pc.points[i].z, localMap[instanceID].bbox.maxZ);
         }
     }
 
@@ -491,7 +413,7 @@ public:
                 auto itInstances = std::max_element(data.instances_votes.begin(), data.instances_votes.end());
                 auto idxMaxVotes = std::distance(data.instances_votes.begin(), itInstances);
                 InstanceID_t bestInstanceID = data.instances_candidates[idxMaxVotes];
-                if (globalSemanticMap[bestInstanceID].pointsTo == -1)
+                if (globalSemanticMap[bestInstanceID].isStillValid())
                 {
                     visibleInstances.insert(bestInstanceID);
                 }
@@ -512,34 +434,34 @@ public:
 
         for (size_t i = 0; i < globalSemanticMap.size(); i++)
         {
-            if (globalSemanticMap[i].pointsTo == -1)
+            if (globalSemanticMap[i].isStillValid())
             {
-                data_json["instances"][globalSemanticMap[i].instanceID] = {};
-                data_json["instances"][globalSemanticMap[i].instanceID]["bbox"] = {};
+                data_json["instances"][globalSemanticMap[i].instanceName] = {};
+                data_json["instances"][globalSemanticMap[i].instanceName]["bbox"] = {};
 
                 nlohmann::json center = nlohmann::json::array();
                 center.push_back((globalSemanticMap[i].bbox.minX + globalSemanticMap[i].bbox.maxX) / 2.0);
                 center.push_back((globalSemanticMap[i].bbox.minY + globalSemanticMap[i].bbox.maxY) / 2.0);
                 center.push_back((globalSemanticMap[i].bbox.minZ + globalSemanticMap[i].bbox.maxZ) / 2.0);
-                data_json["instances"][globalSemanticMap[i].instanceID]["bbox"]["center"] = center;
+                data_json["instances"][globalSemanticMap[i].instanceName]["bbox"]["center"] = center;
 
                 nlohmann::json size = nlohmann::json::array();
                 size.push_back(globalSemanticMap[i].bbox.maxX - globalSemanticMap[i].bbox.minX);
                 size.push_back(globalSemanticMap[i].bbox.maxY - globalSemanticMap[i].bbox.minY);
                 size.push_back(globalSemanticMap[i].bbox.maxZ - globalSemanticMap[i].bbox.minZ);
-                data_json["instances"][globalSemanticMap[i].instanceID]["bbox"]["size"] = size;
+                data_json["instances"][globalSemanticMap[i].instanceName]["bbox"]["size"] = size;
 
-                data_json["instances"][globalSemanticMap[i].instanceID]["results"] = {};
+                data_json["instances"][globalSemanticMap[i].instanceName]["results"] = {};
                 for (InstanceID_t j = 0; j < default_categories.size(); j++)
                 {
                     if (globalSemanticMap[i].alphaParamsCategories[j] > 0)
                     {
-                        data_json["instances"][globalSemanticMap[i].instanceID]["results"][default_categories[j]] =
+                        data_json["instances"][globalSemanticMap[i].instanceName]["results"][default_categories[j]] =
                             globalSemanticMap[i].alphaParamsCategories[j];
                     }
                 }
 
-                data_json["instances"][globalSemanticMap[i].instanceID]["n_observations"] =
+                data_json["instances"][globalSemanticMap[i].instanceName]["n_observations"] =
                     globalSemanticMap[i].numberObservations;
             }
         }
@@ -556,14 +478,15 @@ public:
 
         for (SemanticObject& instance : globalSemanticMap)
         {
-            if (instance.pointsTo != -1){
+            if (instance.pointsTo != -1)
+            {
                 continue;
             }
-            
-            auto index_iter = data_json["instances"].find(instance.instanceID);
+
+            auto index_iter = data_json["instances"].find(instance.instanceName);
             if (index_iter == data_json["instances"].end())
             {
-                throw std::runtime_error("Instance " + instance.instanceID + "not found in JSON data");
+                throw std::runtime_error("Instance " + instance.instanceName + "not found in JSON data");
             }
             const nlohmann::json& instance_json = index_iter.value();
             for (const auto& [category, alpha] : instance_json["results"].items())
@@ -574,24 +497,27 @@ public:
         }
     }
 
-    nlohmann::json appearancesToJson(){
+    nlohmann::json appearancesToJson()
+    {
         nlohmann::json data_json;
 
         data_json = {};
         for (size_t i = 0; i < globalSemanticMap.size(); i++)
         {
-            if (globalSemanticMap[i].pointsTo == -1)
+            if (globalSemanticMap[i].isStillValid())
             {
-                data_json[globalSemanticMap[i].instanceID] = {};
-                data_json[globalSemanticMap[i].instanceID]["timestamps"] = {};
-                for (size_t j = 0; j < globalSemanticMap[i].appearancesTimestamps.size(); j++){
+                data_json[globalSemanticMap[i].instanceName] = {};
+                data_json[globalSemanticMap[i].instanceName]["timestamps"] = {};
+                for (size_t j = 0; j < globalSemanticMap[i].appearancesTimestamps.size(); j++)
+                {
                     std::string category = default_categories[j];
                     const auto& appearances_map = globalSemanticMap[i].appearancesTimestamps[j];
-                    if (appearances_map.empty()){
+                    if (appearances_map.empty())
+                    {
                         continue;
                     }
 
-                    data_json[globalSemanticMap[i].instanceID]["timestamps"][category] = nlohmann::json::array();
+                    data_json[globalSemanticMap[i].instanceName]["timestamps"][category] = nlohmann::json::array();
                     for (const auto& instancePair : appearances_map)
                     {
                         nlohmann::json instanceBbox;
@@ -601,7 +527,7 @@ public:
                         instanceBbox["bbox"]["sizeX"] = instancePair.second.sizeX;
                         instanceBbox["bbox"]["sizeY"] = instancePair.second.sizeY;
 
-                        data_json[globalSemanticMap[i].instanceID]["timestamps"][category].push_back(instanceBbox);
+                        data_json[globalSemanticMap[i].instanceName]["timestamps"][category].push_back(instanceBbox);
                     }
                 }
             }

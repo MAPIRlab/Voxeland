@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 #include "voxeland_map/semantics.hpp"
-#include "cv_bridge/cv_bridge.h"
+#include "cv_bridge/cv_bridge.hpp"
 
 
 
