@@ -4,12 +4,14 @@
 find_package(ament_imgui QUIET)
 if(ament_imgui_FOUND)
 
+    message("Found ament_imgui in workspace")
     add_library(imgui_gl INTERFACE)
     target_include_directories(imgui_gl INTERFACE ${ament_imgui_INCLUDE_DIRS})
     target_link_libraries(imgui_gl INTERFACE ${ament_imgui_LIBRARIES})
 
 else()
-
+    message("Fetching ament_imgui from git")
+    include(FetchContent)
     FetchContent_Declare(
         ament_imgui
         GIT_REPOSITORY git@github.com:PepeOjeda/ament_imgui.git
