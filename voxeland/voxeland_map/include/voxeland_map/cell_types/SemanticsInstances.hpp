@@ -120,6 +120,17 @@ namespace voxeland
             return instances_candidates[idxMaxVotes1];
         }
 
+        // we implement this one as a class member because we really would like to call updateCandidatesAndVotes() before presenting any info to the user
+        std::string GetDebugInfo()
+        {
+            updateCandidatesAndVotes();
+            std::stringstream ss;
+            for (size_t i = 0; i< instances_candidates.size(); i++)
+                ss << "ojb" << instances_candidates.at(i) <<": " << instances_votes.at(i) << " votes\n";
+
+            return ss.str();
+        }
+
     protected:
         void AddVote(InstanceID_t thisGlobalID)
         {
@@ -131,6 +142,8 @@ namespace voxeland
                 instances_candidates.push_back(thisGlobalID);
                 instances_votes.push_back(1);
             }
+            //TODO since this adds a vote for every *pixel* that falls inside the voxel, we could end up running into numerical precission issues if left running for a while
+            //might be a good idea to, at some point, reduce the votes to all the instances by a set amount to avoid that
         }
 
         // account for instances having been fused since they were last observed
@@ -165,4 +178,11 @@ namespace voxeland
             }
         }
     };
+
+
+    template <>
+    inline std::string GetVoxelDescription(SemanticsInstances& voxel)
+    {
+        return voxel.GetDebugInfo();
+    }
 }  // namespace voxeland

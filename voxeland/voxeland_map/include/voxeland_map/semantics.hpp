@@ -153,7 +153,7 @@ public:
         std::set<Bonxai::CoordT> voxels1_coarse;
         std::set<Bonxai::CoordT> voxels2_coarse;
 
-        constexpr uint coarse_factor = 5;
+        constexpr uint coarse_factor = 2;
 
         for (size_t i = 0; i < voxels1.size(); i++)
         {

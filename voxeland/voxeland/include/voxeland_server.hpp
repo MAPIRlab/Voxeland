@@ -151,10 +151,18 @@ namespace voxeland_server
 
         template <typename DataT>
         void SelectObjectsAndDraw();
+        void GetQueryPoint();
+
+        template <typename DataT>
+        void PrintVoxelInfo(const Bonxai::Point3D& point);
+
+        void PrintInstanceInfo();
 
         rclcpp::TimerBase::SharedPtr renderTimer;
         std::vector<uint8_t> globalObjectsToDraw;
         rclcpp::Publisher<PointCloud2>::SharedPtr debugMarkersPub;
+        Bonxai::Point3D selectedCoordinates;
+        rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr clickedPointSub;
 #endif
     };
 
