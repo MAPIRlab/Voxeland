@@ -501,10 +501,23 @@ namespace voxeland_server
         pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, DataT>(pc, cloud->pose);
         semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, DataT>(cloud->instances, pc);
         bonxai_->With<DataT>()->insertPointCloud(pc.points, sensorPosition, max_range_);
+        
+        // publish text markers with object IDs
+        static auto textPub = create_publisher<visualization_msgs::msg::MarkerArray>("/voxeland/IDs", 1);
+        
         if (number_iterations % 20 == 0)
         {
             const auto stime3 = rclcpp::Clock{}.now();
             semantics.refineGlobalSemanticMap<DataT>(5);
+
+            // remove old markers after global refinement
+            visualization_msgs::msg::MarkerArray clearMsg;
+            {
+                visualization_msgs::msg::Marker marker;
+                marker.action = visualization_msgs::msg::Marker::DELETEALL;
+                clearMsg.markers.push_back(marker);
+            }
+            textPub->publish(clearMsg);
         }
         publishAllWithInstances<DataT>(cloud->header.stamp);
 
@@ -513,17 +526,7 @@ namespace voxeland_server
         SemanticsROSWrapper::InstanceMapMsgs msgs = semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp, visibleInstances);
         semantic_map_pub_->publish(msgs.instanceMap);
 
-        // publish text markers with object IDs
-        static auto textPub = create_publisher<visualization_msgs::msg::MarkerArray>("/voxeland/IDs", 1);
         
-        // remove old markers before publishing the new ones
-        visualization_msgs::msg::MarkerArray clearMsg;
-        {
-            visualization_msgs::msg::Marker marker;
-            marker.action = visualization_msgs::msg::Marker::DELETEALL;
-            clearMsg.markers.push_back(marker);
-        }
-        textPub->publish(clearMsg);
         textPub->publish(msgs.textMarkers);
 
         // VXL_INFO("Global map: {} visible and {} active instances", visibleInstances.size(), semantics.globalSemanticMap.size());

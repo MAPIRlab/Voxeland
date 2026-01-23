@@ -81,6 +81,16 @@ namespace voxeland_server
             return;
         }
 
+        if (ImGui::Button("Toggle all"))
+        {
+            static bool set_to = false;
+            set_to = !set_to;
+
+            for (size_t i = 0; i < globalObjectsToDraw.size(); i++)
+                if (i != 0)  // skip the background instance, it slows things down quite a bit
+                    globalObjectsToDraw.at(i) = set_to;
+        }
+
         globalObjectsToDraw.resize(semantics.globalSemanticMap.size());
         for (size_t i = 0; i < semantics.globalSemanticMap.size(); i++)
         {
@@ -177,7 +187,10 @@ namespace voxeland_server
             return;
         }
 
-        ImGui::Text("Voxel (%d, %d, %d):\n%s", coord.x, coord.y, coord.z, GetVoxelDescription(cell->data).c_str());
+        ImGui::Text("Voxel (%d, %d, %d):\n%s\n%s", 
+            coord.x, coord.y, coord.z, 
+            fmt::format("Probability occupied: {:.2f}", Bonxai::prob(cell->probability_log)).c_str(),
+            GetVoxelDescription(cell->data).c_str());
     }
 
     void VoxelandServer::PrintInstanceInfo()
@@ -240,6 +253,15 @@ namespace voxeland_server
         }
 
         localObjectsToDraw.resize(semantics.lastLocalSemanticMap.size());
+
+        if (ImGui::Button("Toggle all"))
+        {
+            static bool set_to = false;
+            set_to = !set_to;
+
+            for (size_t i = 0; i < localObjectsToDraw.size(); i++)
+                localObjectsToDraw.at(i) = set_to;
+        }
 
         for (size_t i = 0; i < localObjectsToDraw.size(); i++)
         {
