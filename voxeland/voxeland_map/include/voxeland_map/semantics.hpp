@@ -153,7 +153,7 @@ public:
         std::set<Bonxai::CoordT> voxels1_coarse;
         std::set<Bonxai::CoordT> voxels2_coarse;
 
-        constexpr uint coarse_factor = 2;
+        constexpr uint coarse_factor = 1;
 
         for (size_t i = 0; i < voxels1.size(); i++)
         {
@@ -226,7 +226,7 @@ public:
                         continue;
 
                     // do we want to consider all voxels in which a single vote exists for this instance, or only the ones where the instance wins?
-#define CONSIDER_ANY_VOTE 1
+#define CONSIDER_ANY_VOTE 0
 #if CONSIDER_ANY_VOTE
                     auto it = std::find(cell->data.instances_candidates.begin(), cell->data.instances_candidates.end(), object.instanceID);
                     if (it != cell->data.instances_candidates.end())
