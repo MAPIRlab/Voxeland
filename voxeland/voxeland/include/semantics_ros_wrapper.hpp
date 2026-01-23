@@ -3,8 +3,8 @@
 #include <cstdint>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
-#include <voxeland_map/semantics.hpp>
 #include <voxeland_map/cell_types/Color.hpp>
+#include <voxeland_map/semantics.hpp>
 
 #include "segmentation_msgs/msg/instance_semantic_map.hpp"
 #include "segmentation_msgs/msg/semantic_point_cloud.hpp"
@@ -34,7 +34,7 @@ public:
             bbox.centerY = instance.bbox.center.position.y;
             bbox.sizeX = instance.bbox.size_x;
             bbox.sizeY = instance.bbox.size_y;
-            
+
             size_t categoryIndex = semantics.categoryIndexMap[result.hypothesis.class_id];
             semanticObject.appearancesTimestamps[categoryIndex][instance.header.stamp.sec] = bbox;
         }
@@ -105,7 +105,6 @@ public:
                 visualization_msgs::msg::Marker textMarker;
                 {
                     textMarker.header.frame_id = "map";
-                    textMarker.lifetime.sec = 1;
                     textMarker.id = i;
                     textMarker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
                     textMarker.scale.z = 0.2;
@@ -113,7 +112,7 @@ public:
                     textMarker.pose.position.x = instance.bbox.center.position.x;
                     textMarker.pose.position.y = instance.bbox.center.position.y;
                     textMarker.pose.position.z = instance.bbox.center.position.z + 1.0f;
-                    
+
                     auto color = voxeland::Color::FromHex(SemanticMap::get_instance().indexToHexColor(i));
                     textMarker.color.r = color.r / 255.f;
                     textMarker.color.g = color.g / 255.f;
@@ -134,6 +133,8 @@ public:
         std::vector<SemanticObject> localMap = convertROSMessageToSemanticMap(instances);
 
         semantics.addInstancesGeometryToLocalSemanticMap<DataT, PointCloudTypeT>(localMap, pc);
+        
+        semantics.setLocalSemanticMap(localMap);
 
         semantics.integrateNewSemantics<DataT>(localMap);
     }

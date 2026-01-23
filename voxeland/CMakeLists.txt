@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(voxeland)
 
-SET(CMAKE_BUILD_TYPE "RelWithDebInfo")
 SET(ENABLE_DEBUG_GUI ON)
 set(CMAKE_VERBOSE_MAKEFILE ON) #Outputs the compiler command to the build log file
 

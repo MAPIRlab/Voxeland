@@ -1,9 +1,27 @@
 #include <imgui_gl/imgui_gl.h>
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
+#include <imgui_gl/utils.hpp>
 #include <voxeland_server.hpp>
 
 using visualization_msgs::msg::Marker;
+
+namespace ImColors
+{
+    constexpr uint32_t InfoText = 0xffbedb1a;
+    constexpr uint32_t ErrorText = 0xff2e48c9;
+
+    inline ImVec4 AsVec(uint32_t hex)
+    {
+        ImVec4 vec;
+        vec.w = (hex >> 24 & 0xff) / 255.f;
+        vec.z = (hex >> 16 & 0xff) / 255.f;
+        vec.y = (hex >> 8 & 0xff) / 255.f;
+        vec.x = (hex >> 0 & 0xff) / 255.f;
+        return vec;
+    }
+}  // namespace ImColors
+
 namespace voxeland_server
 {
     void VoxelandServer::SetupGUI()
@@ -14,7 +32,8 @@ namespace voxeland_server
             800,
             900);
         renderTimer = create_wall_timer(std::chrono::milliseconds(30), std::bind(&VoxelandServer::RenderGUI, this));
-        debugMarkersPub = create_publisher<PointCloud2>("/voxeland/debug", 1);
+        debugInstancesPub = create_publisher<PointCloud2>("/voxeland/debugInstances", 1);
+        debugInputPub = create_publisher<PointCloud2>("/voxeland/debugInput", 1);
 
         clickedPointSub = create_subscription<geometry_msgs::msg::PointStamped>(
             "/clicked_point", 1, [this](const geometry_msgs::msg::PointStamped::SharedPtr point) {
@@ -29,13 +48,26 @@ namespace voxeland_server
         ImguiGL::StartFrame();
         ImGui::DockSpaceOverViewport();
 
+        // list of checkboxes for object viz
         ImGui::Begin("Object Visualization");
         if (modeHas(DataMode::SemanticsInstances))
             AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, SelectObjectsAndDraw<DataT>(););
         ImGui::End();
 
+        // selected point to query voxel info
         GetQueryPoint();
+
+        // print info for a single instance
         PrintInstanceInfo();
+
+        // pause button
+        PauseButton();
+
+        // local instances in most recent observation
+        ImGui::Begin("Local Geometry");
+        if (modeHas(voxeland::DataMode::SemanticsInstances))
+            AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, ShowObservationPointCloud<DataT>());
+        ImGui::End();
 
         ImguiGL::Render();
     }
@@ -62,15 +94,12 @@ namespace voxeland_server
                 globalObjectsToDraw[i] = false;
         }
 
-        ImGui::Text("Selected items: ");
-
         // add all the voxels in each of the selected instances to a pcl message, with the color and instanceID
         pcl::PointCloud<pcl::PointXYZRGBSemantics> pcl_cloud;
         for (size_t i = 0; i < semantics.globalSemanticMap.size(); i++)
         {
             if (!globalObjectsToDraw[i])
                 continue;
-            ImGui::Text("\t%s", fmt::format("{}\n", i).c_str());
 
             std::vector<Bonxai::CoordT> coords;
             coords = semantics.listOfVoxelsInObject<DataT>(semantics.globalSemanticMap.at(i));
@@ -82,7 +111,8 @@ namespace voxeland_server
 
                 Bonxai::ProbabilisticCell<DataT>* cell = SemanticMap::BonxaiQuery<DataT>::getAccessor().value(coord);
 
-                if (point.z >= occupancy_min_z_ && point.z <= occupancy_max_z_)
+                if (cell->probability_log > bonxai_->options().occupancy_threshold_log  //
+                    && point.z >= occupancy_min_z_ && point.z <= occupancy_max_z_)
                 {
                     voxeland::Color visualization_color = cell->data.toColor();
                     std::uint32_t rgb = voxeland::serializeColor(visualization_color);
@@ -97,7 +127,7 @@ namespace voxeland_server
 
         cloud.header.frame_id = world_frame_id_;
         cloud.header.stamp = now();
-        debugMarkersPub->publish(cloud);
+        debugInstancesPub->publish(cloud);
     }
 
     void VoxelandServer::GetQueryPoint()
@@ -189,6 +219,65 @@ namespace voxeland_server
         }
 
         ImGui::End();
+    }
+
+    void VoxelandServer::PauseButton()
+    {
+        ImGui::Begin("PauseButton");
+        std::string label = paused ? "Continue" : "Pause";
+        if (ImGui::Button(label.c_str()))
+            paused = !paused;
+        ImGui::End();
+    }
+
+    template <typename DataT>
+    void VoxelandServer::ShowObservationPointCloud()
+    {
+        if (!paused)
+        {
+            ImGui::Text("Local geometry visualization is only possible while paused");
+            return;
+        }
+
+        localObjectsToDraw.resize(semantics.lastLocalSemanticMap.size());
+
+        for (size_t i = 0; i < localObjectsToDraw.size(); i++)
+        {
+            ImGui::Checkbox(fmt::format("Object_{}", i).c_str(), (bool*)&localObjectsToDraw[i]);
+            ImGui::SameLine();
+            ImGui::Text("%s", fmt::format("- {}", semantics.default_categories.at(semantics.lastLocalSemanticMap.at(i).mostLikelyCategory())).c_str());
+        }
+
+        using PointCloudType = typename DataT::PointCloudType;
+        PointCloudType in_pc;
+        pcl::fromROSMsg(mostRecentPointCloud->cloud, in_pc);
+
+        pcl::PointCloud<pcl::PointXYZRGBSemantics> out_pcl;
+        for (size_t i = 0; i < localObjectsToDraw.size(); i++)
+        {
+            if (localObjectsToDraw.at(i))
+            {
+                if (!semantics.lastLocalSemanticMap.at(i).localGeometry)
+                {
+                    ImGui::ScopedStyle textstyle(ImGuiCol_Text, ImColors::ErrorText);
+                    ImGui::Text("Local object %zu has no localGeometry!", i);
+                    continue;
+                }
+
+                for (const Bonxai::CoordT& coord : semantics.lastLocalSemanticMap.at(i).localGeometry.value())
+                {
+                    const Bonxai::Point3D point = bonxai_->coordToPos(coord);
+                    out_pcl.emplace_back(point.x, point.y, point.z, semantics.indexToHexColor(i), i);
+                }
+            }
+        }
+
+        PointCloud2 cloud;
+        pcl::toROSMsg(out_pcl, cloud);
+
+        cloud.header.frame_id = world_frame_id_;
+        cloud.header.stamp = now();
+        debugInputPub->publish(cloud);
     }
 
 }  // namespace voxeland_server

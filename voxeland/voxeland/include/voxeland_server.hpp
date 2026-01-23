@@ -145,6 +145,8 @@ namespace voxeland_server
         bool semantics_as_instances_;
         u_int32_t number_iterations = 0;
 
+        bool paused = false;  // stop processing new observations. To be toggled from the GUI
+
 #if ENABLE_DEBUG_GUI
         void SetupGUI();
         void RenderGUI();
@@ -157,12 +159,20 @@ namespace voxeland_server
         void PrintVoxelInfo(const Bonxai::Point3D& point);
 
         void PrintInstanceInfo();
+        void PauseButton();
+
+        template <typename DataT>
+        void ShowObservationPointCloud();
 
         rclcpp::TimerBase::SharedPtr renderTimer;
-        std::vector<uint8_t> globalObjectsToDraw;
-        rclcpp::Publisher<PointCloud2>::SharedPtr debugMarkersPub;
-        Bonxai::Point3D selectedCoordinates;
+        rclcpp::Publisher<PointCloud2>::SharedPtr debugInstancesPub;
+        rclcpp::Publisher<PointCloud2>::SharedPtr debugInputPub;
         rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr clickedPointSub;
+        
+        segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr mostRecentPointCloud;
+        std::vector<uint8_t> globalObjectsToDraw;
+        std::vector<uint8_t> localObjectsToDraw;
+        Bonxai::Point3D selectedCoordinates;
 #endif
     };
 

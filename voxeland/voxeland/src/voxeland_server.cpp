@@ -178,6 +178,13 @@ namespace voxeland_server
     /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
     void VoxelandServer::insertCloudCallback(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud)
     {
+        if (paused)
+            return;
+
+#if ENABLE_DEBUG_GUI
+        mostRecentPointCloud = cloud;
+#endif
+
         number_iterations++;
 
         const auto start_time = rclcpp::Clock{}.now();
@@ -501,13 +508,22 @@ namespace voxeland_server
         }
         publishAllWithInstances<DataT>(cloud->header.stamp);
 
-        std::set<InstanceID_t> visibleInstances =
-            semantics.getCurrentVisibleInstances<DataT>(occupancy_min_z_, occupancy_max_z_);
+        std::set<InstanceID_t> visibleInstances = semantics.getCurrentVisibleInstances<DataT>(occupancy_min_z_, occupancy_max_z_);
 
         SemanticsROSWrapper::InstanceMapMsgs msgs = semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp, visibleInstances);
         semantic_map_pub_->publish(msgs.instanceMap);
 
+        // publish text markers with object IDs
         static auto textPub = create_publisher<visualization_msgs::msg::MarkerArray>("/voxeland/IDs", 1);
+        
+        // remove old markers before publishing the new ones
+        visualization_msgs::msg::MarkerArray clearMsg;
+        {
+            visualization_msgs::msg::Marker marker;
+            marker.action = visualization_msgs::msg::Marker::DELETEALL;
+            clearMsg.markers.push_back(marker);
+        }
+        textPub->publish(clearMsg);
         textPub->publish(msgs.textMarkers);
 
         // VXL_INFO("Global map: {} visible and {} active instances", visibleInstances.size(), semantics.globalSemanticMap.size());
