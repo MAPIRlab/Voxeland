@@ -21,7 +21,7 @@ public:
 
     SemanticObject convertDetection2DToSemanticObject(const vision_msgs::msg::Detection2D& instance)
     {
-        SemanticObject semanticObject(semantics.default_categories.size(), -1);
+        SemanticObject semanticObject(-1);
 
         for (const auto& result : instance.results)
         {
@@ -34,9 +34,12 @@ public:
             bbox.centerY = instance.bbox.center.position.y;
             bbox.sizeX = instance.bbox.size_x;
             bbox.sizeY = instance.bbox.size_y;
-
-            size_t categoryIndex = semantics.categoryIndexMap[result.hypothesis.class_id];
-            semanticObject.appearancesTimestamps[categoryIndex][instance.header.stamp.sec] = bbox;
+            
+            CategoryManager::CategoryIndex categoryIndex = semantics.getCategoryIndex(result.hypothesis.class_id);
+            if (categoryIndex != CategoryManager::INVALID_CATEGORY)
+            {
+                semanticObject.appearancesTimestamps[categoryIndex][instance.header.stamp.sec] = bbox;
+            }
         }
 
         return semanticObject;
@@ -45,14 +48,21 @@ public:
     std::vector<SemanticObject>
     convertROSMessageToSemanticMap(const std::vector<vision_msgs::msg::Detection2D>& instances)
     {
-        std::vector<SemanticObject> localSemanticMap(instances.size(),
-                                                     SemanticObject(semantics.default_categories.size(), 1));
+        std::vector<SemanticObject> localSemanticMap;
+        localSemanticMap.reserve(instances.size());
 
         for (InstanceID_t i = 0; i < instances.size(); i++)
         {
             // Note that, always the 0-index refers to the "unknown" class
             SemanticObject newObject = convertDetection2DToSemanticObject(instances[i]);
-            localSemanticMap[std::atoi(instances[i].id.c_str())] = newObject;
+            
+            // Use instance ID from message or create sequential
+            int instanceIndex = std::atoi(instances[i].id.c_str());
+            if (instanceIndex >= localSemanticMap.size())
+            {
+                localSemanticMap.resize(instanceIndex + 1, SemanticObject(1));
+            }
+            localSemanticMap[instanceIndex] = newObject;
         }
 
         return localSemanticMap;
@@ -89,14 +99,20 @@ public:
                     semantics.globalSemanticMap[i].bbox.maxY - semantics.globalSemanticMap[i].bbox.minY;
                 instance.bbox.size.z =
                     semantics.globalSemanticMap[i].bbox.maxZ - semantics.globalSemanticMap[i].bbox.minZ;
-                for (size_t j = 0; j < semantics.default_categories.size(); j++)
+                
+                // Convert category probabilities to results
+                for (const auto& [categoryIndex, probability] : semantics.globalSemanticMap[i].alphaParamsCategories)
                 {
-                    if (semantics.globalSemanticMap[i].alphaParamsCategories[j] > 0)
+                    if (probability > 0)
                     {
-                        vision_msgs::msg::ObjectHypothesisWithPose instanceHypothesis;
-                        instanceHypothesis.hypothesis.class_id = semantics.default_categories[j];
-                        instanceHypothesis.hypothesis.score = semantics.globalSemanticMap[i].alphaParamsCategories[j];
-                        instance.results.push_back(instanceHypothesis);
+                        std::string categoryName = semantics.getCategoryName(categoryIndex);
+                        if (!categoryName.empty())
+                        {
+                            vision_msgs::msg::ObjectHypothesisWithPose instanceHypothesis;
+                            instanceHypothesis.hypothesis.class_id = categoryName;
+                            instanceHypothesis.hypothesis.score = probability;
+                            instance.results.push_back(instanceHypothesis);
+                        }
                     }
                 }
                 map.semantic_map.push_back(instance);

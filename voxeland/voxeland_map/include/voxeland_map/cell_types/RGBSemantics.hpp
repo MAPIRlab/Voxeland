@@ -24,11 +24,22 @@ namespace voxeland
         Color toColor() override
         {
             SemanticMap& semantics = SemanticMap::get_instance();
+            CategoryManager& catManager = CategoryManager::getInstance();
 
-            std::vector<double>::iterator it = std::max_element(alphasDirichlet.begin(), alphasDirichlet.end());
-            uint8_t mainObjectCategory = std::distance(alphasDirichlet.begin(), it);
+            // Find category with maximum probability
+            CategoryManager::CategoryIndex mainObjectCategory = CategoryManager::UNKNOWN_CATEGORY;
+            double maxProbability = 0.0;
             
-            if (mainObjectCategory == (semantics.default_categories.size() - 1))
+            for (const auto& [categoryIndex, probability] : alphasDirichlet)
+            {
+                if (probability > maxProbability)
+                {
+                    maxProbability = probability;
+                    mainObjectCategory = categoryIndex;
+                }
+            }
+            
+            if (mainObjectCategory == CategoryManager::BACKGROUND_CATEGORY)
                 return rgb;
             
             uint32_t hexColor = semantics.indexToHexColor(mainObjectCategory);

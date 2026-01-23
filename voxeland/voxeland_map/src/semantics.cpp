@@ -1,5 +1,6 @@
 #include <voxeland_map/cell_types.hpp>
 #include <voxeland_map/semantics.hpp>
+#include <voxeland_map/category_manager.hpp>
 
 SemanticMap::SemanticMap()
     : kld_threshold(0.1f)
@@ -33,11 +34,16 @@ void SemanticMap::initialize(std::vector<std::string> dataset_categories,
                              Bonxai::ProbabilisticMap& _bonxai,
                              voxeland::DataMode mode)
 {
-    // Initialize objectInfoMap with SemanticObject for each object name
-    for (size_t i = 0; i < dataset_categories.size(); ++i)
+    // Initialize CategoryManager with dataset categories
+    CategoryManager& catManager = CategoryManager::getInstance();
+    catManager.initializeWithCategories(dataset_categories);
+    
+    // Update legacy structures for backward compatibility
+    default_categories = catManager.getAllCategories();
+    categoryIndexMap.clear();
+    for (size_t i = 0; i < default_categories.size(); ++i)
     {
-        default_categories.push_back(dataset_categories[i]);
-        categoryIndexMap[dataset_categories[i]] = i;
+        categoryIndexMap[default_categories[i]] = i;
     }
     
     AUTO_TEMPLATE_SEMANTICS_ONLY(mode, BonxaiQuery<DataT>::createAccessor(_bonxai.With<DataT>()));
@@ -77,7 +83,58 @@ void SemanticMap::updateCategoryProbability(SemanticObject& semanticObject,
                                             const std::string& categoryName,
                                             double probability)
 {
-    semanticObject.alphaParamsCategories[categoryIndexMap[categoryName]] += probability;
+    CategoryManager& catManager = CategoryManager::getInstance();
+    CategoryManager::CategoryIndex categoryIndex = catManager.addCategory(categoryName);
+    
+    // Update legacy structures if new categories were added
+    if (catManager.hasNewCategories())
+    {
+        default_categories = catManager.getAllCategories();
+        categoryIndexMap.clear();
+        for (size_t i = 0; i < default_categories.size(); ++i)
+        {
+            categoryIndexMap[default_categories[i]] = i;
+        }
+    }
+    
+    semanticObject.addToCategoryProbability(categoryIndex, probability);
+}
+
+CategoryManager::CategoryIndex SemanticMap::addCategory(const std::string& categoryName)
+{
+    CategoryManager& catManager = CategoryManager::getInstance();
+    CategoryManager::CategoryIndex index = catManager.addCategory(categoryName);
+    
+    // Update legacy structures if new categories were added
+    if (catManager.hasNewCategories())
+    {
+        default_categories = catManager.getAllCategories();
+        categoryIndexMap.clear();
+        for (size_t i = 0; i < default_categories.size(); ++i)
+        {
+            categoryIndexMap[default_categories[i]] = i;
+        }
+    }
+    
+    return index;
+}
+
+CategoryManager::CategoryIndex SemanticMap::getCategoryIndex(const std::string& categoryName) const
+{
+    CategoryManager& catManager = CategoryManager::getInstance();
+    return catManager.getCategoryIndex(categoryName);
+}
+
+std::string SemanticMap::getCategoryName(CategoryManager::CategoryIndex index) const
+{
+    CategoryManager& catManager = CategoryManager::getInstance();
+    return catManager.getCategoryName(index);
+}
+
+size_t SemanticMap::getNumCategories() const
+{
+    CategoryManager& catManager = CategoryManager::getInstance();
+    return catManager.getNumCategories();
 }
 
 double SemanticMap::computeKLD(const std::vector<double>& P, const std::vector<double>& Q)
@@ -130,9 +187,10 @@ bool SemanticMap::checkBBoxIntersect(const BoundingBox3D& bbox1, const BoundingB
 
 void SemanticMap::updateAlphaCategories(SemanticObject& original, const SemanticObject& update)
 {
-    for (size_t i = 0; i < original.alphaParamsCategories.size(); i++)
+    // Merge category probabilities from update into original
+    for (const auto& [categoryIndex, probability] : update.alphaParamsCategories)
     {
-        original.alphaParamsCategories[i] += update.alphaParamsCategories[i];
+        original.alphaParamsCategories[categoryIndex] += probability;
     }
 }
 
@@ -151,11 +209,12 @@ void SemanticMap::updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D&
 
 void SemanticMap::updateAppearancesTimestamps(SemanticObject& original, const SemanticObject& update){
     
-    for (size_t i = 0; i < original.appearancesTimestamps.size(); ++i) {
+    // Merge appearances timestamps from update into original
+    for (const auto& [categoryIndex, timestampMap] : update.appearancesTimestamps) {
         // Add all timestamps from the update to the original
-        original.appearancesTimestamps[i].insert(
-            update.appearancesTimestamps[i].begin(),
-            update.appearancesTimestamps[i].end()
+        original.appearancesTimestamps[categoryIndex].insert(
+            timestampMap.begin(),
+            timestampMap.end()
         );
     }
 }

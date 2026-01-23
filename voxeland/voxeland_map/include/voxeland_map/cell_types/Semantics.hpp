@@ -1,5 +1,7 @@
 #pragma once
 #include <voxeland_map/Utils/Math.hpp>
+#include <voxeland_map/category_manager.hpp>
+#include <unordered_map>
 
 #include "Color.hpp"
 
@@ -8,7 +10,9 @@ namespace voxeland
     struct Semantics
     {
         using PointCloudType = pcl::PointCloud<pcl::PointXYZSemantics>;
-        std::vector<double> alphasDirichlet;
+        
+        // Dynamic storage for Dirichlet parameters - grows as needed
+        std::unordered_map<CategoryManager::CategoryIndex, double> alphasDirichlet;
 
         Semantics() {}
 
@@ -20,13 +24,25 @@ namespace voxeland
         virtual Color toColor()
         {
             SemanticMap& semantics = SemanticMap::get_instance();
+            CategoryManager& catManager = CategoryManager::getInstance();
 
-            std::vector<double>::iterator it = std::max_element(alphasDirichlet.begin(), alphasDirichlet.end());
-            uint8_t mainObjectCategory = std::distance(alphasDirichlet.begin(), it);
+            // Find category with maximum probability
+            CategoryManager::CategoryIndex mainObjectCategory = CategoryManager::UNKNOWN_CATEGORY;
+            double maxProbability = 0.0;
+            
+            for (const auto& [categoryIndex, probability] : alphasDirichlet)
+            {
+                if (probability > maxProbability)
+                {
+                    maxProbability = probability;
+                    mainObjectCategory = categoryIndex;
+                }
+            }
+            
             uint32_t hexColor = semantics.indexToHexColor(mainObjectCategory);
 
-            // the last one is the background category, which always gets this grey color
-            if (mainObjectCategory == (semantics.default_categories.size() - 1))
+            // The background category gets this grey color
+            if (mainObjectCategory == CategoryManager::BACKGROUND_CATEGORY)
                 hexColor = 0xbcbcbc;
 
             return Color::FromHex(hexColor);
@@ -34,7 +50,9 @@ namespace voxeland
 
         std::string toPLY(const Bonxai::Point3D& point)
         {
-            double uncertainty_categories = expected_shannon_entropy<double>(alphasDirichlet);
+            // Convert to vector for entropy calculation
+            std::vector<double> alphaVector = getAlphasDirichletVector();
+            double uncertainty_categories = expected_shannon_entropy<double>(alphaVector);
             return fmt::format("{} {} {}\n", XYZtoPLY(point), RGBtoPLY(toColor()), uncertainty_categories);
         }
 
@@ -48,11 +66,29 @@ namespace voxeland
                 getRGBheader());
         }
 
+        // Helper method to get alphas as vector for compatibility
+        std::vector<double> getAlphasDirichletVector() const
+        {
+            CategoryManager& catManager = CategoryManager::getInstance();
+            size_t numCategories = catManager.getNumCategories();
+            std::vector<double> alphaVector(numCategories, 0.0);
+            
+            for (const auto& [categoryIndex, probability] : alphasDirichlet)
+            {
+                if (categoryIndex < numCategories)
+                {
+                    alphaVector[categoryIndex] = probability;
+                }
+            }
+            
+            return alphaVector;
+        }
+
         std::vector<double> GetClassProbabilities()
         {
-            // give a small weight to every class to avoid 0 probabilities
-            std::vector<double> alphasDirichlet_local = alphasDirichlet;
-            for (size_t i = 0; i < alphasDirichlet.size(); i++)
+            // Convert to vector format and give small weight to every class to avoid 0 probabilities
+            std::vector<double> alphasDirichlet_local = getAlphasDirichletVector();
+            for (size_t i = 0; i < alphasDirichlet_local.size(); i++)
                 alphasDirichlet_local[i] = std::max(alphasDirichlet_local[i], 1.);
 
             double sum = std::accumulate(alphasDirichlet_local.begin(), alphasDirichlet_local.end(), 0.);
@@ -70,13 +106,25 @@ namespace voxeland
         void UpdateProbabilities(InstanceID_t id)
         {
             SemanticMap& semantics = SemanticMap::get_instance();
-            if (!alphasDirichlet.empty())
+            InstanceID_t globalID = semantics.localToGlobalInstance(id);
+            
+            if (globalID < semantics.globalSemanticMap.size())
             {
-                for (InstanceID_t i = 0; i < alphasDirichlet.size(); i++)
-                    alphasDirichlet[i] += semantics.lastLocalSemanticMap[id].alphaParamsCategories[i];
+                const SemanticObject& semanticObject = semantics.globalSemanticMap[globalID];
+                
+                // Merge with existing alphas or set new ones
+                if (alphasDirichlet.empty())
+                {
+                    alphasDirichlet = semanticObject.alphaParamsCategories;
+                }
+                else
+                {
+                    for (const auto& [categoryIndex, probability] : semanticObject.alphaParamsCategories)
+                    {
+                        alphasDirichlet[categoryIndex] += probability;
+                    }
+                }
             }
-            else
-                alphasDirichlet = semantics.lastLocalSemanticMap[id].alphaParamsCategories;
         }
     };
 }  // namespace voxeland

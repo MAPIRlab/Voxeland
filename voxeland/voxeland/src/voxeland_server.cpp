@@ -220,7 +220,7 @@ namespace voxeland_server
             initializeBonxaiObject();
 
         // If semantics are included in the point cloud, the possible object categories are retrieved from the
-        // first message.
+        // first message and can grow dynamically.
         if (modeHas(DataMode::Semantics) && !semantics.is_initialized())
         {
             semantics.initialize(cloud->categories, *bonxai_, currentMode);
@@ -461,7 +461,8 @@ namespace voxeland_server
             for (size_t class_id = 0; class_id < classProbabilities.size(); class_id++)
             {
                 vision_msgs::msg::ObjectHypothesis& hypothesis = distribution.probabilities.emplace_back();
-                hypothesis.class_id = SemanticMap::get_instance().default_categories[class_id];
+                std::string categoryName = SemanticMap::get_instance().getCategoryName(class_id);
+                hypothesis.class_id = categoryName.empty() ? "unknown" : categoryName;
                 hypothesis.score = classProbabilities[class_id];
             }
         }
