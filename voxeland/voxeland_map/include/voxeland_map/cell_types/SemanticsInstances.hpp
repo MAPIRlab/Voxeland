@@ -51,25 +51,27 @@ namespace voxeland
                 getRGBheader());
         }
 
+        // IMPORTANT: This only considers the classes in defaultCategories. If you use this with open vocabulary techniques, any classes that are not in COCO are ignored!
         std::vector<double> GetClassProbabilities()
         {
             if (instances_candidates.size() == 0)
                 return {};
             SemanticMap& semantics = SemanticMap::get_instance();
-            std::vector<double> alphasDirichlet(semantics.default_categories.size(), 0.01);  // arbitrary amount of weight to all classes to avoid 0 probability
+            std::vector<double> alphasDirichlet(semantics.getNumCategories(), 0.01);  // arbitrary amount of weight to all classes to avoid 0 probability
 
             for (InstanceID_t localInstanceID = 0; localInstanceID < instances_candidates.size(); localInstanceID++)
             {
                 const SemanticObject* globalInstance = &semantics.globalSemanticMap[instances_candidates[localInstanceID]];
 
                 // if the instance has been fused with others, find the new instance that represents the fusion
-                while (globalInstance->pointsTo != -1)
+                while (!globalInstance->isStillValid())
                     globalInstance = &semantics.globalSemanticMap[globalInstance->pointsTo];
 
                 float votesInstance = instances_votes[localInstanceID];
-                for (size_t category = 0; category < semantics.default_categories.size(); category++)
+                for (size_t category = 0; category < semantics.getNumCategories(); category++)
                 {
-                    alphasDirichlet.at(category) += votesInstance * globalInstance->alphaParamsCategories.at(category);
+                    if (globalInstance->alphaParamsCategories.contains(category))
+                        alphasDirichlet.at(category) += votesInstance * globalInstance->alphaParamsCategories.at(category);
                 }
             }
             double sum = std::accumulate(alphasDirichlet.begin(), alphasDirichlet.end(), 0.);
@@ -86,7 +88,7 @@ namespace voxeland
         {
             if (instances_votes.size() == 0)
                 return 0;
-            
+
             InstanceID_t idxMaxVotes1 = 0;
 
             if (instances_votes.size() > 1)
@@ -125,8 +127,8 @@ namespace voxeland
         {
             updateCandidatesAndVotes();
             std::stringstream ss;
-            for (size_t i = 0; i< instances_candidates.size(); i++)
-                ss << "ojb" << instances_candidates.at(i) <<": " << instances_votes.at(i) << " votes\n";
+            for (size_t i = 0; i < instances_candidates.size(); i++)
+                ss << "ojb" << instances_candidates.at(i) << ": " << instances_votes.at(i) << " votes\n";
 
             return ss.str();
         }
@@ -142,8 +144,8 @@ namespace voxeland
                 instances_candidates.push_back(thisGlobalID);
                 instances_votes.push_back(1);
             }
-            //TODO since this adds a vote for every *pixel* that falls inside the voxel, we could end up running into numerical precission issues if left running for a while
-            //might be a good idea to, at some point, reduce the votes to all the instances by a set amount to avoid that
+            // TODO since this adds a vote for every *pixel* that falls inside the voxel, we could end up running into numerical precission issues if left running for a while
+            // might be a good idea to, at some point, reduce the votes to all the instances by a set amount to avoid that
         }
 
         // account for instances having been fused since they were last observed
@@ -178,7 +180,6 @@ namespace voxeland
             }
         }
     };
-
 
     template <>
     inline std::string GetVoxelDescription(SemanticsInstances& voxel)

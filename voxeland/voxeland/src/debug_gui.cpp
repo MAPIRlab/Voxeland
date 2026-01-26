@@ -29,7 +29,7 @@ namespace voxeland_server
         ImguiGL::Setup(
             fmt::format("{}/resources/debug_gui.ini", ament_index_cpp::get_package_share_directory("voxeland")).c_str(),
             "voxeland_gui",
-            800,
+            1200,
             900);
         renderTimer = create_wall_timer(std::chrono::milliseconds(30), std::bind(&VoxelandServer::RenderGUI, this));
         debugInstancesPub = create_publisher<PointCloud2>("/voxeland/debugInstances", 1);
@@ -69,6 +69,8 @@ namespace voxeland_server
             AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, ShowObservationPointCloud<DataT>());
         ImGui::End();
 
+        PrintCategoriesList();
+
         ImguiGL::Render();
     }
 
@@ -98,7 +100,7 @@ namespace voxeland_server
             {
                 ImGui::Checkbox(fmt::format("Object_{}", i).c_str(), (bool*)&globalObjectsToDraw[i]);
                 ImGui::SameLine();
-                ImGui::Text("%s", fmt::format("- {}", semantics.default_categories.at(semantics.globalSemanticMap.at(i).mostLikelyCategory())).c_str());
+                ImGui::Text("%s", fmt::format("- {}", CategoryManager::getInstance().getCategoryName(semantics.globalSemanticMap.at(i).mostLikelyCategory())).c_str());
             }
             else
                 globalObjectsToDraw[i] = false;
@@ -187,10 +189,12 @@ namespace voxeland_server
             return;
         }
 
-        ImGui::Text("Voxel (%d, %d, %d):\n%s\n%s", 
-            coord.x, coord.y, coord.z, 
-            fmt::format("Probability occupied: {:.2f}", Bonxai::prob(cell->probability_log)).c_str(),
-            GetVoxelDescription(cell->data).c_str());
+        ImGui::Text("Voxel (%d, %d, %d):\n%s\n%s",
+                    coord.x,
+                    coord.y,
+                    coord.z,
+                    fmt::format("Probability occupied: {:.2f}", Bonxai::prob(cell->probability_log)).c_str(),
+                    GetVoxelDescription(cell->data).c_str());
     }
 
     void VoxelandServer::PrintInstanceInfo()
@@ -221,14 +225,11 @@ namespace voxeland_server
         }
 
         ImGui::Text("Alphas dirichlet:");
-        for (size_t i = 0; i < semantics.default_categories.size(); i++)
+        for (const auto& [categoryID, alpha] : semantics.globalSemanticMap.at(itemSelectedIdx).alphaParamsCategories)
         {
-            if (semantics.globalSemanticMap.at(itemSelectedIdx).alphaParamsCategories.at(i) > 0)
-            {
-                ImGui::Text("%s: %f",
-                            semantics.default_categories.at(i).c_str(),
-                            semantics.globalSemanticMap.at(itemSelectedIdx).alphaParamsCategories.at(i));
-            }
+            ImGui::Text("%s: %f",
+                        CategoryManager::getInstance().getCategoryName(categoryID).c_str(),
+                        alpha);
         }
 
         ImGui::End();
@@ -267,7 +268,7 @@ namespace voxeland_server
         {
             ImGui::Checkbox(fmt::format("Object_{}", i).c_str(), (bool*)&localObjectsToDraw[i]);
             ImGui::SameLine();
-            ImGui::Text("%s", fmt::format("- {}", semantics.default_categories.at(semantics.lastLocalSemanticMap.at(i).mostLikelyCategory())).c_str());
+            ImGui::Text("%s", fmt::format("- {}", CategoryManager::getInstance().getCategoryName(semantics.globalSemanticMap.at(i).mostLikelyCategory())).c_str());
         }
 
         using PointCloudType = typename DataT::PointCloudType;
@@ -300,6 +301,24 @@ namespace voxeland_server
         cloud.header.frame_id = world_frame_id_;
         cloud.header.stamp = now();
         debugInputPub->publish(cloud);
+    }
+
+    void VoxelandServer::PrintCategoriesList()
+    {
+        ImGui::Begin("List of Categories");
+
+        if (ImGui::CollapsingHeader("CatergoryManager"))
+        {
+            ImGui::TreePush("CatMan");
+            CategoryManager& catMan = CategoryManager::getInstance();
+            for (size_t i = 0; i < catMan.getNumCategories(); i++)
+            {
+                ImGui::Text("%zu - %s", i, catMan.getCategoryName(i).c_str());
+            }
+            ImGui::TreePop();
+        }
+
+        ImGui::End();
     }
 
 }  // namespace voxeland_server

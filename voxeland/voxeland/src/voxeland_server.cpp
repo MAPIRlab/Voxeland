@@ -416,7 +416,7 @@ namespace voxeland_server
         auto accessor = grid->createAccessor();
 
         auto setDefaultClassDistribution = [&](std::vector<double>& dist) {
-            size_t numCategories = SemanticMap::get_instance().default_categories.size();
+            size_t numCategories = semantics.getNumCategories();
             dist.resize(numCategories, 1. / numCategories);
         };
 
@@ -452,8 +452,8 @@ namespace voxeland_server
                 for (size_t classIndex = 0; classIndex < classProbabilities.size() - 1; classIndex++)
                     classProbabilities[classIndex] = std::lerp(0., classProbabilities[classIndex], occupancyProb);
 
-                classProbabilities.back() = std::lerp(1., classProbabilities.back(), occupancyProb);  // the last element is always the background class
-                VXL_ASSERT(classProbabilities.back() <= 1);
+                // TODO unknown vs background ????
+                classProbabilities.at(CategoryManager::BACKGROUND_CATEGORY) = std::lerp(1., classProbabilities.back(), occupancyProb);  // the last element is always the background class
             }
 
             // retrieve the corresponding class names and fill in the response
@@ -502,10 +502,10 @@ namespace voxeland_server
         pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, DataT>(pc, cloud->pose);
         semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, DataT>(cloud->instances, pc);
         bonxai_->With<DataT>()->insertPointCloud(pc.points, sensorPosition, max_range_);
-        
+
         // publish text markers with object IDs
         static auto textPub = create_publisher<visualization_msgs::msg::MarkerArray>("/voxeland/IDs", 1);
-        
+
         if (number_iterations % 20 == 0)
         {
             const auto stime3 = rclcpp::Clock{}.now();
@@ -527,7 +527,6 @@ namespace voxeland_server
         SemanticsROSWrapper::InstanceMapMsgs msgs = semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp, visibleInstances);
         semantic_map_pub_->publish(msgs.instanceMap);
 
-        
         textPub->publish(msgs.textMarkers);
 
         // VXL_INFO("Global map: {} visible and {} active instances", visibleInstances.size(), semantics.globalSemanticMap.size());

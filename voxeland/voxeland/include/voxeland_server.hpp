@@ -164,6 +164,8 @@ namespace voxeland_server
         template <typename DataT>
         void ShowObservationPointCloud();
 
+        void PrintCategoriesList();
+
         rclcpp::TimerBase::SharedPtr renderTimer;
         rclcpp::Publisher<PointCloud2>::SharedPtr debugInstancesPub;
         rclcpp::Publisher<PointCloud2>::SharedPtr debugInputPub;

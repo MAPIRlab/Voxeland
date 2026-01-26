@@ -54,10 +54,10 @@ public:
         for (InstanceID_t i = 0; i < instances.size(); i++)
         {
             // Note that, always the 0-index refers to the "unknown" class
-            SemanticObject newObject = convertDetection2DToSemanticObject(instances[i]);
+            SemanticObject newObject = convertDetection2DToSemanticObject(instances.at(i));
             
             // Use instance ID from message or create sequential
-            int instanceIndex = std::atoi(instances[i].id.c_str());
+            int instanceIndex = std::atoi(instances.at(i).id.c_str());
             if (instanceIndex >= localSemanticMap.size())
             {
                 localSemanticMap.resize(instanceIndex + 1, SemanticObject(1));
@@ -83,25 +83,25 @@ public:
 
         for (size_t i = 0; i < semantics.globalSemanticMap.size(); i++)
         {
-            if (visibleInstances.count(i) > 0 && semantics.globalSemanticMap[i].isStillValid())
+            if (visibleInstances.count(i) > 0 && semantics.globalSemanticMap.at(i).isStillValid())
             {
                 vision_msgs::msg::Detection3D instance;
-                instance.id = semantics.globalSemanticMap[i].instanceName;
+                instance.id = semantics.globalSemanticMap.at(i).instanceName;
                 instance.bbox.center.position.x =
-                    (semantics.globalSemanticMap[i].bbox.minX + semantics.globalSemanticMap[i].bbox.maxX) / 2.0;
+                    (semantics.globalSemanticMap.at(i).bbox.minX + semantics.globalSemanticMap.at(i).bbox.maxX) / 2.0;
                 instance.bbox.center.position.y =
-                    (semantics.globalSemanticMap[i].bbox.minY + semantics.globalSemanticMap[i].bbox.maxY) / 2.0;
+                    (semantics.globalSemanticMap.at(i).bbox.minY + semantics.globalSemanticMap.at(i).bbox.maxY) / 2.0;
                 instance.bbox.center.position.z =
-                    (semantics.globalSemanticMap[i].bbox.minZ + semantics.globalSemanticMap[i].bbox.maxZ) / 2.0;
+                    (semantics.globalSemanticMap.at(i).bbox.minZ + semantics.globalSemanticMap.at(i).bbox.maxZ) / 2.0;
                 instance.bbox.size.x =
-                    semantics.globalSemanticMap[i].bbox.maxX - semantics.globalSemanticMap[i].bbox.minX;
+                    semantics.globalSemanticMap.at(i).bbox.maxX - semantics.globalSemanticMap.at(i).bbox.minX;
                 instance.bbox.size.y =
-                    semantics.globalSemanticMap[i].bbox.maxY - semantics.globalSemanticMap[i].bbox.minY;
+                    semantics.globalSemanticMap.at(i).bbox.maxY - semantics.globalSemanticMap.at(i).bbox.minY;
                 instance.bbox.size.z =
-                    semantics.globalSemanticMap[i].bbox.maxZ - semantics.globalSemanticMap[i].bbox.minZ;
+                    semantics.globalSemanticMap.at(i).bbox.maxZ - semantics.globalSemanticMap.at(i).bbox.minZ;
                 
                 // Convert category probabilities to results
-                for (const auto& [categoryIndex, probability] : semantics.globalSemanticMap[i].alphaParamsCategories)
+                for (const auto& [categoryIndex, probability] : semantics.globalSemanticMap.at(i).alphaParamsCategories)
                 {
                     if (probability > 0)
                     {

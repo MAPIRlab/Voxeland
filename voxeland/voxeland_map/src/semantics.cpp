@@ -38,14 +38,6 @@ void SemanticMap::initialize(std::vector<std::string> dataset_categories,
     CategoryManager& catManager = CategoryManager::getInstance();
     catManager.initializeWithCategories(dataset_categories);
     
-    // Update legacy structures for backward compatibility
-    default_categories = catManager.getAllCategories();
-    categoryIndexMap.clear();
-    for (size_t i = 0; i < default_categories.size(); ++i)
-    {
-        categoryIndexMap[default_categories[i]] = i;
-    }
-    
     AUTO_TEMPLATE_SEMANTICS_ONLY(mode, BonxaiQuery<DataT>::createAccessor(_bonxai.With<DataT>()));
     initialized = true;
 }
@@ -85,36 +77,14 @@ void SemanticMap::updateCategoryProbability(SemanticObject& semanticObject,
 {
     CategoryManager& catManager = CategoryManager::getInstance();
     CategoryManager::CategoryIndex categoryIndex = catManager.addCategory(categoryName);
-    
-    // Update legacy structures if new categories were added
-    if (catManager.hasNewCategories())
-    {
-        default_categories = catManager.getAllCategories();
-        categoryIndexMap.clear();
-        for (size_t i = 0; i < default_categories.size(); ++i)
-        {
-            categoryIndexMap[default_categories[i]] = i;
-        }
-    }
-    
-    semanticObject.addToCategoryProbability(categoryIndex, probability);
+        
+    semanticObject.addToCategoryAlpha(categoryIndex, probability);
 }
 
 CategoryManager::CategoryIndex SemanticMap::addCategory(const std::string& categoryName)
 {
     CategoryManager& catManager = CategoryManager::getInstance();
     CategoryManager::CategoryIndex index = catManager.addCategory(categoryName);
-    
-    // Update legacy structures if new categories were added
-    if (catManager.hasNewCategories())
-    {
-        default_categories = catManager.getAllCategories();
-        categoryIndexMap.clear();
-        for (size_t i = 0; i < default_categories.size(); ++i)
-        {
-            categoryIndexMap[default_categories[i]] = i;
-        }
-    }
     
     return index;
 }
@@ -237,12 +207,4 @@ void SemanticMap::fuseSemanticObjects(SemanticObject& firstInstance, const Seman
     // Update appearances timestamps
     updateAppearancesTimestamps(firstInstance, secondInstance);
 
-}
-
-InstanceID_t SemanticMap::getCategoryMaxProbability(InstanceID_t objID)
-{
-    auto itProbs =
-        std::max_element(globalSemanticMap[objID].alphaParamsCategories.begin(), globalSemanticMap[objID].alphaParamsCategories.end());
-
-    return std::distance(globalSemanticMap[objID].alphaParamsCategories.begin(), itProbs);
 }

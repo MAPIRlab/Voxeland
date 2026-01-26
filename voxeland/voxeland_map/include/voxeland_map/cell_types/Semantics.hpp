@@ -1,7 +1,7 @@
 #pragma once
+#include <unordered_map>
 #include <voxeland_map/Utils/Math.hpp>
 #include <voxeland_map/category_manager.hpp>
-#include <unordered_map>
 
 #include "Color.hpp"
 
@@ -10,7 +10,7 @@ namespace voxeland
     struct Semantics
     {
         using PointCloudType = pcl::PointCloud<pcl::PointXYZSemantics>;
-        
+
         // Dynamic storage for Dirichlet parameters - grows as needed
         std::unordered_map<CategoryManager::CategoryIndex, double> alphasDirichlet;
 
@@ -29,7 +29,7 @@ namespace voxeland
             // Find category with maximum probability
             CategoryManager::CategoryIndex mainObjectCategory = CategoryManager::UNKNOWN_CATEGORY;
             double maxProbability = 0.0;
-            
+
             for (const auto& [categoryIndex, probability] : alphasDirichlet)
             {
                 if (probability > maxProbability)
@@ -38,7 +38,7 @@ namespace voxeland
                     mainObjectCategory = categoryIndex;
                 }
             }
-            
+
             uint32_t hexColor = semantics.indexToHexColor(mainObjectCategory);
 
             // The background category gets this grey color
@@ -72,7 +72,7 @@ namespace voxeland
             CategoryManager& catManager = CategoryManager::getInstance();
             size_t numCategories = catManager.getNumCategories();
             std::vector<double> alphaVector(numCategories, 0.0);
-            
+
             for (const auto& [categoryIndex, probability] : alphasDirichlet)
             {
                 if (categoryIndex < numCategories)
@@ -80,7 +80,7 @@ namespace voxeland
                     alphaVector[categoryIndex] = probability;
                 }
             }
-            
+
             return alphaVector;
         }
 
@@ -106,24 +106,16 @@ namespace voxeland
         void UpdateProbabilities(InstanceID_t id)
         {
             SemanticMap& semantics = SemanticMap::get_instance();
-            InstanceID_t globalID = semantics.localToGlobalInstance(id);
-            
-            if (globalID < semantics.globalSemanticMap.size())
+
+            const SemanticObject& semanticObject = semantics.lastLocalSemanticMap.at(id);
+
+            // Merge with existing alphas or set new ones
+            if (alphasDirichlet.empty())
+                alphasDirichlet = semanticObject.alphaParamsCategories;
+            else
             {
-                const SemanticObject& semanticObject = semantics.globalSemanticMap[globalID];
-                
-                // Merge with existing alphas or set new ones
-                if (alphasDirichlet.empty())
-                {
-                    alphasDirichlet = semanticObject.alphaParamsCategories;
-                }
-                else
-                {
-                    for (const auto& [categoryIndex, probability] : semanticObject.alphaParamsCategories)
-                    {
-                        alphasDirichlet[categoryIndex] += probability;
-                    }
-                }
+                for (const auto& [categoryIndex, probability] : semanticObject.alphaParamsCategories)
+                    alphasDirichlet[categoryIndex] += probability;
             }
         }
     };

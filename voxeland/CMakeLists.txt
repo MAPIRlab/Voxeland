@@ -5,18 +5,16 @@ SET(ENABLE_DEBUG_GUI ON)
 set(CMAKE_VERBOSE_MAKEFILE ON) #Outputs the compiler command to the build log file
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-
-  message(STATUS "Setting build type to 'RelWithDebInfo' as none was specified.")
-
-  set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE
-      STRING "Choose the type of build." FORCE)
-  # Set the possible values of build type for cmake-gui
-  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
-    "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+    set(CMAKE_BUILD_TYPE "Release")
+    # Set the possible values of build type for cmake-gui
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+        "Debug" "Release")
+    message(STATUS "Setting build type to 'Release' as none was specified.")
 endif()
 
+message(${CMAKE_BUILD_TYPE})
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -g")
 set(CMAKE_CXX_FLAGS_DEBUG "-fsanitize=undefined -O0 -g")
 
 #---- Add the subdirectory cmake ----

@@ -91,7 +91,6 @@ public:
     bool hasNewCategories() const;
 
 private:
-    mutable std::mutex mutex_;
     std::vector<std::string> categories_;
     std::unordered_map<std::string, CategoryIndex> categoryToIndex_;
     std::unordered_set<std::string> newCategories_;
