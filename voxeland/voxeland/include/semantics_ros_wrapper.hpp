@@ -6,6 +6,7 @@
 #include <voxeland_map/cell_types/Color.hpp>
 #include <voxeland_map/semantics.hpp>
 
+#include "Profiling.hpp"
 #include "segmentation_msgs/msg/instance_semantic_map.hpp"
 #include "segmentation_msgs/msg/semantic_point_cloud.hpp"
 #include "vision_msgs/msg/detection2_d.hpp"
@@ -34,7 +35,7 @@ public:
             bbox.centerY = instance.bbox.center.position.y;
             bbox.sizeX = instance.bbox.size_x;
             bbox.sizeY = instance.bbox.size_y;
-            
+
             CategoryManager::CategoryIndex categoryIndex = semantics.getCategoryIndex(result.hypothesis.class_id);
             if (categoryIndex != CategoryManager::INVALID_CATEGORY)
             {
@@ -55,7 +56,7 @@ public:
         {
             // Note that, always the 0-index refers to the "unknown" class
             SemanticObject newObject = convertDetection2DToSemanticObject(instances.at(i));
-            
+
             // Use instance ID from message or create sequential
             int instanceIndex = std::atoi(instances.at(i).id.c_str());
             if (instanceIndex >= localSemanticMap.size())
@@ -99,7 +100,7 @@ public:
                     semantics.globalSemanticMap.at(i).bbox.maxY - semantics.globalSemanticMap.at(i).bbox.minY;
                 instance.bbox.size.z =
                     semantics.globalSemanticMap.at(i).bbox.maxZ - semantics.globalSemanticMap.at(i).bbox.minZ;
-                
+
                 // Convert category probabilities to results
                 for (const auto& [categoryIndex, probability] : semantics.globalSemanticMap.at(i).alphaParamsCategories)
                 {
@@ -146,10 +147,11 @@ public:
     void addLocalInstanceSemanticMap(const std::vector<vision_msgs::msg::Detection2D>& instances,
                                      const PointCloudTypeT& pc)
     {
+        voxeland::ScopedStopwatch watch("Add Instances to Map");
         std::vector<SemanticObject> localMap = convertROSMessageToSemanticMap(instances);
 
         semantics.addInstancesGeometryToLocalSemanticMap<DataT, PointCloudTypeT>(localMap, pc);
-        
+
         semantics.setLocalSemanticMap(localMap);
 
         semantics.integrateNewSemantics<DataT>(localMap);
@@ -159,7 +161,6 @@ public:
     void addLocalSemanticMap(const std::vector<vision_msgs::msg::Detection2D>& instances, const PointCloudTypeT& pc)
     {
         std::vector<SemanticObject> localMap = convertROSMessageToSemanticMap(instances);
-
         semantics.setLocalSemanticMap(localMap);
     }
 

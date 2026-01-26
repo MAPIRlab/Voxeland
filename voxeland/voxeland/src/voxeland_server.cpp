@@ -7,7 +7,6 @@
 #include <segmentation_msgs/msg/instance_semantic_map.hpp>
 #include <stdexcept>
 #include <string>
-#include <voxeland_map/Utils/Stopwatch.hpp>
 #include <voxeland_server.hpp>
 
 #include "nlohmann/json.hpp"
@@ -264,9 +263,6 @@ namespace voxeland_server
             // VXL_INFO("Mode RGBSemanticsInstances");
             insertPointCloudSemanticInstances<voxeland::RGBSemanticsInstances>(cloud);
         }
-
-        double total_elapsed = (rclcpp::Clock{}.now() - start_time).seconds();
-        // VXL_INFO("Pointcloud insertion in Bonxai done, {} sec)", total_elapsed);
     }
 
     rcl_interfaces::msg::SetParametersResult VoxelandServer::onParameter(const std::vector<rclcpp::Parameter>& parameters)
@@ -507,7 +503,7 @@ namespace voxeland_server
 
         if (number_iterations % 20 == 0)
         {
-            const auto stime3 = rclcpp::Clock{}.now();
+            voxeland::ScopedStopwatch watch ("Global refinement");
             semantics.refineGlobalSemanticMap<DataT>(5);
 
             // remove old markers after global refinement

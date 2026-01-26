@@ -290,7 +290,9 @@ namespace voxeland_server
                 for (const Bonxai::CoordT& coord : semantics.lastLocalSemanticMap.at(i).localGeometry.value())
                 {
                     const Bonxai::Point3D point = bonxai_->coordToPos(coord);
-                    out_pcl.emplace_back(point.x, point.y, point.z, semantics.indexToHexColor(i), i);
+                    uint32_t rgb = semantics.indexToHexColor(i);
+                    rgb &= 0x0000ffff; // force the red channel to 0 to make the local geometry more visually distinct from the global one
+                    out_pcl.emplace_back(point.x, point.y, point.z, *reinterpret_cast<float*>(&rgb), i);
                 }
             }
         }
