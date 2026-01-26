@@ -68,8 +68,10 @@ inline void SemanticMap::addInstancesGeometryToLocalSemanticMap(std::vector<Sema
 }
 
 template <typename DataT>
-inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& localMap, 
-                               float sensorX = 0.0f, float sensorY = 0.0f, float sensorZ = 0.0f)
+inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& localMap,
+                                               float sensorX,
+                                               float sensorY,
+                                               float sensorZ)
 {
     uint8_t integrated = 0;
     uint8_t added = 0;
@@ -118,7 +120,7 @@ inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>
                 std::vector<Bonxai::CoordT> voxelsGlobal = listOfVoxelsInObject<DataT>(globalInstance);
                 double iou = compute3DIoU<DataT>(voxelsGlobal, voxelsLocal);
 
-#if 0
+#if 1
                 const double iouThreshold = localMaxCategory == globalMaxCategory ? 0.15 : 0.5;
 #else
                 // Calculate distance from sensor to the local instance center

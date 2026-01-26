@@ -30,7 +30,7 @@ public:
                     Bonxai::ProbabilisticMap& _bonxai,
                     voxeland::DataMode mode);
     bool isInitialized() { return initialized; }
-    
+
     void setLocalSemanticMap(const std::vector<SemanticObject>& localMap);
     InstanceID_t localToGlobalInstance(InstanceID_t localInstance);
     uint32_t indexToHexColor(InstanceID_t index);
@@ -53,7 +53,10 @@ public:
     void refineGlobalSemanticMap(int nObservationsToRemove);
 
     template <typename DataT>
-    void integrateNewSemantics(const std::vector<SemanticObject>& localMap);
+    void integrateNewSemantics(const std::vector<SemanticObject>& localMap,
+                               float sensorX = 0.0f,
+                               float sensorY = 0.0f,
+                               float sensorZ = 0.0f);
 
     template <typename DataT, typename PointCloudTypeT>
     void addInstancesGeometryToLocalSemanticMap(std::vector<SemanticObject>& localMap, const PointCloudTypeT& pc);
@@ -71,7 +74,6 @@ private:
     std::vector<std::uint32_t> color_palette;
     bool initialized = false;
     double kld_threshold;
-
 
     double computeKLD(const std::vector<double>& P, const std::vector<double>& Q);
     bool checkBBoxIntersect(const BoundingBox3D& box1, const BoundingBox3D& box2);
