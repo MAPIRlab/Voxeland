@@ -79,7 +79,7 @@ struct SemanticObject
                                       const std::pair<CategoryManager::CategoryIndex, double>& p2) {
                                        return p1.second < p2.second;
                                    });
-        return std::distance(alphaParamsCategories.begin(), it);
+        return it->first;
     }
 
     // Get probability for a specific category (returns 0 if category not found)
@@ -264,10 +264,9 @@ public:
         {
             SemanticObject& firstInstance = globalSemanticMap[i];
 
-            if (firstInstance.pointsTo != -1)
-            {
+            if (!firstInstance.isStillValid())
                 continue;
-            }
+
             std::vector<Bonxai::CoordT> voxelsFirst = listOfVoxelsInObject<DataT>(firstInstance);
 
             for (InstanceID_t j = i + 1; j < globalSemanticMap.size(); j++)
@@ -298,9 +297,7 @@ public:
         for (InstanceID_t i = 1; i < globalSemanticMap.size(); i++)
         {
             if (globalSemanticMap[i].isStillValid() && globalSemanticMap[i].numberObservations <= nObservationsToRemove)
-            {
                 globalSemanticMap[i].pointsTo = 0;
-            }
         }
     }
 
@@ -354,7 +351,7 @@ public:
                     std::vector<Bonxai::CoordT> voxelsGlobal = listOfVoxelsInObject<DataT>(globalInstance);
                     double iou = compute3DIoU<DataT>(voxelsGlobal, voxelsLocal);
 
-                    const double fuseThreshold = localMaxCategory == globalMaxCategory ? 0.2 : 0.4;
+                    const double fuseThreshold = localMaxCategory == globalMaxCategory ? 0.15 : 0.5;
                     if (iou > fuseThreshold)
                     {
                         fuseSemanticObjects(globalInstance, localInstance);
@@ -508,10 +505,8 @@ public:
 
         for (SemanticObject& instance : globalSemanticMap)
         {
-            if (instance.pointsTo != -1)
-            {
+            if (!instance.isStillValid())
                 continue;
-            }
 
             auto index_iter = data_json["instances"].find(instance.instanceName);
             if (index_iter == data_json["instances"].end())
