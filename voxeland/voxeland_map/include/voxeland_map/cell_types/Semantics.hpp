@@ -42,7 +42,7 @@ namespace voxeland
             uint32_t hexColor = semantics.indexToHexColor(mainObjectCategory);
 
             // The background category gets this grey color
-            if (mainObjectCategory == CategoryManager::BACKGROUND_CATEGORY)
+            if (mainObjectCategory == CategoryManager::UNKNOWN_CATEGORY)
                 hexColor = 0xbcbcbc;
 
             return Color::FromHex(hexColor);

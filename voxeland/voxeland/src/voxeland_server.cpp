@@ -452,8 +452,7 @@ namespace voxeland_server
                 for (size_t classIndex = 0; classIndex < classProbabilities.size() - 1; classIndex++)
                     classProbabilities[classIndex] = std::lerp(0., classProbabilities[classIndex], occupancyProb);
 
-                // TODO unknown vs background ????
-                classProbabilities.at(CategoryManager::BACKGROUND_CATEGORY) = std::lerp(1., classProbabilities.back(), occupancyProb);  // the last element is always the background class
+                classProbabilities.at(CategoryManager::UNKNOWN_CATEGORY) = std::lerp(1., classProbabilities.back(), occupancyProb);  // the last element is always the background class
             }
 
             // retrieve the corresponding class names and fill in the response

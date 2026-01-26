@@ -19,7 +19,6 @@ public:
     using CategoryIndex = size_t;
     static constexpr CategoryIndex INVALID_CATEGORY = SIZE_MAX;
     static constexpr CategoryIndex UNKNOWN_CATEGORY = 0;
-    static constexpr CategoryIndex BACKGROUND_CATEGORY = 1;
 
     CategoryManager();
     ~CategoryManager() = default;

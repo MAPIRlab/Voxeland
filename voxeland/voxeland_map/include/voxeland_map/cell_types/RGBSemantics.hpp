@@ -39,7 +39,7 @@ namespace voxeland
                 }
             }
             
-            if (mainObjectCategory == CategoryManager::BACKGROUND_CATEGORY)
+            if (mainObjectCategory == CategoryManager::UNKNOWN_CATEGORY)
                 return rgb;
             
             uint32_t hexColor = semantics.indexToHexColor(mainObjectCategory);

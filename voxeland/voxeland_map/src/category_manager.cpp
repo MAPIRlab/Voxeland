@@ -71,9 +71,9 @@ void CategoryManager::initializeWithCategories(const std::vector<std::string>& d
     if (initialized_)
         throw std::runtime_error("CategoryManager already initialized. Use reset() first if needed.");
 
-    // Add all default categories (unknown and background are already added in constructor)
+    // Add all default categories (unknown is already added in constructor)
     for (const auto& category : defaultCategories)
-        if (category != "unknown" && category != "background")
+        if (category != "unknown")
             addCategoryInternal(category);
 
     initialized_ = true;
@@ -88,7 +88,6 @@ void CategoryManager::reset()
 
     // Re-add default categories
     addCategoryInternal("unknown");
-    addCategoryInternal("background");
 }
 
 std::vector<std::string> CategoryManager::getNewCategories()
