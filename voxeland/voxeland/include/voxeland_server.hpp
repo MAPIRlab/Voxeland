@@ -11,7 +11,7 @@
 #include <voxeland_map/Utils/logging.hpp>
 #include <voxeland_map/cell_types.hpp>
 #include <voxeland_map/data_modes.hpp>
-#include <voxeland_map/semantics.hpp>
+#include <voxeland_map/semantic_map.hpp>
 
 #include "bonxai/bonxai.hpp"
 #include "pcl_conversions/pcl_conversions.h"

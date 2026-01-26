@@ -4,7 +4,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <voxeland_map/cell_types/Color.hpp>
-#include <voxeland_map/semantics.hpp>
+#include <voxeland_map/semantic_map.hpp>
 
 #include "Profiling.hpp"
 #include "segmentation_msgs/msg/instance_semantic_map.hpp"

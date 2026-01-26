@@ -1,5 +1,5 @@
 #include <voxeland_map/cell_types.hpp>
-#include <voxeland_map/semantics.hpp>
+#include <voxeland_map/semantic_map.hpp>
 #include <voxeland_map/category_manager.hpp>
 
 SemanticMap::SemanticMap()
@@ -25,11 +25,6 @@ SemanticMap::SemanticMap()
   };
 */
 
-bool SemanticMap::is_initialized()
-{
-    return initialized;
-}
-
 void SemanticMap::initialize(std::vector<std::string> dataset_categories,
                              Bonxai::ProbabilisticMap& _bonxai,
                              voxeland::DataMode mode)
@@ -40,17 +35,6 @@ void SemanticMap::initialize(std::vector<std::string> dataset_categories,
     
     AUTO_TEMPLATE_SEMANTICS_ONLY(mode, BonxaiQuery<DataT>::createAccessor(_bonxai.With<DataT>()));
     initialized = true;
-}
-
-uint32_t SemanticMap::getCurrentActiveInstances()
-{
-    uint32_t activeInstances = 0;
-    for (InstanceID_t i = 0; i < globalSemanticMap.size(); i++)
-    {
-        if (globalSemanticMap[i].isStillValid())
-            activeInstances += 1;
-    }
-    return activeInstances;
 }
 
 void SemanticMap::setLocalSemanticMap(const std::vector<SemanticObject>& localMap)
@@ -65,7 +49,7 @@ InstanceID_t SemanticMap::localToGlobalInstance(InstanceID_t localInstance)
 
 uint32_t SemanticMap::indexToHexColor(InstanceID_t index)
 {
-    if (index == 0)
+    if (index == CategoryManager::UNKNOWN_CATEGORY)
         return 0xbcbcbc;
 
     return color_palette[index % color_palette.size()];
@@ -207,4 +191,118 @@ void SemanticMap::fuseSemanticObjects(SemanticObject& firstInstance, const Seman
     // Update appearances timestamps
     updateAppearancesTimestamps(firstInstance, secondInstance);
 
+}
+
+nlohmann::json SemanticMap::mapToJSON()
+{
+    nlohmann::json data_json;
+
+    data_json["instances"] = {};
+
+    for (size_t i = 0; i < globalSemanticMap.size(); i++)
+    {
+        if (globalSemanticMap[i].isStillValid())
+        {
+            data_json["instances"][globalSemanticMap[i].instanceName] = {};
+            data_json["instances"][globalSemanticMap[i].instanceName]["bbox"] = {};
+
+            nlohmann::json center = nlohmann::json::array();
+            center.push_back((globalSemanticMap[i].bbox.minX + globalSemanticMap[i].bbox.maxX) / 2.0);
+            center.push_back((globalSemanticMap[i].bbox.minY + globalSemanticMap[i].bbox.maxY) / 2.0);
+            center.push_back((globalSemanticMap[i].bbox.minZ + globalSemanticMap[i].bbox.maxZ) / 2.0);
+            data_json["instances"][globalSemanticMap[i].instanceName]["bbox"]["center"] = center;
+
+            nlohmann::json size = nlohmann::json::array();
+            size.push_back(globalSemanticMap[i].bbox.maxX - globalSemanticMap[i].bbox.minX);
+            size.push_back(globalSemanticMap[i].bbox.maxY - globalSemanticMap[i].bbox.minY);
+            size.push_back(globalSemanticMap[i].bbox.maxZ - globalSemanticMap[i].bbox.minZ);
+            data_json["instances"][globalSemanticMap[i].instanceName]["bbox"]["size"] = size;
+
+            data_json["instances"][globalSemanticMap[i].instanceName]["results"] = {};
+
+            // Convert dynamic category probabilities to JSON
+            for (const auto& [categoryIndex, probability] : globalSemanticMap[i].alphaParamsCategories)
+            {
+                if (probability > 0)
+                {
+                    std::string categoryName = getCategoryName(categoryIndex);
+                    if (!categoryName.empty())
+                    {
+                        data_json["instances"][globalSemanticMap[i].instanceName]["results"][categoryName] = probability;
+                    }
+                }
+            }
+
+            data_json["instances"][globalSemanticMap[i].instanceName]["n_observations"] =
+                globalSemanticMap[i].numberObservations;
+        }
+    }
+
+    return data_json;
+}
+void SemanticMap::updateSemanticMapResultsFromJSON(const nlohmann::json& data_json)
+{
+    if (!initialized)
+    {
+        throw std::runtime_error("SemanticMap is not initialized.");
+    }
+
+    for (SemanticObject& instance : globalSemanticMap)
+    {
+        if (!instance.isStillValid())
+            continue;
+
+        auto index_iter = data_json["instances"].find(instance.instanceName);
+        if (index_iter == data_json["instances"].end())
+        {
+            throw std::runtime_error("Instance " + instance.instanceName + "not found in JSON data");
+        }
+        const nlohmann::json& instance_json = index_iter.value();
+        for (const auto& [category, alpha] : instance_json["results"].items())
+        {
+            CategoryManager::CategoryIndex categoryIndex = getCategoryIndex(category);
+            if (categoryIndex != CategoryManager::INVALID_CATEGORY)
+            {
+                instance.setCategoryAlpha(categoryIndex, alpha);
+            }
+        }
+    }
+}
+nlohmann::json SemanticMap::appearancesToJson()
+{
+    nlohmann::json data_json;
+
+    data_json = {};
+    for (size_t i = 0; i < globalSemanticMap.size(); i++)
+    {
+        if (globalSemanticMap[i].isStillValid())
+        {
+            data_json[globalSemanticMap[i].instanceName] = {};
+            data_json[globalSemanticMap[i].instanceName]["timestamps"] = {};
+            for (size_t j = 0; j < globalSemanticMap[i].appearancesTimestamps.size(); j++)
+            {
+                std::string category = getCategoryName(j);
+                const auto& appearances_map = globalSemanticMap[i].appearancesTimestamps[j];
+                if (appearances_map.empty())
+                {
+                    continue;
+                }
+
+                data_json[globalSemanticMap[i].instanceName]["timestamps"][category] = nlohmann::json::array();
+                for (const auto& instancePair : appearances_map)
+                {
+                    nlohmann::json instanceBbox;
+                    instanceBbox["instance_id"] = instancePair.first;
+                    instanceBbox["bbox"]["centerX"] = instancePair.second.centerX;
+                    instanceBbox["bbox"]["centerY"] = instancePair.second.centerY;
+                    instanceBbox["bbox"]["sizeX"] = instancePair.second.sizeX;
+                    instanceBbox["bbox"]["sizeY"] = instancePair.second.sizeY;
+
+                    data_json[globalSemanticMap[i].instanceName]["timestamps"][category].push_back(instanceBbox);
+                }
+            }
+        }
+    }
+
+    return data_json;
 }

@@ -1,11 +1,11 @@
-
+#pragma once
 #include <fmt/format.h>
 #include <pcl/io/pcd_io.h>
 
 #include <map>
 #include <voxeland_map/dirichlet.hpp>
 #include <voxeland_map/pcl_utils.hpp>
-#include <voxeland_map/semantics.hpp>
+#include <voxeland_map/semantic_map.hpp>
 
 #include "voxeland_map/probabilistic_map.hpp"
 

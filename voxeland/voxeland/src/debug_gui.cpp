@@ -121,7 +121,7 @@ namespace voxeland_server
                 const auto& coord = coords.at(i);
                 const Bonxai::Point3D point = bonxai_->coordToPos(coord);
 
-                Bonxai::ProbabilisticCell<DataT>* cell = SemanticMap::BonxaiQuery<DataT>::getAccessor().value(coord);
+                Bonxai::ProbabilisticCell<DataT>* cell = BonxaiQuery<DataT>::getAccessor().value(coord);
 
                 if (cell->probability_log > bonxai_->options().occupancy_threshold_log  //
                     && point.z >= occupancy_min_z_ && point.z <= occupancy_max_z_)
@@ -182,7 +182,7 @@ namespace voxeland_server
     void VoxelandServer::PrintVoxelInfo(const Bonxai::Point3D& point)
     {
         const Bonxai::CoordT coord = bonxai_->posToCoord(point);
-        Bonxai::ProbabilisticCell<DataT>* cell = SemanticMap::BonxaiQuery<DataT>::getAccessor().value(coord);
+        Bonxai::ProbabilisticCell<DataT>* cell = BonxaiQuery<DataT>::getAccessor().value(coord);
         if (!cell)
         {
             ImGui::Text("No voxel has been created at position (%.2f, %.2f, %.2f)", point.x, point.y, point.z);
@@ -268,7 +268,7 @@ namespace voxeland_server
         {
             ImGui::Checkbox(fmt::format("Object_{}", i).c_str(), (bool*)&localObjectsToDraw[i]);
             ImGui::SameLine();
-            ImGui::Text("%s", fmt::format("- {}", CategoryManager::getInstance().getCategoryName(semantics.globalSemanticMap.at(i).mostLikelyCategory())).c_str());
+            ImGui::Text("%s", fmt::format("- {}", CategoryManager::getInstance().getCategoryName(semantics.lastLocalSemanticMap.at(i).mostLikelyCategory())).c_str());
         }
 
         using PointCloudType = typename DataT::PointCloudType;

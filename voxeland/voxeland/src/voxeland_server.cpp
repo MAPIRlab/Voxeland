@@ -220,7 +220,7 @@ namespace voxeland_server
 
         // If semantics are included in the point cloud, the possible object categories are retrieved from the
         // first message and can grow dynamically.
-        if (modeHas(DataMode::Semantics) && !semantics.is_initialized())
+        if (modeHas(DataMode::Semantics) && !semantics.isInitialized())
         {
             semantics.initialize(cloud->categories, *bonxai_, currentMode);
             if (semantics_as_instances_)
@@ -523,8 +523,6 @@ namespace voxeland_server
         semantic_map_pub_->publish(msgs.instanceMap);
 
         textPub->publish(msgs.textMarkers);
-
-        // VXL_INFO("Global map: {} visible and {} active instances", visibleInstances.size(), semantics.globalSemanticMap.size());
     }
 
     template <typename DataT>
@@ -601,9 +599,7 @@ namespace voxeland_server
 
                 if (point.z >= occupancy_min_z_ && point.z <= occupancy_max_z_)
                 {
-                    voxeland::Color vizualization_color = cell_data[i].toColor();
-                    std::uint32_t rgb = ((std::uint32_t)vizualization_color.r << 16 | (std::uint32_t)vizualization_color.g << 8 |
-                                         (std::uint32_t)vizualization_color.b);
+                    std::uint32_t rgb = voxeland::serializeColor(cell_data[i].toColor());
                     auto itInstances = std::max_element(cell_data[i].instances_votes.begin(), cell_data[i].instances_votes.end());
                     auto idxMaxVotes = std::distance(cell_data[i].instances_votes.begin(), itInstances);
                     InstanceID_t instanceID = cell_data[i].instances_candidates[idxMaxVotes];
