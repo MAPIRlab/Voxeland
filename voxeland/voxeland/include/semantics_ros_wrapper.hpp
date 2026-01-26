@@ -145,7 +145,8 @@ public:
 
     template <typename PointCloudTypeT, typename DataT>
     void addLocalInstanceSemanticMap(const std::vector<vision_msgs::msg::Detection2D>& instances,
-                                     const PointCloudTypeT& pc)
+                                     const PointCloudTypeT& pc,
+                                     float sensorX = 0.0f, float sensorY = 0.0f, float sensorZ = 0.0f)
     {
         voxeland::ScopedStopwatch watch("Add Instances to Map");
         std::vector<SemanticObject> localMap = convertROSMessageToSemanticMap(instances);

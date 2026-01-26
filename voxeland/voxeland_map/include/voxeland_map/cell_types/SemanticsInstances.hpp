@@ -1,5 +1,6 @@
 #pragma once
 #include "Color.hpp"
+#include <sstream>
 
 namespace voxeland
 {
@@ -88,7 +89,6 @@ namespace voxeland
         {
             if (instances_votes.size() == 0)
                 return 0;
-
             InstanceID_t idxMaxVotes1 = 0;
 
             if (instances_votes.size() > 1)

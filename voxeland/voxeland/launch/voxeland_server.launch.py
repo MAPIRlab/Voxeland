@@ -12,6 +12,13 @@ def launch_arguments():
     return [
         DeclareLaunchArgument("fixed_frame", default_value="map"),
         DeclareLaunchArgument("resolution", default_value="0.02"),
+        
+        DeclareLaunchArgument("automatic_map_saving", default_value="false",
+                            description="Enable automatic map saving to evaluation folder"),
+        DeclareLaunchArgument("scene_name", default_value="unknown_scene",
+                            description="Name of the scene in format dataset_scene (e.g., scannet_scene0000_01 or scenenn_011)"),
+        DeclareLaunchArgument("detector_name", default_value="unknown_detector",
+                            description="Name of the detector being used (detectron/talos/yoloe). Required if automatic_map_saving=true"),
 
         DeclareLaunchArgument("pHit", default_value="0.6"),                 # p (occupancy | hit)
         DeclareLaunchArgument("pMiss", default_value="0.4"),                # p (occupancy | miss)
@@ -33,6 +40,10 @@ def launch_setup(context, *args, **kwargs):
            {"latch": False},
            {"semantics_as_instances": True},
            {"sensor_model.max_range": parse_substitution("$(var maxRange)")},
+           
+           {"automatic_map_saving": parse_substitution("$(var automatic_map_saving)")},
+           {"scene_name": parse_substitution("$(var scene_name)")},
+           {"detector_name": parse_substitution("$(var detector_name)")},
            
            {"sensor_model.hit": parse_substitution("$(var pHit)")},
            {"sensor_model.miss": parse_substitution("$(var pMiss)")},

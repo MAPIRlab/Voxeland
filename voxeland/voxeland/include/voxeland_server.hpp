@@ -21,6 +21,8 @@
 #include "std_srvs/srv/empty.hpp"
 #include "voxeland_map/pcl_utils.hpp"
 #include "voxeland_map/probabilistic_map_templated.hpp"
+#include "geometry_msgs/msg/point_stamped.hpp"
+#include "visualization_msgs/msg/marker.hpp"
 
 /* Added by JL Matez */
 #include <memory>
@@ -92,6 +94,13 @@ namespace voxeland_server
         template <typename DataT>
         std::string mapToPLY();
 
+        std::string semanticsMapToPLY();
+
+        void autoSaveMapCallback();
+        
+        template <typename DataT>
+        std::string fullSemanticMapToPLY();
+
         template <typename DataT>
         void insertPointCloudBasic(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
 
@@ -116,6 +125,8 @@ namespace voxeland_server
         rclcpp::Service<std_srvs::srv::Empty>::SharedPtr save_map_srv_;
         rclcpp::Service<GetClassDistributions>::SharedPtr get_distributions_srv_;
         rclcpp::Service<UpdateMapResultsSrv>::SharedPtr load_map_srv_;
+        
+        rclcpp::TimerBase::SharedPtr auto_save_timer_;
 
         std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
         std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;
@@ -143,9 +154,16 @@ namespace voxeland_server
 
         // Added by JL Matez: SemanticBonxai Parameters
         bool semantics_as_instances_;
+        bool auto_save_enabled_;
         u_int32_t number_iterations = 0;
 
         bool paused = false;  // stop processing new observations. To be toggled from the GUI
+        
+        // Scene and detector parameters for output organization
+        std::string scene_name_;
+        std::string detector_name_;
+        std::string output_ply_path_;  // Full path to the PLY file determined at startup
+        std::string output_dir_;       // Directory path for outputs
 
 #if ENABLE_DEBUG_GUI
         void SetupGUI();

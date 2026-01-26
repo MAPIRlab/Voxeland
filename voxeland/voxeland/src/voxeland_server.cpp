@@ -49,6 +49,58 @@ namespace voxeland_server
             semantics_as_instances_ = declare_parameter("semantics_as_instances", false);
         }
 
+        {
+            auto_save_enabled_ = declare_parameter("automatic_map_saving", false);
+            
+            // Only declare scene and detector parameters if automatic saving is enabled
+            if (auto_save_enabled_)
+            {
+                scene_name_ = declare_parameter("scene_name", "unknown_scene");
+                detector_name_ = declare_parameter("detector_name", "unknown_detector");
+                VXL_INFO("Automatic map saving ENABLED - Scene: {}, Detector: {}", scene_name_, detector_name_);
+                
+                // Determine output directory and file path at startup (only once)
+                // Use current working directory (usually the workspace root)
+                std::filesystem::path workspace_root = std::filesystem::current_path();
+                std::filesystem::path base_output_dir = workspace_root / "src" / "Voxeland" / "evaluation" / "voxeland_output";
+                
+                // Use scene_name directly as folder name (e.g., scannet_scene0000_01 or scenenn_011)
+                output_dir_ = (base_output_dir / scene_name_).string();
+                
+                // Create scene directory if it doesn't exist
+                std::filesystem::create_directories(output_dir_);
+                
+                // Check if PLY file already exists
+                std::string base_filename = "voxeland_semantic_map_" + detector_name_ + "_" + scene_name_;
+                std::string candidate_path = output_dir_ + "/" + base_filename + ".ply";
+                
+                if (std::filesystem::exists(candidate_path))
+                {
+                    // File exists, add timestamp
+                    auto now = std::chrono::system_clock::now();
+                    auto time_t_now = std::chrono::system_clock::to_time_t(now);
+                    std::tm tm_now;
+                    localtime_r(&time_t_now, &tm_now);
+                    
+                    char timestamp[64];
+                    std::strftime(timestamp, sizeof(timestamp), "%Y%m%d_%H%M%S", &tm_now);
+                    
+                    output_ply_path_ = output_dir_ + "/" + base_filename + "_" + timestamp + ".ply";
+                    VXL_INFO("Output file already exists. Will save to: {}", output_ply_path_);
+                }
+                else
+                {
+                    // File doesn't exist, use base name
+                    output_ply_path_ = candidate_path;
+                    VXL_INFO("Will save map to: {}", output_ply_path_);
+                }
+            }
+            else
+            {
+                VXL_INFO("Automatic map saving DISABLED");
+            }
+        }
+
         latched_topics_ = declare_parameter("latch", true);
         if (latched_topics_)
         {
@@ -94,6 +146,16 @@ namespace voxeland_server
         save_map_srv_ = create_service<ResetSrv>("~/save_map", std::bind(&VoxelandServer::saveMapSrv, this, _1, _2));
 
         load_map_srv_ = create_service<UpdateMapResultsSrv>("~/update_map_results", std::bind(&VoxelandServer::loadMapSrv, this, _1, _2));
+
+        // Auto-save timer: save map every 30 seconds (only if enabled)
+        if (auto_save_enabled_)
+        {
+            auto_save_timer_ = create_wall_timer(
+                std::chrono::seconds(30),
+                std::bind(&VoxelandServer::autoSaveMapCallback, this));
+            
+            VXL_INFO("Auto-save timer initialized: map will be saved every 30 seconds to {}", output_ply_path_);
+        }
 
         // set parameter callback
         set_param_res_ = this->add_on_set_parameters_callback(std::bind(&VoxelandServer::onParameter, this, _1));
@@ -357,6 +419,25 @@ namespace voxeland_server
         }
         outfile << ply;
         outfile.close();
+
+        // If PLY is empty and we have semantics instances, generate PLY from semantic map
+        if (ply.empty() && modeHas(DataMode::SemanticsInstances))
+        {
+            VXL_INFO("Generating PLY from semantic instances map");
+            std::string instances_ply = semanticsMapToPLY();
+            
+            std::string instances_ply_filename = "voxeland_instances_map.ply";
+            std::ofstream instances_outfile(instances_ply_filename);
+            
+            if (!instances_outfile.is_open())
+            {
+                VXL_ERROR("Cannot save instances .PLY file in: {}/{}", std::filesystem::current_path().string(), instances_ply_filename);
+                return;
+            }
+            instances_outfile << instances_ply;
+            instances_outfile.close();
+            VXL_INFO("Saved semantic instances to PLY: {} vertices", semantics.globalSemanticMap.size());
+        }
     }
 
     void VoxelandServer::loadMapSrv(const std::shared_ptr<UpdateMapResultsSrv::Request> req, const std::shared_ptr<UpdateMapResultsSrv::Response> resp)
@@ -495,13 +576,14 @@ namespace voxeland_server
         PointCloudType pc;
         pcl::fromROSMsg(cloud->cloud, pc);
         pcl::PointXYZ sensorPosition = transformPointCloudToGlobal<PointCloudType, DataT>(pc, cloud->pose);
-        semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, DataT>(cloud->instances, pc);
+        semantics_ros_wrapper.addLocalInstanceSemanticMap<PointCloudType, DataT>(
+            cloud->instances, pc, sensorPosition.x, sensorPosition.y, sensorPosition.z);
         bonxai_->With<DataT>()->insertPointCloud(pc.points, sensorPosition, max_range_);
 
         // publish text markers with object IDs
         static auto textPub = create_publisher<visualization_msgs::msg::MarkerArray>("/voxeland/IDs", 1);
 
-        if (number_iterations % 20 == 0)
+        if (number_iterations % 10 == 0)
         {
             voxeland::ScopedStopwatch watch ("Global refinement");
             semantics.refineGlobalSemanticMap<DataT>(5);
@@ -631,25 +713,9 @@ namespace voxeland_server
 
         return pcl::PointXYZ((float)t.x, (float)t.y, (float)t.z);
     }
-
-    template <typename DataT>
-    std::string VoxelandServer::mapToPLY()
-    {
-        std::vector<DataT> cell_data;
-        std::vector<Bonxai::Point3D> cell_points;
-
-        bonxai_->With<DataT>()->getOccupiedVoxels(cell_points, cell_data);
-
-        std::string ply = fmt::format("ply\nformat ascii 1.0\nelement vertex {}\n{}\nend_header\n", cell_points.size(), DataT::getHeaderPLY());
-
-        for (size_t i = 0; i < cell_points.size(); i++)
-        {
-            ply += cell_data[i].toPLY(cell_points[i]);
-        }
-
-        return ply;
-    }
 }  // namespace voxeland_server
+
+#include "export_map.cpp"
 
 #if ENABLE_DEBUG_GUI
 #include "debug_gui.cpp"

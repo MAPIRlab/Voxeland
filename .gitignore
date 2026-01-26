@@ -39,3 +39,18 @@ build
 
 # Exclude map json files
 *.json
+
+# Map outputs
+evaluation/**/*.ply
+evaluation/**/*.html
+evaluation/**/*.txt
+evaluation/**/*.xml
+evaluation/**/*.png
+voxeland_output_v*
+
+# Evaluation
+evaluation/**/*.log
+
+# Python
+__pycache__/
+*.pyc

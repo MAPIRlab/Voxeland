@@ -68,7 +68,8 @@ inline void SemanticMap::addInstancesGeometryToLocalSemanticMap(std::vector<Sema
 }
 
 template <typename DataT>
-inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& localMap)
+inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& localMap, 
+                               float sensorX = 0.0f, float sensorY = 0.0f, float sensorZ = 0.0f)
 {
     uint8_t integrated = 0;
     uint8_t added = 0;
@@ -117,8 +118,59 @@ inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>
                 std::vector<Bonxai::CoordT> voxelsGlobal = listOfVoxelsInObject<DataT>(globalInstance);
                 double iou = compute3DIoU<DataT>(voxelsGlobal, voxelsLocal);
 
-                const double fuseThreshold = localMaxCategory == globalMaxCategory ? 0.15 : 0.5;
-                if (iou > fuseThreshold)
+#if 0
+                const double iouThreshold = localMaxCategory == globalMaxCategory ? 0.15 : 0.5;
+#else
+                // Calculate distance from sensor to the local instance center
+                float localCenterX = (localInstance.bbox.minX + localInstance.bbox.maxX) / 2.0f;
+                float localCenterY = (localInstance.bbox.minY + localInstance.bbox.maxY) / 2.0f;
+                float localCenterZ = (localInstance.bbox.minZ + localInstance.bbox.maxZ) / 2.0f;
+                float distanceToSensor = std::sqrt(
+                    (localCenterX - sensorX) * (localCenterX - sensorX) +
+                    (localCenterY - sensorY) * (localCenterY - sensorY) +
+                    (localCenterZ - sensorZ) * (localCenterZ - sensorZ));
+
+                // Dynamic IoU threshold based on distance
+                // Close objects (< 1.5m): high IoU threshold (0.35) - we expect precise segmentation
+                // Medium distance (1.5-3m): medium threshold (0.25)
+                // Far objects (> 3m): low IoU threshold (0.15) but rely more on semantics
+                double iouThreshold;
+                double semanticBonus = 0.0;
+
+                if (distanceToSensor < 1.5f)
+                {
+                    iouThreshold = 0.35;
+                    semanticBonus = 0.05;  // Small bonus for same class when close
+                }
+                else if (distanceToSensor < 3.0f)
+                {
+                    iouThreshold = 0.25;
+                    semanticBonus = 0.10;  // Medium bonus for same class at medium distance
+                }
+                else
+                {
+                    iouThreshold = 0.15;
+                    semanticBonus = 0.15;  // Large bonus for same class when far (rely more on semantics)
+                }
+
+                // Apply semantic bonus: if same class, effectively lower the threshold
+                // by adding a bonus to the IoU value instead of lowering threshold
+                if (localMaxCategory == globalMaxCategory)
+                {
+                    // Same semantic class - add bonus to make fusion more likely
+                    iou += semanticBonus;
+
+                    // Additionally, if semantic confidence is high, add extra bonus
+                    double maxLocalProbability = localInstance.getCategoryAlpha(localMaxCategory);
+                    double maxGlobalProbability = globalInstance.getCategoryAlpha(globalMaxCategory);
+                    double semanticConfidence = std::min(maxLocalProbability, maxGlobalProbability);
+                    if (semanticConfidence > 0.7)
+                    {
+                        iou += 0.05;  // Extra bonus for high confidence matches
+                    }
+                }
+#endif
+                if (iou > iouThreshold)
                 {
                     fuseSemanticObjects(globalInstance, localInstance);
 
@@ -159,6 +211,7 @@ inline void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
             continue;
 
         std::vector<Bonxai::CoordT> voxelsFirst = listOfVoxelsInObject<DataT>(firstInstance);
+        CategoryManager::CategoryIndex firstClassIdx = firstInstance.mostLikelyCategory();
 
         for (InstanceID_t j = i + 1; j < globalSemanticMap.size(); j++)
         {
@@ -166,15 +219,27 @@ inline void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
 
             if (secondInstance.isStillValid() && checkBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
             {
-                bool customIoU = false;
-                if (firstInstance.numberObservations > 5 && secondInstance.numberObservations > 5)
-                {
-                    customIoU = true;
-                }
                 std::vector<Bonxai::CoordT> voxelsSecond = listOfVoxelsInObject<DataT>(secondInstance);
 
+                // Adaptive threshold based on:
+                // 1. Semantic similarity (same class = lower threshold)
+                // 2. Number of observations (more observations = more confident, need higher IoU)
+                double iouThreshold = 0.25;  // Base threshold
+
+                CategoryManager::CategoryIndex secondClassIdx = secondInstance.mostLikelyCategory();
+
+                // If both instances have the same category, be more permissive
+                bool sameCategory = firstClassIdx == secondClassIdx;
+                if (sameCategory)
+                    iouThreshold = 0.15;
+
+                // For instances with many observations, require slightly higher IoU
+                // (they are more established, need stronger evidence to merge)
+                if (firstInstance.numberObservations > 10 && secondInstance.numberObservations > 10)
+                    iouThreshold += 0.05;
+
                 double iou = compute3DIoU<DataT>(voxelsFirst, voxelsSecond);
-                if (iou > 0.3)
+                if (iou > iouThreshold)
                 {
                     // Fuse the second instance with the first one
                     secondInstance.pointsTo = i;
@@ -185,6 +250,7 @@ inline void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         }
     }
 
+    // remove instances with very few observations
     for (InstanceID_t i = 1; i < globalSemanticMap.size(); i++)
     {
         if (globalSemanticMap[i].isStillValid() && globalSemanticMap[i].numberObservations <= nObservationsToRemove)

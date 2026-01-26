@@ -9,6 +9,7 @@ if(ament_imgui_FOUND)
     target_link_libraries(imgui_gl INTERFACE ${ament_imgui_LIBRARIES})
 
 else()
+    include(FetchContent)
 
     FetchContent_Declare(
         ament_imgui
@@ -22,4 +23,3 @@ else()
     endif()
     
 endif()
-
