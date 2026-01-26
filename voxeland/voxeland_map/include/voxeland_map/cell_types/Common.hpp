@@ -35,4 +35,11 @@ namespace voxeland
                "property uchar green\n"
                "property uchar blue";
     }
+
+    // create a specialization for any DataT you want to be able to describe in the GUI
+    template <typename DataT>
+    std::string GetVoxelDescription(DataT& voxel)
+    {
+        return "GetVoxelDescription() not implemented for this type of voxel";
+    }
 }  // namespace voxeland

@@ -21,6 +21,8 @@
 #include "std_srvs/srv/empty.hpp"
 #include "voxeland_map/pcl_utils.hpp"
 #include "voxeland_map/probabilistic_map_templated.hpp"
+#include "geometry_msgs/msg/point_stamped.hpp"
+#include "visualization_msgs/msg/marker.hpp"
 
 /* Added by JL Matez */
 #include <memory>
@@ -164,6 +166,26 @@ namespace voxeland_server
         std::string detector_name_;
         std::string output_ply_path_;  // Full path to the PLY file determined at startup
         std::string output_dir_;       // Directory path for outputs
+
+#if ENABLE_DEBUG_GUI
+        void SetupGUI();
+        void RenderGUI();
+
+        template <typename DataT>
+        void SelectObjectsAndDraw();
+        void GetQueryPoint();
+
+        template <typename DataT>
+        void PrintVoxelInfo(const Bonxai::Point3D& point);
+
+        void PrintInstanceInfo();
+
+        rclcpp::TimerBase::SharedPtr renderTimer;
+        std::vector<uint8_t> globalObjectsToDraw;
+        rclcpp::Publisher<PointCloud2>::SharedPtr debugMarkersPub;
+        Bonxai::Point3D selectedCoordinates;
+        rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr clickedPointSub;
+#endif
     };
 
 } // namespace voxeland_server

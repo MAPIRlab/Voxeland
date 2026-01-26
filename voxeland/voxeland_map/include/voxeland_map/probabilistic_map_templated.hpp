@@ -79,6 +79,7 @@ namespace Bonxai
         void updateFreeCells(const Vector3D& origin) override;
 
         Point3D coordToPos(CoordT coord) override { return _grid.coordToPos(coord); }
+        CoordT posToCoord(Point3D point) override { return _grid.posToCoord(point); }
     };
 
     // Method template definitions

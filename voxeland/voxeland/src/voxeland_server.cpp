@@ -38,6 +38,10 @@ namespace voxeland_server
     VoxelandServer::VoxelandServer(const rclcpp::NodeOptions& node_options)
         : Node("voxeland_server_node", node_options)
     {
+#if ENABLE_DEBUG_GUI
+        SetupGUI();
+#endif
+
         using std::placeholders::_1;
         using std::placeholders::_2;
 
@@ -1097,6 +1101,10 @@ namespace voxeland_server
     }
 
 }  // namespace voxeland_server
+
+#if ENABLE_DEBUG_GUI
+#include "debug_gui.cpp"
+#endif
 
 #include <rclcpp_components/register_node_macro.hpp>
 

@@ -1,5 +1,6 @@
 #pragma once
 #include "Color.hpp"
+#include <sstream>
 
 namespace voxeland
 {
@@ -67,9 +68,11 @@ namespace voxeland
                     globalInstance = &semantics.globalSemanticMap[globalInstance->pointsTo];
 
                 float votesInstance = instances_votes[localInstanceID];
-                for (size_t category = 0; category < semantics.default_categories.size(); category++)
+                // alphaParamsCategories is an unordered_map, iterate over it
+                for (const auto& [catIdx, prob] : globalInstance->alphaParamsCategories)
                 {
-                    alphasDirichlet.at(category) += votesInstance * globalInstance->alphaParamsCategories.at(category);
+                    if (catIdx < alphasDirichlet.size())
+                        alphasDirichlet[catIdx] += votesInstance * prob;
                 }
             }
             double sum = std::accumulate(alphasDirichlet.begin(), alphasDirichlet.end(), 0.);
@@ -84,6 +87,9 @@ namespace voxeland
         // if the instance with the most votes is background, but there is a real instance very close behind, returns the second one
         InstanceID_t getMostRepresentativeInstance()
         {
+            if (instances_votes.size() == 0)
+                return 0;
+            
             InstanceID_t idxMaxVotes1 = 0;
 
             if (instances_votes.size() > 1)
@@ -117,6 +123,17 @@ namespace voxeland
             return instances_candidates[idxMaxVotes1];
         }
 
+        // we implement this one as a class member because we really would like to call updateCandidatesAndVotes() before presenting any info to the user
+        std::string GetDebugInfo()
+        {
+            updateCandidatesAndVotes();
+            std::stringstream ss;
+            for (size_t i = 0; i< instances_candidates.size(); i++)
+                ss << "obj" << instances_candidates.at(i) <<": " << instances_votes.at(i) << " votes\n";
+
+            return ss.str();
+        }
+
     protected:
         void AddVote(InstanceID_t thisGlobalID)
         {
@@ -141,7 +158,7 @@ namespace voxeland
 
             for (InstanceID_t i = 0; i < instances_candidates.size(); i++)
             {
-                if (semantics.globalSemanticMap[instances_candidates[i]].pointsTo == -1)
+                if (semantics.globalSemanticMap[instances_candidates[i]].isStillValid())
                     candidates_temp.push_back(instances_candidates[i]);
                 else
                     candidates_temp.push_back(semantics.globalSemanticMap[instances_candidates[i]].pointsTo);
@@ -162,4 +179,10 @@ namespace voxeland
             }
         }
     };
+
+    template <>
+    inline std::string GetVoxelDescription(SemanticsInstances& voxel)
+    {
+        return voxel.GetDebugInfo();
+    }
 }  // namespace voxeland

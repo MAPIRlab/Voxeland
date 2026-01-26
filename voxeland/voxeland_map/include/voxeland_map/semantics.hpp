@@ -115,6 +115,28 @@ struct SemanticObject
             }
         }
     }
+    
+    // Check if this instance is still valid (not fused into another)
+    bool isStillValid() const
+    {
+        return pointsTo == -1;
+    }
+    
+    // Get index of category with highest probability
+    uint32_t mostLikelyCategory() const
+    {
+        CategoryManager::CategoryIndex maxIdx = CategoryManager::UNKNOWN_CATEGORY;
+        double maxProb = 0.0;
+        for (const auto& [catIdx, prob] : alphaParamsCategories)
+        {
+            if (prob > maxProb)
+            {
+                maxProb = prob;
+                maxIdx = catIdx;
+            }
+        }
+        return maxIdx;
+    }
 };
 
 class SemanticMap
@@ -182,11 +204,10 @@ public:
     InstanceID_t getCategoryMaxProbability(InstanceID_t objID);
 
     template <typename DataT>
-    double compute3DIoU(const BoundingBox3D& globalBbox,
-                        InstanceID_t globalID,
+    double compute3DIoU(const SemanticObject& globalObject,
                         const std::unordered_set<Bonxai::CoordT>& localVoxels)
     {
-        std::vector<Bonxai::CoordT> voxels1 = listOfVoxelsInsideBBox<DataT>(globalBbox, globalID);
+        std::vector<Bonxai::CoordT> voxels1 = listOfVoxelsInObject<DataT>(globalObject);
         std::vector<Bonxai::CoordT> voxels2;
         voxels2.assign(localVoxels.begin(), localVoxels.end());
 
@@ -254,14 +275,12 @@ public:
     }
 
     template <typename DataT>
-    double compute3DIoU(const BoundingBox3D& bBox1,
-                        InstanceID_t id1,
-                        const BoundingBox3D& bBox2,
-                        InstanceID_t id2,
+    double compute3DIoU(const SemanticObject& obj1,
+                        const SemanticObject& obj2,
                         bool customIoU)
     {
-        std::vector<Bonxai::CoordT> voxels1 = listOfVoxelsInsideBBox<DataT>(bBox1, id1);
-        std::vector<Bonxai::CoordT> voxels2 = listOfVoxelsInsideBBox<DataT>(bBox2, id2);
+        std::vector<Bonxai::CoordT> voxels1 = listOfVoxelsInObject<DataT>(obj1);
+        std::vector<Bonxai::CoordT> voxels2 = listOfVoxelsInObject<DataT>(obj2);
 
         std::set<Bonxai::CoordT> voxels1_coarse;
         std::set<Bonxai::CoordT> voxels2_coarse;
@@ -326,16 +345,16 @@ public:
     }
 
     template <typename DataT>
-    std::vector<Bonxai::CoordT> listOfVoxelsInsideBBox(const BoundingBox3D& bbox, InstanceID_t id, bool onlyMostProbable = true)
+    std::vector<Bonxai::CoordT> listOfVoxelsInObject(const SemanticObject& object)
     {
         std::vector<Bonxai::CoordT> cellsInside;
 
         Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>* bonxai = BonxaiQuery<DataT>::getBonxai()->grid();
 
         const Bonxai::CoordT coordMin = bonxai->posToCoord(Bonxai::Point3D(
-            bbox.minX - bonxai->resolution, bbox.minY - bonxai->resolution, bbox.minZ - bonxai->resolution));
+            object.bbox.minX - bonxai->resolution, object.bbox.minY - bonxai->resolution, object.bbox.minZ - bonxai->resolution));
         const Bonxai::CoordT coordMax = bonxai->posToCoord(Bonxai::Point3D(
-            bbox.maxX + bonxai->resolution, bbox.maxY + bonxai->resolution, bbox.maxZ + bonxai->resolution));
+            object.bbox.maxX + bonxai->resolution, object.bbox.maxY + bonxai->resolution, object.bbox.maxZ + bonxai->resolution));
 
         // Iterate over all points inside the bounding box
         for (int x = coordMin.x; x <= coordMax.x; x++)
@@ -348,26 +367,13 @@ public:
                     Bonxai::ProbabilisticCell<DataT>* cell = BonxaiQuery<DataT>::getAccessor().value(coord);
                     if (!cell)
                         continue;
-                    
-                    if (onlyMostProbable)
-                    {
-                        // Only consider voxels where this instance is the most representative (has most votes)
-                        // This avoids including voxels that once had a vote for this instance but have been
-                        // corrected with more observations to belong to a different instance
-                        if (cell->data.getMostRepresentativeInstance() == id)
-                            cellsInside.push_back(coord);
-                    }
-                    else
-                    {
-                        // Consider any voxel where this instance has at least one vote
-                        // (original behavior - may include stale votes from incorrect masks)
-                        auto it =
-                            std::find(cell->data.instances_candidates.begin(), cell->data.instances_candidates.end(), id);
-                        if (it != cell->data.instances_candidates.end())
-                        {
-                            cellsInside.push_back(coord);
-                        }
-                    }
+
+                    // Only consider voxels where this instance wins (most representative)
+                    // instead of any voxel with any vote for this instance
+                    // Convert InstanceID_t to string format "objN" to match object.instanceID
+                    std::string winningInstanceID = "obj" + std::to_string(cell->data.getMostRepresentativeInstance());
+                    if (winningInstanceID == object.instanceID)
+                        cellsInside.push_back(coord);
                 }
             }
         }
@@ -391,7 +397,7 @@ public:
             {
                 SemanticObject& secondInstance = globalSemanticMap[j];
 
-                if (secondInstance.pointsTo == -1 && checkBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
+                if (secondInstance.isStillValid() && checkBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
                 {
                     // Find the most probable category for each instance
                     CategoryManager::CategoryIndex firstClassIdx = CategoryManager::UNKNOWN_CATEGORY;
@@ -416,7 +422,7 @@ public:
                         }
                     }
                     
-                    double iou = compute3DIoU<DataT>(firstInstance.bbox, i, secondInstance.bbox, j, true);
+                    double iou = compute3DIoU<DataT>(firstInstance, secondInstance, true);
                     
                     // Adaptive threshold based on:
                     // 1. Semantic similarity (same class = lower threshold)
@@ -452,7 +458,7 @@ public:
 
         for (InstanceID_t i = 1; i < globalSemanticMap.size(); i++)
         {
-            if (globalSemanticMap[i].pointsTo == -1 && globalSemanticMap[i].numberObservations <= nObservationsToRemove)
+            if (globalSemanticMap[i].isStillValid() && globalSemanticMap[i].numberObservations <= nObservationsToRemove)
             {
                 globalSemanticMap[i].pointsTo = 0;
             }
@@ -522,10 +528,10 @@ public:
                     }
                 }
 
-                if (globalInstance.pointsTo == -1 && checkBBoxIntersect(localInstance.bbox, globalInstance.bbox))
+                if (globalInstance.isStillValid() && checkBBoxIntersect(localInstance.bbox, globalInstance.bbox))
                 {
                     double iou =
-                        compute3DIoU<DataT>(globalInstance.bbox, globalInstanceID, localInstance.localGeometry.value());
+                        compute3DIoU<DataT>(globalInstance, localInstance.localGeometry.value());
                     
                     // Calculate distance from sensor to the local instance center
                     float localCenterX = (localInstance.bbox.minX + localInstance.bbox.maxX) / 2.0f;
@@ -660,7 +666,7 @@ public:
                 auto itInstances = std::max_element(data.instances_votes.begin(), data.instances_votes.end());
                 auto idxMaxVotes = std::distance(data.instances_votes.begin(), itInstances);
                 InstanceID_t bestInstanceID = data.instances_candidates[idxMaxVotes];
-                if (globalSemanticMap[bestInstanceID].pointsTo == -1)
+                if (globalSemanticMap[bestInstanceID].isStillValid())
                 {
                     visibleInstances.insert(bestInstanceID);
                 }
@@ -681,7 +687,7 @@ public:
 
         for (size_t i = 0; i < globalSemanticMap.size(); i++)
         {
-            if (globalSemanticMap[i].pointsTo == -1)
+            if (globalSemanticMap[i].isStillValid())
             {
                 data_json["instances"][globalSemanticMap[i].instanceID] = {};
                 data_json["instances"][globalSemanticMap[i].instanceID]["bbox"] = {};
@@ -757,7 +763,7 @@ public:
         data_json = {};
         for (size_t i = 0; i < globalSemanticMap.size(); i++)
         {
-            if (globalSemanticMap[i].pointsTo == -1)
+            if (globalSemanticMap[i].isStillValid())
             {
                 data_json[globalSemanticMap[i].instanceID] = {};
                 data_json[globalSemanticMap[i].instanceID]["timestamps"] = {};

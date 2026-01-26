@@ -83,7 +83,7 @@ public:
 
         for (size_t i = 0; i < semantics.globalSemanticMap.size(); i++)
         {
-            if (visibleInstances.count(i) > 0 && semantics.globalSemanticMap[i].pointsTo == -1)
+            if (visibleInstances.count(i) > 0 && semantics.globalSemanticMap[i].isStillValid())
             {
                 vision_msgs::msg::Detection3D instance;
                 instance.id = semantics.globalSemanticMap[i].instanceID;
