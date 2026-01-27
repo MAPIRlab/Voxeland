@@ -43,8 +43,9 @@ public:
     size_t getNumCategories() const;
 
     template <typename DataT>
-    double compute3DIoU(const std::vector<Bonxai::CoordT>& voxels1,
-                        const std::vector<Bonxai::CoordT>& voxels2);
+    std::pair<double, double> compute3DIoU(const std::vector<Bonxai::CoordT>& voxels1,
+                                           const std::vector<Bonxai::CoordT>& voxels2,
+                                           float coarsening_factor = 3);
 
     template <typename DataT>
     std::vector<Bonxai::CoordT> listOfVoxelsInObject(const SemanticObject object);

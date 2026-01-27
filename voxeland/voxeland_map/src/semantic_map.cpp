@@ -181,7 +181,7 @@ void SemanticMap::updateAppearancesTimestamps(SemanticObject& original, const Se
  * @param secondInstance : the instance to be integrated
 */
 void SemanticMap::fuseSemanticObjects(SemanticObject& firstInstance, const SemanticObject& secondInstance)
-{
+{    
     // Integrate alpha semantics
     updateAlphaCategories(firstInstance, secondInstance);
 

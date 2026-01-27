@@ -51,29 +51,29 @@ namespace voxeland_server
 
         {
             auto_save_enabled_ = declare_parameter("automatic_map_saving", false);
-            
+
             // Only declare scene and detector parameters if automatic saving is enabled
             if (auto_save_enabled_)
             {
                 scene_name_ = declare_parameter("scene_name", "unknown_scene");
                 detector_name_ = declare_parameter("detector_name", "unknown_detector");
                 VXL_INFO("Automatic map saving ENABLED - Scene: {}, Detector: {}", scene_name_, detector_name_);
-                
+
                 // Determine output directory and file path at startup (only once)
                 // Use current working directory (usually the workspace root)
                 std::filesystem::path workspace_root = std::filesystem::current_path();
                 std::filesystem::path base_output_dir = workspace_root / "src" / "Voxeland" / "evaluation" / "voxeland_output";
-                
+
                 // Use scene_name directly as folder name (e.g., scannet_scene0000_01 or scenenn_011)
                 output_dir_ = (base_output_dir / scene_name_).string();
-                
+
                 // Create scene directory if it doesn't exist
                 std::filesystem::create_directories(output_dir_);
-                
+
                 // Check if PLY file already exists
                 std::string base_filename = "voxeland_semantic_map_" + detector_name_ + "_" + scene_name_;
                 std::string candidate_path = output_dir_ + "/" + base_filename + ".ply";
-                
+
                 if (std::filesystem::exists(candidate_path))
                 {
                     // File exists, add timestamp
@@ -81,10 +81,10 @@ namespace voxeland_server
                     auto time_t_now = std::chrono::system_clock::to_time_t(now);
                     std::tm tm_now;
                     localtime_r(&time_t_now, &tm_now);
-                    
+
                     char timestamp[64];
                     std::strftime(timestamp, sizeof(timestamp), "%Y%m%d_%H%M%S", &tm_now);
-                    
+
                     output_ply_path_ = output_dir_ + "/" + base_filename + "_" + timestamp + ".ply";
                     VXL_INFO("Output file already exists. Will save to: {}", output_ply_path_);
                 }
@@ -124,20 +124,6 @@ namespace voxeland_server
         tf2_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf2_buffer_);
 
         using std::chrono_literals::operator""s;
-        /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg
-        point_cloud_sub_.subscribe(this, "cloud_in", rmw_qos_profile_sensor_data);
-        tf_point_cloud_sub_ = std::make_shared<
-            tf2_ros::MessageFilter<segmentation_msgs::msg::SemanticPointCloud>>(
-            point_cloud_sub_,
-            *tf2_buffer_,
-            world_frame_id_,
-            5,
-            this->get_node_logging_interface(),
-            this->get_node_clock_interface(),
-            5s);
-
-        tf_point_cloud_sub_->registerCallback(&VoxelandServer::insertCloudCallback, this);
-        */
         point_cloud_sub_ =
             create_subscription<segmentation_msgs::msg::SemanticPointCloud>("cloud_in", 1, std::bind(&VoxelandServer::insertCloudCallback, this, _1));
 
@@ -153,12 +139,14 @@ namespace voxeland_server
             auto_save_timer_ = create_wall_timer(
                 std::chrono::seconds(30),
                 std::bind(&VoxelandServer::autoSaveMapCallback, this));
-            
+
             VXL_INFO("Auto-save timer initialized: map will be saved every 30 seconds to {}", output_ply_path_);
         }
 
         // set parameter callback
         set_param_res_ = this->add_on_set_parameters_callback(std::bind(&VoxelandServer::onParameter, this, _1));
+
+        get_logger().set_level(rclcpp::Logger::Level::Debug);
     }
 
     void VoxelandServer::initializeBonxaiObject()
@@ -241,9 +229,10 @@ namespace voxeland_server
     {
         if (paused)
             return;
-
-#if ENABLE_DEBUG_GUI
+        
+        #if ENABLE_DEBUG_GUI
         mostRecentPointCloud = cloud;
+        std::scoped_lock<std::mutex> lock(debugging_utils::mutex);
 #endif
 
         number_iterations++;
@@ -425,10 +414,10 @@ namespace voxeland_server
         {
             VXL_INFO("Generating PLY from semantic instances map");
             std::string instances_ply = semanticsMapToPLY();
-            
+
             std::string instances_ply_filename = "voxeland_instances_map.ply";
             std::ofstream instances_outfile(instances_ply_filename);
-            
+
             if (!instances_outfile.is_open())
             {
                 VXL_ERROR("Cannot save instances .PLY file in: {}/{}", std::filesystem::current_path().string(), instances_ply_filename);
@@ -585,8 +574,8 @@ namespace voxeland_server
 
         if (number_iterations % 10 == 0)
         {
-            voxeland::ScopedStopwatch watch ("Global refinement");
-            semantics.refineGlobalSemanticMap<DataT>(5);
+            voxeland::ScopedStopwatch watch("Global refinement");
+            semantics.refineGlobalSemanticMap<DataT>(3);
 
             // remove old markers after global refinement
             visualization_msgs::msg::MarkerArray clearMsg;

@@ -183,8 +183,7 @@ namespace voxeland_server
         void ShowObservationPointCloud();
 
         void PrintCategoriesList();
-
-        rclcpp::TimerBase::SharedPtr renderTimer;
+        
         rclcpp::Publisher<PointCloud2>::SharedPtr debugInstancesPub;
         rclcpp::Publisher<PointCloud2>::SharedPtr debugInputPub;
         rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr clickedPointSub;
@@ -193,6 +192,13 @@ namespace voxeland_server
         std::vector<uint8_t> globalObjectsToDraw;
         std::vector<uint8_t> localObjectsToDraw;
         Bonxai::Point3D selectedCoordinates;
+
+        // these are mutually exclusive
+        // the GUI is normally rendered as part of the spin cycle, from the main thread, to avoid data sync issues
+        // however, while using a debugger, we need a separate thread to be able to use the GUI while the execution is paused
+        // this is controlled in SetupGUI()
+        rclcpp::TimerBase::SharedPtr renderTimer;
+        std::jthread renderThread;
 #endif
     };
 

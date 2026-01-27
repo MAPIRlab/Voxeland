@@ -1,4 +1,6 @@
 #pragma once
+#include <voxeland_map/debugging_utils.hpp>
+
 #include "semantic_map.hpp"  // this is fine! the pragmas will save us
 
 template <typename DataT>
@@ -118,7 +120,7 @@ inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>
             if (globalInstance.isStillValid() && checkBBoxIntersect(localInstance.bbox, globalInstance.bbox))
             {
                 std::vector<Bonxai::CoordT> voxelsGlobal = listOfVoxelsInObject<DataT>(globalInstance);
-                double iou = compute3DIoU<DataT>(voxelsGlobal, voxelsLocal);
+                auto [iou, ios] = compute3DIoU<DataT>(voxelsGlobal, voxelsLocal, 2);
 
 #if 1
                 const double iouThreshold = localMaxCategory == globalMaxCategory ? 0.15 : 0.5;
@@ -174,6 +176,8 @@ inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>
 #endif
                 if (iou > iouThreshold)
                 {
+                    VXL_WARN("Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", localInstanceID, globalInstanceID, iou, ios);
+                    PAUSE_THREAD_UNTIL_GUI_CONTINUE;
                     fuseSemanticObjects(globalInstance, localInstance);
 
                     lastMapLocalToGlobal[localInstanceID] = globalInstanceID;
@@ -183,6 +187,8 @@ inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>
                     integrated++;
                     break;  // don't keep iterating over the globals, we are done with this local instance
                 }
+                else
+                    VXL_DEBUG("NOT Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", localInstanceID, globalInstanceID, iou, ios);
             }
         }
 
@@ -226,28 +232,32 @@ inline void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                 // Adaptive threshold based on:
                 // 1. Semantic similarity (same class = lower threshold)
                 // 2. Number of observations (more observations = more confident, need higher IoU)
-                double iouThreshold = 0.25;  // Base threshold
+                double iouThreshold = 0.6;  // Base threshold
 
                 CategoryManager::CategoryIndex secondClassIdx = secondInstance.mostLikelyCategory();
 
                 // If both instances have the same category, be more permissive
                 bool sameCategory = firstClassIdx == secondClassIdx;
                 if (sameCategory)
-                    iouThreshold = 0.15;
+                    iouThreshold = 0.2;
 
                 // For instances with many observations, require slightly higher IoU
                 // (they are more established, need stronger evidence to merge)
                 if (firstInstance.numberObservations > 10 && secondInstance.numberObservations > 10)
                     iouThreshold += 0.05;
 
-                double iou = compute3DIoU<DataT>(voxelsFirst, voxelsSecond);
+                auto [iou, ios] = compute3DIoU<DataT>(voxelsFirst, voxelsSecond, 3);
                 if (iou > iouThreshold)
                 {
                     // Fuse the second instance with the first one
                     secondInstance.pointsTo = i;
+                    VXL_WARN("(Refine) Fusing global {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", i, j, iou, ios);
+                    PAUSE_THREAD_UNTIL_GUI_CONTINUE;
                     fuseSemanticObjects(firstInstance, secondInstance);
                     firstInstance.numberObservations += secondInstance.numberObservations;
                 }
+                else
+                    VXL_DEBUG("(Refine) NOT Fusing global {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", i, j, iou, ios);
             }
         }
     }
@@ -302,24 +312,23 @@ inline std::vector<Bonxai::CoordT> SemanticMap::listOfVoxelsInObject(const Seman
 }
 
 template <typename DataT>
-inline double SemanticMap::compute3DIoU(const std::vector<Bonxai::CoordT>& voxels1,
-                                        const std::vector<Bonxai::CoordT>& voxels2)
+inline std::pair<double, double> SemanticMap::compute3DIoU(const std::vector<Bonxai::CoordT>& voxels1,
+                                                           const std::vector<Bonxai::CoordT>& voxels2,
+                                                           float coarsening_factor)
 {
     std::set<Bonxai::CoordT> voxels1_coarse;
     std::set<Bonxai::CoordT> voxels2_coarse;
 
-    constexpr uint coarse_factor = 1;
-
     for (size_t i = 0; i < voxels1.size(); i++)
     {
         Bonxai::CoordT coord = voxels1[i];
-        voxels1_coarse.insert(coord / coarse_factor);
+        voxels1_coarse.insert(coord / coarsening_factor);
     }
 
     for (size_t i = 0; i < voxels2.size(); i++)
     {
         Bonxai::CoordT coord = voxels2[i];
-        voxels2_coarse.insert(coord / coarse_factor);
+        voxels2_coarse.insert(coord / coarsening_factor);
     }
 
     auto orderFunc = [](const Bonxai::CoordT& c1, const Bonxai::CoordT& c2) {
@@ -353,7 +362,7 @@ inline double SemanticMap::compute3DIoU(const std::vector<Bonxai::CoordT>& voxel
         IoS = std::max(IoS, ((double)intersection_.size()) / voxels2_coarse.size());
 
     // VXL_INFO("IoU: {:.2f}\nIoS: {:.2f}", IoU, IoS);
-    return std::max(IoU, IoS);  // TODO probably a good idea to just return both and let the caller decide what to do with them
+    return std::pair<double, double>(IoU, IoS);  // TODO probably a good idea to just return both and let the caller decide what to do with them
 }
 
 template <typename DataT>

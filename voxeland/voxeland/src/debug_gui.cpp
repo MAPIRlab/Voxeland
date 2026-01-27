@@ -2,6 +2,7 @@
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <imgui_gl/utils.hpp>
+#include <voxeland_map/debugging_utils.hpp>
 #include <voxeland_server.hpp>
 
 using visualization_msgs::msg::Marker;
@@ -26,12 +27,6 @@ namespace voxeland_server
 {
     void VoxelandServer::SetupGUI()
     {
-        ImguiGL::Setup(
-            fmt::format("{}/resources/debug_gui.ini", ament_index_cpp::get_package_share_directory("voxeland")).c_str(),
-            "voxeland_gui",
-            1200,
-            900);
-        renderTimer = create_wall_timer(std::chrono::milliseconds(30), std::bind(&VoxelandServer::RenderGUI, this));
         debugInstancesPub = create_publisher<PointCloud2>("/voxeland/debugInstances", 1);
         debugInputPub = create_publisher<PointCloud2>("/voxeland/debugInput", 1);
 
@@ -41,10 +36,42 @@ namespace voxeland_server
                 selectedCoordinates.y = point->point.y;
                 selectedCoordinates.z = point->point.z;
             });
+
+        // this needs to be run from the same thread that does the actual rendering
+        auto createWindow = [&]() {
+            ImguiGL::Setup(
+                fmt::format("{}/resources/debug_gui.ini", ament_index_cpp::get_package_share_directory("voxeland")).c_str(),
+                "voxeland_gui",
+                1200,
+                900);
+        };
+
+        // decide whether to run GUI in main thread (usually preferrable) or not (necessary to visualize while using a debugger)
+#define SEPARATE_RENDER_THREAD 1
+#if SEPARATE_RENDER_THREAD
+        renderThread = std::jthread([&]() {
+            // wait until initialization is done to minimize the chances of multithreading issues
+            // This is horrible, but whatever :)
+            while (currentMode == voxeland::DataMode::Uninitialized)
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+            createWindow();
+            rclcpp::Rate rate(30);
+            while (rclcpp::ok())
+            {
+                rate.sleep();
+                RenderGUI();
+            }
+        });
+#else
+        createWindow();
+        renderTimer = create_wall_timer(std::chrono::milliseconds(30), std::bind(&VoxelandServer::RenderGUI, this));
+#endif
     }
 
     void VoxelandServer::RenderGUI()
     {
+        std::scoped_lock<std::mutex> lock(debugging_utils::mutex);
         ImguiGL::StartFrame();
         ImGui::DockSpaceOverViewport();
 
@@ -238,9 +265,21 @@ namespace voxeland_server
     void VoxelandServer::PauseButton()
     {
         ImGui::Begin("PauseButton");
-        std::string label = paused ? "Continue" : "Pause";
-        if (ImGui::Button(label.c_str()))
-            paused = !paused;
+        {
+            std::string label = paused ? "Continue" : "Pause";
+            if (ImGui::Button(label.c_str()))
+                paused = !paused;
+        }
+
+        {
+            ImGui::Checkbox("Pause on object fusion", &debugging_utils::debug_paused_enabled);
+        }
+
+        if (debugging_utils::debug_paused)
+        {
+            if (ImGui::Button("Continue Thread"))
+                debugging_utils::debug_paused = false;
+        }
         ImGui::End();
     }
 
@@ -291,7 +330,7 @@ namespace voxeland_server
                 {
                     const Bonxai::Point3D point = bonxai_->coordToPos(coord);
                     uint32_t rgb = semantics.indexToHexColor(i);
-                    rgb &= 0x0000ffff; // force the red channel to 0 to make the local geometry more visually distinct from the global one
+                    rgb &= 0x0000ffff;  // force the red channel to 0 to make the local geometry more visually distinct from the global one
                     out_pcl.emplace_back(point.x, point.y, point.z, *reinterpret_cast<float*>(&rgb), i);
                 }
             }

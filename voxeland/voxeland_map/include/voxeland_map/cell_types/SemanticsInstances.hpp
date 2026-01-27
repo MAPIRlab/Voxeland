@@ -1,6 +1,7 @@
 #pragma once
-#include "Color.hpp"
 #include <sstream>
+
+#include "Color.hpp"
 
 namespace voxeland
 {
@@ -119,7 +120,15 @@ namespace voxeland
                     idxMaxVotes1 = idxMaxVotes2;
             }
 
-            return instances_candidates[idxMaxVotes1];
+
+            SemanticMap& semantics = SemanticMap::get_instance();
+            const SemanticObject* globalInstance = &semantics.globalSemanticMap[instances_candidates[idxMaxVotes1]];
+
+            // if the instance has been fused with others, find the new instance that represents the fusion
+            while (!globalInstance->isStillValid())
+                globalInstance = &semantics.globalSemanticMap[globalInstance->pointsTo];
+
+            return globalInstance->instanceID;
         }
 
         // we implement this one as a class member because we really would like to call updateCandidatesAndVotes() before presenting any info to the user
