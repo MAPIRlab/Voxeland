@@ -147,11 +147,10 @@ namespace voxeland_server
         // set parameter callback
         set_param_res_ = this->add_on_set_parameters_callback(std::bind(&VoxelandServer::onParameter, this, _1));
 
-        auto log_level = magic_enum::enum_cast<rclcpp::Logger::Level>(
-            declare_parameter<std::string>("log_level", "Info"), magic_enum::case_insensitive);
+        auto log_level = magic_enum::enum_cast<rclcpp::Logger::Level>(declare_parameter<std::string>("log_level", "Info"), magic_enum::case_insensitive);
 
         if (log_level)
-            get_logger().set_level(log_level.value());
+            rclcpp::get_logger("VXL").set_level(log_level.value());
     }
 
     void VoxelandServer::initializeBonxaiObject()

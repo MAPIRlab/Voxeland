@@ -176,7 +176,7 @@ inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>
 #endif
                 if (iou > iouThreshold)
                 {
-                    VXL_WARN("Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", localInstanceID, globalInstanceID, iou, ios);
+                    VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow), "Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", localInstanceID, globalInstanceID, iou, ios);
                     PAUSE_THREAD_UNTIL_GUI_CONTINUE;
                     fuseSemanticObjects(globalInstance, localInstance);
 
@@ -251,7 +251,7 @@ inline void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                 {
                     // Fuse the second instance with the first one
                     secondInstance.pointsTo = i;
-                    VXL_WARN("(Refine) Fusing global {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", i, j, iou, ios);
+                    VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow), "(Refine) Fusing global {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", i, j, iou, ios);
                     PAUSE_THREAD_UNTIL_GUI_CONTINUE;
                     fuseSemanticObjects(firstInstance, secondInstance);
                     firstInstance.numberObservations += secondInstance.numberObservations;

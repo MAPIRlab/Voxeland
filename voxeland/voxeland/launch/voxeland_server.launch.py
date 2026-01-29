@@ -49,6 +49,9 @@ def launch_setup(context, *args, **kwargs):
            {"sensor_model.miss": parse_substitution("$(var pMiss)")},
            {"sensor_model.min": parse_substitution("$(var clampOccupancyMin)")},
            {"sensor_model.max": parse_substitution("$(var clampOccupancyMax)")},
+
+
+           {"log_level": "Debug"},
         ],
     )
     return [
