@@ -266,20 +266,25 @@ namespace voxeland_server
     {
         ImGui::Begin("PauseButton");
         {
-            std::string label = paused ? "Continue" : "Pause";
-            if (ImGui::Button(label.c_str()))
-                paused = !paused;
-        }
-
-        {
             ImGui::Checkbox("Pause on object fusion", &debugging_utils::debug_paused_enabled);
         }
 
         if (debugging_utils::debug_paused)
         {
+            paused = true;
             if (ImGui::Button("Continue Thread"))
+            {
                 debugging_utils::debug_paused = false;
+                paused = false;
+            }
         }
+        else
+        {
+            std::string label = paused ? "Continue" : "Pause";
+            if (ImGui::Button(label.c_str()))
+                paused = !paused;
+        }
+
         ImGui::End();
     }
 
