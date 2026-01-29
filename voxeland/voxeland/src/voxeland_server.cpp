@@ -3,6 +3,7 @@
 #include <Profiling.hpp>
 #include <filesystem>
 #include <fstream>
+#include <magic_enum.hpp>
 #include <rclcpp/serialization.hpp>
 #include <segmentation_msgs/msg/instance_semantic_map.hpp>
 #include <stdexcept>
@@ -146,7 +147,11 @@ namespace voxeland_server
         // set parameter callback
         set_param_res_ = this->add_on_set_parameters_callback(std::bind(&VoxelandServer::onParameter, this, _1));
 
-        get_logger().set_level(rclcpp::Logger::Level::Debug);
+        auto log_level = magic_enum::enum_cast<rclcpp::Logger::Level>(
+            declare_parameter<std::string>("log_level", "Info"), magic_enum::case_insensitive);
+
+        if (log_level)
+            get_logger().set_level(log_level.value());
     }
 
     void VoxelandServer::initializeBonxaiObject()
@@ -229,8 +234,8 @@ namespace voxeland_server
     {
         if (paused)
             return;
-        
-        #if ENABLE_DEBUG_GUI
+
+#if ENABLE_DEBUG_GUI
         mostRecentPointCloud = cloud;
         std::scoped_lock<std::mutex> lock(debugging_utils::mutex);
 #endif

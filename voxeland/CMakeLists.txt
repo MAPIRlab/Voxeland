@@ -45,6 +45,7 @@ find_package(Eigen3 QUIET)
 find_package(rclcpp)
 find_package(ament_cmake QUIET)
 find_package(OpenMP REQUIRED)
+find_package(magic_enum REQUIRED)
 
 add_subdirectory(bonxai_core)
 add_subdirectory(voxeland_map)
@@ -74,6 +75,7 @@ if ( ament_cmake_FOUND )
       voxeland_map
       ${PCL_LIBRARIES}
       OpenMP::OpenMP_CXX
+      magic_enum::magic_enum
     )
 
     if(ENABLE_DEBUG_GUI)
