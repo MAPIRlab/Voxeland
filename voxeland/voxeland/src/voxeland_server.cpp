@@ -267,8 +267,7 @@ namespace voxeland_server
             }
 
             get_distributions_srv_ = create_service<GetClassDistributions>("voxeland/get_class_distributions",
-                                                                           std::bind(&VoxelandServer::getClassDistributionsSrv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
-                                                                           rmw_qos_profile_services_default);
+                                                                           std::bind(&VoxelandServer::getClassDistributionsSrv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
         }
 
         if (bonxai_.get() == nullptr)
