@@ -146,7 +146,31 @@ namespace voxeland_server
 
         // add all the voxels in each of the selected instances to a pcl message, with the color and instanceID
         pcl::PointCloud<pcl::PointXYZRGBSemantics> pcl_cloud;
-        for (size_t i = 0; i < semantics.globalSemanticMap.size(); i++)
+        auto add_point_to_pcl = [&](DataT& data, const Bonxai::Point3D& point) {
+            voxeland::Color visualization_color = data.toColor();
+            std::uint32_t rgb = voxeland::serializeColor(visualization_color);
+            InstanceID_t instanceID = data.getMostRepresentativeInstance();
+            pcl_cloud.emplace_back((float)point.x, (float)point.y, (float)point.z, *reinterpret_cast<float*>(&rgb), instanceID);
+        };
+
+        //background is very expensive to draw with the normal iteration strategy, handle it separately
+        if (globalObjectsToDraw.at(0))
+        {
+            std::vector<DataT> cell_data;
+            std::vector<Bonxai::Point3D> cell_points;
+            bonxai_->With<DataT>()->getOccupiedVoxels(cell_points, cell_data);
+            for (size_t i = 0; i < cell_points.size(); i++)
+            {
+                const auto& point = cell_points[i];
+
+                if (point.z >= occupancy_min_z_ && point.z <= occupancy_max_z_)
+                {
+                    add_point_to_pcl(cell_data.at(i), point);
+                }
+            }
+        }
+
+        for (size_t i = 1; i < semantics.globalSemanticMap.size(); i++)
         {
             if (!globalObjectsToDraw[i])
                 continue;
@@ -163,10 +187,7 @@ namespace voxeland_server
                 if (cell->probability_log > bonxai_->options().occupancy_threshold_log  //
                     && point.z >= occupancy_min_z_ && point.z <= occupancy_max_z_)
                 {
-                    voxeland::Color visualization_color = cell->data.toColor();
-                    std::uint32_t rgb = voxeland::serializeColor(visualization_color);
-                    InstanceID_t instanceID = cell->data.getMostRepresentativeInstance();
-                    pcl_cloud.emplace_back((float)point.x, (float)point.y, (float)point.z, *reinterpret_cast<float*>(&rgb), instanceID);
+                    add_point_to_pcl(cell->data, point);
                 }
             }
         }
@@ -237,7 +258,7 @@ namespace voxeland_server
     void VoxelandServer::PrintInstanceInfo()
     {
         ImGui::Begin("Instance Info");
-        if(ImGui::Button("Trigger Global Refinement"))
+        if (ImGui::Button("Trigger Global Refinement"))
             doGlobalRefinement();
 
         if (semantics.globalSemanticMap.size() == 0)
