@@ -199,7 +199,7 @@ inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>
                               iou,
                               ios,
                               iov);
-                    // PAUSE_THREAD_UNTIL_GUI_CONTINUE;
+                    PAUSE_THREAD_UNTIL_GUI_CONTINUE;
                     fuseSemanticObjects(globalInstance, localInstance);
 
                     lastMapLocalToGlobal[localInstanceID] = globalInstanceID;
@@ -238,20 +238,22 @@ inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>
 template <typename DataT>
 inline void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
 {
-    std::map<InstanceID_t, std::set<Bonxai::CoordT>> geometry;  // cache the voxels for each global object to avoid repeated lookup
+    // cache the voxels for each global object to avoid repeated lookup
+    std::map<InstanceID_t, std::set<Bonxai::CoordT>> geometry;
 
-    auto getGeometry = [&](InstanceID_t id) {
-        // get all the voxels that belong to the global instance
-        std::set<Bonxai::CoordT> voxelsGlobal;
-        if (geometry.contains(id))
-            voxelsGlobal = geometry.at(id);
-        else
+    for (InstanceID_t i = 1; i < globalSemanticMap.size(); i++)
+    {
+        if (globalSemanticMap.at(i).isStillValid())
         {
-            voxelsGlobal = listOfVoxelsInObject<DataT>(id);
-            geometry.insert({ id, voxelsGlobal });
+            std::set<Bonxai::CoordT> voxelsGlobal = listOfVoxelsInObject<DataT>(globalSemanticMap.at(i));
+            
+            // remove instances with very few observations
+            if (globalSemanticMap.at(i).numberObservations <= nObservationsToRemove || voxelsGlobal.size() == 0)
+                globalSemanticMap.at(i).pointsTo = 0;
+            else
+                geometry.insert({ i, voxelsGlobal });
         }
-        return voxelsGlobal;
-    };
+    }
 
     for (InstanceID_t i = 1; i < globalSemanticMap.size(); i++)
     {
@@ -260,7 +262,7 @@ inline void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         if (!firstInstance.isStillValid())
             continue;
 
-        std::set<Bonxai::CoordT> voxelsFirst = getGeometry(i);
+        std::set<Bonxai::CoordT> voxelsFirst = geometry.at(i);
         CategoryManager::CategoryIndex firstClassIdx = firstInstance.mostLikelyCategory();
 
         for (InstanceID_t j = i + 1; j < globalSemanticMap.size(); j++)
@@ -269,7 +271,7 @@ inline void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
 
             if (secondInstance.isStillValid() && checkBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
             {
-                std::set<Bonxai::CoordT> voxelsSecond = getGeometry(j);
+                std::set<Bonxai::CoordT> voxelsSecond = geometry.at(j);
 
                 // Adaptive threshold based on:
                 // 1. Semantic similarity (same class = lower threshold)
@@ -303,17 +305,10 @@ inline void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
             }
         }
     }
-
-    // remove instances with very few observations
-    for (InstanceID_t i = 1; i < globalSemanticMap.size(); i++)
-    {
-        if (globalSemanticMap[i].isStillValid() && globalSemanticMap[i].numberObservations <= nObservationsToRemove)
-            globalSemanticMap[i].pointsTo = 0;
-    }
 }
 
 template <typename DataT>
-inline std::set<Bonxai::CoordT> SemanticMap::listOfVoxelsInObject(const SemanticObject object)
+inline std::set<Bonxai::CoordT> SemanticMap::listOfVoxelsInObject(const SemanticObject& object)
 {
     std::set<Bonxai::CoordT> cellsInside;
 
