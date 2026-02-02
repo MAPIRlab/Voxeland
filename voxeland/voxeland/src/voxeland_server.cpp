@@ -536,6 +536,12 @@ namespace voxeland_server
         }
     }
 
+    void VoxelandServer::doGlobalRefinement()
+    {
+        voxeland::ScopedStopwatch watch("Global refinement");
+        AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, semantics.refineGlobalSemanticMap<DataT>(2));
+    }
+
     template <typename DataT>
     void VoxelandServer::insertPointCloudBasic(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud)
     {
@@ -577,8 +583,7 @@ namespace voxeland_server
 
         if (number_iterations % 10 == 0)
         {
-            voxeland::ScopedStopwatch watch("Global refinement");
-            semantics.refineGlobalSemanticMap<DataT>(3);
+            doGlobalRefinement();
 
             // remove old markers after global refinement
             visualization_msgs::msg::MarkerArray clearMsg;

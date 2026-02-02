@@ -237,6 +237,9 @@ namespace voxeland_server
     void VoxelandServer::PrintInstanceInfo()
     {
         ImGui::Begin("Instance Info");
+        if(ImGui::Button("Trigger Global Refinement"))
+            doGlobalRefinement();
+
         if (semantics.globalSemanticMap.size() == 0)
         {
             ImGui::Text("There are no instances to show");

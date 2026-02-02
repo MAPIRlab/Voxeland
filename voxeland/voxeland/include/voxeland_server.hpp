@@ -113,6 +113,8 @@ namespace voxeland_server
         template <typename DataT>
         void fillClassSrvResponse(GetClassDistributions::Request::SharedPtr request, GetClassDistributions::Response::SharedPtr response);
 
+        void doGlobalRefinement();
+
         OnSetParametersCallbackHandle::SharedPtr set_param_res_;
 
         rcl_interfaces::msg::SetParametersResult onParameter(const std::vector<rclcpp::Parameter>& parameters);
