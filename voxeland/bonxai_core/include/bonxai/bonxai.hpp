@@ -79,11 +79,11 @@ struct CoordT
 
   [[nodiscard]] CoordT operator+(const CoordT& other) const;
   [[nodiscard]] CoordT operator-(const CoordT& other) const;
-
+  [[nodiscard]] CoordT operator/(const int div) const;
+  
   CoordT& operator+=(const CoordT& other);
   CoordT& operator-=(const CoordT& other);
 
-  CoordT operator/(const int div);
 };
 
 [[nodiscard]] inline CoordT PosToCoord(const Point3D& point, double inv_resolution)
@@ -526,7 +526,7 @@ inline CoordT& CoordT::operator-=(const CoordT& other)
   return *this;
 }
 
-inline CoordT CoordT::operator/(const int div)
+inline CoordT CoordT::operator/(const int div) const
 {
   return { x / div, y / div, z / div };
 }
