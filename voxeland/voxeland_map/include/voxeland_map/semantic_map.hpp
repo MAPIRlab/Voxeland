@@ -42,19 +42,24 @@ public:
     std::string getCategoryName(CategoryManager::CategoryIndex index) const;
     size_t getNumCategories() const;
 
-    template <typename DataT>
-    std::pair<double, double> compute3DIoU(const std::vector<Bonxai::CoordT>& voxels1,
-                                           const std::vector<Bonxai::CoordT>& voxels2,
+    std::pair<double, double> compute3DIoU(const std::set<Bonxai::CoordT>& voxels1,
+                                           const std::set<Bonxai::CoordT>& voxels2,
                                            float coarsening_factor = 3);
 
     template <typename DataT>
-    std::vector<Bonxai::CoordT> listOfVoxelsInObject(const SemanticObject object);
+    double computeIoV(const std::set<Bonxai::CoordT>& localVoxels,
+                      const std::set<Bonxai::CoordT>& globalInstance,
+                      const std::set<Bonxai::CoordT>& localInstance);
+
+    template <typename DataT>
+    std::set<Bonxai::CoordT> listOfVoxelsInObject(const SemanticObject object);
 
     template <typename DataT>
     void refineGlobalSemanticMap(int nObservationsToRemove);
 
     template <typename DataT>
     void integrateNewSemantics(const std::vector<SemanticObject>& localMap,
+                               const std::set<Bonxai::CoordT>& voxelizedLocalPointCloud,
                                float sensorX = 0.0f,
                                float sensorY = 0.0f,
                                float sensorZ = 0.0f);
@@ -98,7 +103,7 @@ public:
 
 private:
     inline static Bonxai::ProbabilisticMapT<DataT>* bonxai;
-    inline static std::optional<typename Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>::Accessor> accessor;
+    inline static thread_local std::optional<typename Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>::Accessor> accessor;
 };
 
 //----------------------------------------------------------

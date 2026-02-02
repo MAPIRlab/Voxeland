@@ -1,11 +1,10 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
-#include <memory>
-#include <mutex>
 
 /**
  * @brief Dynamic category manager for open vocabulary semantic mapping

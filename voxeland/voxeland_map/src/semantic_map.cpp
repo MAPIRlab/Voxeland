@@ -1,12 +1,10 @@
+#include <voxeland_map/category_manager.hpp>
 #include <voxeland_map/cell_types.hpp>
 #include <voxeland_map/semantic_map.hpp>
-#include <voxeland_map/category_manager.hpp>
 
 SemanticMap::SemanticMap()
     : kld_threshold(0.1f)
-    , color_palette({ 0xFAD4E0, 0x9DBBE3, 0xBFE3DF, 0xB59CD9, 0xFFF5CC, 0xFFD9BD, 0xEE9D94, 0xF7ADCF,
-                      0xe6194B, 0x3cb44b, 0xffe119, 0x4363d8, 0xf58231, 0x911eb4, 0x42d4f4, 0xf032e6,
-                      0xbfef45, 0xfabed4, 0x469990, 0xdcbeff, 0x9A6324, 0xfffac8 })
+    , color_palette({ 0xFAD4E0, 0x9DBBE3, 0xBFE3DF, 0xB59CD9, 0xFFF5CC, 0xFFD9BD, 0xEE9D94, 0xF7ADCF, 0xe6194B, 0x3cb44b, 0xffe119, 0x4363d8, 0xf58231, 0x911eb4, 0x42d4f4, 0xf032e6, 0xbfef45, 0xfabed4, 0x469990, 0xdcbeff, 0x9A6324, 0xfffac8 })
 {}
 
 /* COLOR PALETTES */
@@ -32,7 +30,7 @@ void SemanticMap::initialize(std::vector<std::string> dataset_categories,
     // Initialize CategoryManager with dataset categories
     CategoryManager& catManager = CategoryManager::getInstance();
     catManager.initializeWithCategories(dataset_categories);
-    
+
     AUTO_TEMPLATE_SEMANTICS_ONLY(mode, BonxaiQuery<DataT>::createAccessor(_bonxai.With<DataT>()));
     initialized = true;
 }
@@ -61,7 +59,7 @@ void SemanticMap::updateCategoryProbability(SemanticObject& semanticObject,
 {
     CategoryManager& catManager = CategoryManager::getInstance();
     CategoryManager::CategoryIndex categoryIndex = catManager.addCategory(categoryName);
-        
+
     semanticObject.addToCategoryAlpha(categoryIndex, probability);
 }
 
@@ -69,7 +67,7 @@ CategoryManager::CategoryIndex SemanticMap::addCategory(const std::string& categ
 {
     CategoryManager& catManager = CategoryManager::getInstance();
     CategoryManager::CategoryIndex index = catManager.addCategory(categoryName);
-    
+
     return index;
 }
 
@@ -161,27 +159,26 @@ void SemanticMap::updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D&
     original.maxZ = std::max(update.maxZ, original.maxZ);
 }
 
-void SemanticMap::updateAppearancesTimestamps(SemanticObject& original, const SemanticObject& update){
-    
+void SemanticMap::updateAppearancesTimestamps(SemanticObject& original, const SemanticObject& update)
+{
     // Merge appearances timestamps from update into original
-    for (const auto& [categoryIndex, timestampMap] : update.appearancesTimestamps) {
+    for (const auto& [categoryIndex, timestampMap] : update.appearancesTimestamps)
+    {
         // Add all timestamps from the update to the original
         original.appearancesTimestamps[categoryIndex].insert(
             timestampMap.begin(),
-            timestampMap.end()
-        );
+            timestampMap.end());
     }
 }
-
 
 /**
  * @brief Integrates the sencondInstance info into the firstInstance. That includes alphas, bbox and appearances
  *
  * @param firstInstance : the instance to be updated
  * @param secondInstance : the instance to be integrated
-*/
+ */
 void SemanticMap::fuseSemanticObjects(SemanticObject& firstInstance, const SemanticObject& secondInstance)
-{    
+{
     // Integrate alpha semantics
     updateAlphaCategories(firstInstance, secondInstance);
 
@@ -190,7 +187,6 @@ void SemanticMap::fuseSemanticObjects(SemanticObject& firstInstance, const Seman
 
     // Update appearances timestamps
     updateAppearancesTimestamps(firstInstance, secondInstance);
-
 }
 
 nlohmann::json SemanticMap::mapToJSON()
@@ -305,4 +301,44 @@ nlohmann::json SemanticMap::appearancesToJson()
     }
 
     return data_json;
+}
+
+std::pair<double, double> SemanticMap::compute3DIoU(const std::set<Bonxai::CoordT>& voxels1,
+                                                    const std::set<Bonxai::CoordT>& voxels2,
+                                                    float coarsening_factor)
+{
+    std::set<Bonxai::CoordT> voxels1_coarse;
+    std::set<Bonxai::CoordT> voxels2_coarse;
+
+    for (const auto& coord : voxels1)
+        voxels1_coarse.insert(coord / coarsening_factor);
+
+    for (const auto& coord : voxels2)
+        voxels2_coarse.insert(coord / coarsening_factor);
+
+    std::vector<Bonxai::CoordT> intersection_;
+    std::vector<Bonxai::CoordT> union_;
+
+    std::set_intersection(voxels1_coarse.begin(),
+                          voxels1_coarse.end(),
+                          voxels2_coarse.begin(),
+                          voxels2_coarse.end(),
+                          std::back_inserter(intersection_));
+    std::set_union(voxels1_coarse.begin(),
+                   voxels1_coarse.end(),
+                   voxels2_coarse.begin(),
+                   voxels2_coarse.end(),
+                   std::back_inserter(union_));
+
+    double IoU = 0.;
+    if (union_.size() > 0)
+        IoU = ((double)intersection_.size()) / union_.size();
+
+    double IoS = 0.;
+    if (voxels1_coarse.size() > 0)
+        IoS = ((double)intersection_.size()) / voxels1_coarse.size();
+    if (voxels2_coarse.size() > 0)
+        IoS = std::max(IoS, ((double)intersection_.size()) / voxels2_coarse.size());
+
+    return std::pair<double, double>(IoU, IoS);
 }

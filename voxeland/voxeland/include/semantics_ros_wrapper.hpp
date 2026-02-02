@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <voxeland_map/cell_types/Color.hpp>
@@ -150,12 +149,19 @@ public:
     {
         voxeland::ScopedStopwatch watch("Add Instances to Map");
         std::vector<SemanticObject> localMap = convertROSMessageToSemanticMap(instances);
+        
+        // generate a voxelized version of the entire point cloud, to check whether a given pre-existing voxel is visible or not
+        // this will be used to measure how much of a global instance is being identified as a single object in this image
+        Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>* bonxai = BonxaiQuery<DataT>::getBonxai()->grid();
+        std::set<Bonxai::CoordT> voxelizedLocalPointCloud;
+        for (size_t i = 0; i < pc.points.size(); i++)
+            voxelizedLocalPointCloud.insert(bonxai->posToCoord(Bonxai::Point3D(pc.points[i].x, pc.points[i].y, pc.points[i].z)));
 
         semantics.addInstancesGeometryToLocalSemanticMap<DataT, PointCloudTypeT>(localMap, pc);
 
         semantics.setLocalSemanticMap(localMap);
 
-        semantics.integrateNewSemantics<DataT>(localMap);
+        semantics.integrateNewSemantics<DataT>(localMap, voxelizedLocalPointCloud);
     }
 
     template <typename PointCloudTypeT>

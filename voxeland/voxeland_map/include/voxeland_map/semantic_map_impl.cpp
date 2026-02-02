@@ -71,6 +71,7 @@ inline void SemanticMap::addInstancesGeometryToLocalSemanticMap(std::vector<Sema
 
 template <typename DataT>
 inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& localMap,
+                                               const std::set<Bonxai::CoordT>& voxelizedLocalPointCloud,
                                                float sensorX,
                                                float sensorY,
                                                float sensorZ)
@@ -106,7 +107,8 @@ inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>
 
         if (!localInstance.localGeometry.has_value())
             continue;
-        std::vector<Bonxai::CoordT> voxelsLocal(localInstance.localGeometry->begin(), localInstance.localGeometry->end());
+        const std::set<Bonxai::CoordT>& voxelsLocal = *localInstance.localGeometry;
+        std::map<InstanceID_t, std::set<Bonxai::CoordT>> globalsGeometry;  // cache the voxels for each global object to avoid repeated lookup
 
         // Find category with maximum probability for local instance
         CategoryManager::CategoryIndex localMaxCategory = localInstance.mostLikelyCategory();
@@ -119,11 +121,26 @@ inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>
 
             if (globalInstance.isStillValid() && checkBBoxIntersect(localInstance.bbox, globalInstance.bbox))
             {
-                std::vector<Bonxai::CoordT> voxelsGlobal = listOfVoxelsInObject<DataT>(globalInstance);
-                auto [iou, ios] = compute3DIoU<DataT>(voxelsGlobal, voxelsLocal, 2);
+                // get all the voxels that belong to the global instance
+                std::set<Bonxai::CoordT> voxelsGlobal;
+                if (globalsGeometry.contains(globalInstanceID))
+                    voxelsGlobal = globalsGeometry.at(globalInstanceID);
+                else
+                {
+                    voxelsGlobal = listOfVoxelsInObject<DataT>(globalInstance);
+                    globalsGeometry.insert({globalInstanceID, voxelsGlobal});
+                }
+
+                auto [iou, ios] = compute3DIoU(voxelsGlobal, voxelsLocal, 2);
+
+                double iov = computeIoV<DataT>(voxelizedLocalPointCloud, voxelsGlobal, voxelsLocal);
 
 #if 1
                 const double iouThreshold = localMaxCategory == globalMaxCategory ? 0.15 : 0.5;
+                bool iouPasses = iou > iouThreshold;
+                bool iosPasses = ios > iouThreshold;
+                bool iovPasses = iov > iouThreshold;
+
 #else
                 // Calculate distance from sensor to the local instance center
                 float localCenterX = (localInstance.bbox.minX + localInstance.bbox.maxX) / 2.0f;
@@ -174,10 +191,15 @@ inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>
                     }
                 }
 #endif
-                if (iou > iouThreshold)
+                if (iouPasses || iosPasses || iovPasses)
                 {
-                    VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow), "Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", localInstanceID, globalInstanceID, iou, ios);
-                    PAUSE_THREAD_UNTIL_GUI_CONTINUE;
+                    VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow), "Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f} IoV: {:.2f}",  //
+                              localInstanceID,
+                              globalInstanceID,
+                              iou,
+                              ios,
+                              iov);
+                    // PAUSE_THREAD_UNTIL_GUI_CONTINUE;
                     fuseSemanticObjects(globalInstance, localInstance);
 
                     lastMapLocalToGlobal[localInstanceID] = globalInstanceID;
@@ -188,7 +210,12 @@ inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>
                     break;  // don't keep iterating over the globals, we are done with this local instance
                 }
                 else
-                    VXL_DEBUG("NOT Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", localInstanceID, globalInstanceID, iou, ios);
+                    VXL_DEBUG("NOT Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}, IoV: {:.2f}",  //
+                              localInstanceID,
+                              globalInstanceID,
+                              iou,
+                              ios,
+                              iov);
             }
         }
 
@@ -246,7 +273,7 @@ inline void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                 if (firstInstance.numberObservations > 10 && secondInstance.numberObservations > 10)
                     iouThreshold += 0.05;
 
-                auto [iou, ios] = compute3DIoU<DataT>(voxelsFirst, voxelsSecond, 3);
+                auto [iou, ios] = compute3DIoU(voxelsFirst, voxelsSecond, 3);
                 if (iou > iouThreshold)
                 {
                     // Fuse the second instance with the first one
@@ -271,9 +298,9 @@ inline void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
 }
 
 template <typename DataT>
-inline std::vector<Bonxai::CoordT> SemanticMap::listOfVoxelsInObject(const SemanticObject object)
+inline std::set<Bonxai::CoordT> SemanticMap::listOfVoxelsInObject(const SemanticObject object)
 {
-    std::vector<Bonxai::CoordT> cellsInside;
+    std::set<Bonxai::CoordT> cellsInside;
 
     Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>* bonxai = BonxaiQuery<DataT>::getBonxai()->grid();
 
@@ -282,7 +309,8 @@ inline std::vector<Bonxai::CoordT> SemanticMap::listOfVoxelsInObject(const Seman
     const Bonxai::CoordT coordMax = bonxai->posToCoord(Bonxai::Point3D(
         object.bbox.maxX + bonxai->resolution, object.bbox.maxY + bonxai->resolution, object.bbox.maxZ + bonxai->resolution));
 
-    // Iterate over all points inside the bounding box
+// Iterate over all points inside the bounding box
+#pragma omp parallel for collapse(3)
     for (int x = coordMin.x; x <= coordMax.x; x++)
     {
         for (int y = coordMin.y; y <= coordMax.y; y++)
@@ -299,10 +327,16 @@ inline std::vector<Bonxai::CoordT> SemanticMap::listOfVoxelsInObject(const Seman
 #if CONSIDER_ANY_VOTE
                 auto it = std::find(cell->data.instances_candidates.begin(), cell->data.instances_candidates.end(), object.instanceID);
                 if (it != cell->data.instances_candidates.end())
-                    cellsInside.push_back(coord);
+                {
+#pragma omp critical
+                    cellsInside.insert(coord);
+                }
 #else
                 if (cell->data.getMostRepresentativeInstance() == object.instanceID)
-                    cellsInside.push_back(coord);
+                {
+#pragma omp critical
+                    cellsInside.insert(coord);
+                }
 #endif
             }
         }
@@ -311,63 +345,41 @@ inline std::vector<Bonxai::CoordT> SemanticMap::listOfVoxelsInObject(const Seman
     return cellsInside;
 }
 
+// TODO if this ends up making sense, optimize the computation a bit
 template <typename DataT>
-inline std::pair<double, double> SemanticMap::compute3DIoU(const std::vector<Bonxai::CoordT>& voxels1,
-                                                           const std::vector<Bonxai::CoordT>& voxels2,
-                                                           float coarsening_factor)
+double SemanticMap::computeIoV(const std::set<Bonxai::CoordT>& localVoxels,
+                               const std::set<Bonxai::CoordT>& globalInstance,
+                               const std::set<Bonxai::CoordT>& localInstance)
 {
-    std::set<Bonxai::CoordT> voxels1_coarse;
-    std::set<Bonxai::CoordT> voxels2_coarse;
+    // find all the voxels in the global instance which were visible in this image
+    std::set<Bonxai::CoordT> visibleGlobalVoxels;
+    std::set_intersection(globalInstance.begin(),
+                          globalInstance.end(),
+                          localVoxels.begin(),
+                          localVoxels.end(),
+                          std::inserter(visibleGlobalVoxels, visibleGlobalVoxels.begin()));
+    size_t numVisibleVoxels = visibleGlobalVoxels.size();
 
-    for (size_t i = 0; i < voxels1.size(); i++)
-    {
-        Bonxai::CoordT coord = voxels1[i];
-        voxels1_coarse.insert(coord / coarsening_factor);
-    }
+    // find which of the visible voxels were identified as part of this local instance
+    std::set<Bonxai::CoordT> globalVoxelsInMask;
+    std::set_intersection(visibleGlobalVoxels.begin(),
+                          visibleGlobalVoxels.end(),
+                          localInstance.begin(),
+                          localInstance.end(),
+                          std::inserter(globalVoxelsInMask, globalVoxelsInMask.begin()));
+    size_t numVoxelsInMask = globalVoxelsInMask.size();
 
-    for (size_t i = 0; i < voxels2.size(); i++)
-    {
-        Bonxai::CoordT coord = voxels2[i];
-        voxels2_coarse.insert(coord / coarsening_factor);
-    }
-
-    auto orderFunc = [](const Bonxai::CoordT& c1, const Bonxai::CoordT& c2) {
-        return c1.x < c2.x || (c1.x == c2.x && c1.y < c2.y) || (c1.x == c2.x && c1.y == c2.y && c1.z < c2.z);
-    };
-
-    std::vector<Bonxai::CoordT> intersection_;
-    std::vector<Bonxai::CoordT> union_;
-
-    std::set_intersection(voxels1_coarse.begin(),
-                          voxels1_coarse.end(),
-                          voxels2_coarse.begin(),
-                          voxels2_coarse.end(),
-                          std::back_inserter(intersection_),
-                          orderFunc);
-    std::set_union(voxels1_coarse.begin(),
-                   voxels1_coarse.end(),
-                   voxels2_coarse.begin(),
-                   voxels2_coarse.end(),
-                   std::back_inserter(union_),
-                   orderFunc);
-
-    double IoU = 0.;
-    if (union_.size() > 0)
-        IoU = ((double)intersection_.size()) / union_.size();
-
-    double IoS = 0.;
-    if (voxels1_coarse.size() > 0)
-        IoS = ((double)intersection_.size()) / voxels1_coarse.size();
-    if (voxels2_coarse.size() > 0)
-        IoS = std::max(IoS, ((double)intersection_.size()) / voxels2_coarse.size());
-
-    // VXL_INFO("IoU: {:.2f}\nIoS: {:.2f}", IoU, IoS);
-    return std::pair<double, double>(IoU, IoS);  // TODO probably a good idea to just return both and let the caller decide what to do with them
+    double iov = numVisibleVoxels > 0 ? numVoxelsInMask / static_cast<double>(numVisibleVoxels) : 0;
+    return iov;
 }
 
 template <typename DataT>
 inline Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>::Accessor& BonxaiQuery<DataT>::getAccessor()
 {
+    // accessor was created for another thread, we need a new one
+    if (!accessor && bonxai)
+        createAccessor(bonxai);
+
     return *accessor;
 }
 
