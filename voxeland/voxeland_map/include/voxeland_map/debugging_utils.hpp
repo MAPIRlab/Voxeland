@@ -4,7 +4,7 @@
 
 namespace debugging_utils
 {
-    inline bool debug_paused = false;
+    inline volatile bool debug_paused = false;
     inline bool debug_paused_enabled = false;
 
     inline std::mutex mutex;
@@ -14,9 +14,9 @@ namespace debugging_utils
 #define PAUSE_THREAD_UNTIL_GUI_CONTINUE                \
     if (debugging_utils::debug_paused_enabled)         \
     {                                                  \
-        debugging_utils::mutex.unlock();               \
         fprintf(stderr, "THREAD PAUSED\n");            \
         debugging_utils::debug_paused = true;          \
+        debugging_utils::mutex.unlock();               \
         while (debugging_utils::debug_paused)          \
             ;                                          \
         debugging_utils::mutex.lock();                 \
