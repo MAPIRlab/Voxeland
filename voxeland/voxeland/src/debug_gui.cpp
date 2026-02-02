@@ -110,6 +110,18 @@ namespace voxeland_server
             return;
         }
 
+        static bool enableByDefault = false;
+        ImGui::Checkbox("Enable new instances automatically", &enableByDefault);
+        ImGui::VerticalSpace(20.f);
+
+        size_t numBeforeResize = globalObjectsToDraw.size();
+        globalObjectsToDraw.resize(semantics.globalSemanticMap.size());
+        if (enableByDefault)
+        {
+            for (size_t i = numBeforeResize; i < globalObjectsToDraw.size(); i++)
+                globalObjectsToDraw.at(i) = true;
+        }
+
         if (ImGui::Button("Toggle all"))
         {
             static bool set_to = false;
@@ -120,7 +132,6 @@ namespace voxeland_server
                     globalObjectsToDraw.at(i) = set_to;
         }
 
-        globalObjectsToDraw.resize(semantics.globalSemanticMap.size());
         for (size_t i = 0; i < semantics.globalSemanticMap.size(); i++)
         {
             if (semantics.globalSemanticMap.at(i).isStillValid())
