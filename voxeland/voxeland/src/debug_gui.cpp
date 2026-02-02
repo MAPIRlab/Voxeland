@@ -140,12 +140,11 @@ namespace voxeland_server
             if (!globalObjectsToDraw[i])
                 continue;
 
-            std::vector<Bonxai::CoordT> coords;
+            std::set<Bonxai::CoordT> coords;
             coords = semantics.listOfVoxelsInObject<DataT>(semantics.globalSemanticMap.at(i));
 
-            for (size_t i = 0; i < coords.size(); i++)
+            for (const auto& coord : coords)
             {
-                const auto& coord = coords.at(i);
                 const Bonxai::Point3D point = bonxai_->coordToPos(coord);
 
                 Bonxai::ProbabilisticCell<DataT>* cell = BonxaiQuery<DataT>::getAccessor().value(coord);

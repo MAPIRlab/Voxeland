@@ -128,7 +128,7 @@ inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>
                 else
                 {
                     voxelsGlobal = listOfVoxelsInObject<DataT>(globalInstance);
-                    globalsGeometry.insert({globalInstanceID, voxelsGlobal});
+                    globalsGeometry.insert({ globalInstanceID, voxelsGlobal });
                 }
 
                 auto [iou, ios] = compute3DIoU(voxelsGlobal, voxelsLocal, 2);
@@ -238,6 +238,21 @@ inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>
 template <typename DataT>
 inline void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
 {
+    std::map<InstanceID_t, std::set<Bonxai::CoordT>> geometry;  // cache the voxels for each global object to avoid repeated lookup
+
+    auto getGeometry = [&](InstanceID_t id) {
+        // get all the voxels that belong to the global instance
+        std::set<Bonxai::CoordT> voxelsGlobal;
+        if (geometry.contains(id))
+            voxelsGlobal = geometry.at(id);
+        else
+        {
+            voxelsGlobal = listOfVoxelsInObject<DataT>(id);
+            geometry.insert({ id, voxelsGlobal });
+        }
+        return voxelsGlobal;
+    };
+
     for (InstanceID_t i = 1; i < globalSemanticMap.size(); i++)
     {
         SemanticObject& firstInstance = globalSemanticMap[i];
@@ -245,7 +260,7 @@ inline void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         if (!firstInstance.isStillValid())
             continue;
 
-        std::vector<Bonxai::CoordT> voxelsFirst = listOfVoxelsInObject<DataT>(firstInstance);
+        std::set<Bonxai::CoordT> voxelsFirst = getGeometry(i);
         CategoryManager::CategoryIndex firstClassIdx = firstInstance.mostLikelyCategory();
 
         for (InstanceID_t j = i + 1; j < globalSemanticMap.size(); j++)
@@ -254,7 +269,7 @@ inline void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
 
             if (secondInstance.isStillValid() && checkBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
             {
-                std::vector<Bonxai::CoordT> voxelsSecond = listOfVoxelsInObject<DataT>(secondInstance);
+                std::set<Bonxai::CoordT> voxelsSecond = getGeometry(j);
 
                 // Adaptive threshold based on:
                 // 1. Semantic similarity (same class = lower threshold)
