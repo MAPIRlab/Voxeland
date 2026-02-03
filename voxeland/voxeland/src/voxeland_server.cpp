@@ -609,7 +609,6 @@ namespace voxeland_server
     {
         std::vector<DataT> cell_data;
         std::vector<Bonxai::Point3D> cell_points;
-        cell_points.clear();
         bonxai_->With<DataT>()->getOccupiedVoxels(cell_points, cell_data);
 
         if (cell_points.size() <= 1)

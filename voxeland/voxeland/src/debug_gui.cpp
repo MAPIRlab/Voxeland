@@ -110,6 +110,11 @@ namespace voxeland_server
             return;
         }
 
+        static bool viewUnderSegmentationScore = false;
+        ImGui::Checkbox("View under-segmentation score", &viewUnderSegmentationScore);
+        static float underSegmentationVizLimit = 2;
+        ImGui::SliderFloat("Under-segmentation scale limit", &underSegmentationVizLimit, 0, 30);
+
         static bool enableByDefault = false;
         ImGui::Checkbox("Enable new instances automatically", &enableByDefault);
         ImGui::VerticalSpace(20.f);
@@ -147,9 +152,14 @@ namespace voxeland_server
         // add all the voxels in each of the selected instances to a pcl message, with the color and instanceID
         pcl::PointCloud<pcl::PointXYZRGBSemantics> pcl_cloud;
         auto add_point_to_pcl = [&](DataT& data, const Bonxai::Point3D& point) {
-            voxeland::Color visualization_color = data.toColor();
-            std::uint32_t rgb = voxeland::serializeColor(visualization_color);
             InstanceID_t instanceID = data.getMostRepresentativeInstance();
+            const SemanticObject& instance = semantics.globalSemanticMap.at(instanceID);
+            voxeland::Color visualization_color;
+            if (viewUnderSegmentationScore)
+                visualization_color = voxeland::valueToColor(instance.underSegmentScore / instance.numberObservations, 0, underSegmentationVizLimit);
+            else
+                visualization_color = data.toColor();
+            std::uint32_t rgb = voxeland::serializeColor(visualization_color);
             pcl_cloud.emplace_back((float)point.x, (float)point.y, (float)point.z, *reinterpret_cast<float*>(&rgb), instanceID);
         };
 

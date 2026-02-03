@@ -136,7 +136,7 @@ inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>
                 double iov = computeIoV<DataT>(voxelizedLocalPointCloud, voxelsGlobal, voxelsLocal);
 
 #if 1
-                const double iouThreshold = localMaxCategory == globalMaxCategory ? 0.15 : 0.5;
+                const double iouThreshold = localMaxCategory == globalMaxCategory ? 0.3 : 0.7;
                 bool iouPasses = iou > iouThreshold;
                 bool iosPasses = ios > iouThreshold;
                 bool iovPasses = iov > iouThreshold;
@@ -191,7 +191,7 @@ inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>
                     }
                 }
 #endif
-                if (iouPasses || iosPasses || iovPasses)
+                if (iovPasses)
                 {
                     VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow), "Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f} IoV: {:.2f}",  //
                               localInstanceID,
@@ -210,12 +210,20 @@ inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>
                     break;  // don't keep iterating over the globals, we are done with this local instance
                 }
                 else
+                {
                     VXL_DEBUG("NOT Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}, IoV: {:.2f}",  //
                               localInstanceID,
                               globalInstanceID,
                               iou,
                               ios,
                               iov);
+
+                    if (iosPasses)
+                    {
+                        globalInstance.underSegmentScore += ios - iov;
+                        globalInstance.numberObservations++;
+                    }
+                }
             }
         }
 
@@ -246,7 +254,7 @@ inline void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         if (globalSemanticMap.at(i).isStillValid())
         {
             std::set<Bonxai::CoordT> voxelsGlobal = listOfVoxelsInObject<DataT>(globalSemanticMap.at(i));
-            
+
             // remove instances with very few observations
             if (globalSemanticMap.at(i).numberObservations <= nObservationsToRemove || voxelsGlobal.size() == 0)
                 globalSemanticMap.at(i).pointsTo = 0;
@@ -355,7 +363,6 @@ inline std::set<Bonxai::CoordT> SemanticMap::listOfVoxelsInObject(const Semantic
     return cellsInside;
 }
 
-// TODO if this ends up making sense, optimize the computation a bit
 template <typename DataT>
 double SemanticMap::computeIoV(const std::set<Bonxai::CoordT>& localVoxels,
                                const std::set<Bonxai::CoordT>& globalInstance,
