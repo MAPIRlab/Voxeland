@@ -153,7 +153,7 @@ namespace voxeland_server
             pcl_cloud.emplace_back((float)point.x, (float)point.y, (float)point.z, *reinterpret_cast<float*>(&rgb), instanceID);
         };
 
-        //background is very expensive to draw with the normal iteration strategy, handle it separately
+        // background is very expensive to draw with the normal iteration strategy, handle it separately
         if (globalObjectsToDraw.at(0))
         {
             std::vector<DataT> cell_data;
@@ -163,7 +163,7 @@ namespace voxeland_server
             {
                 const auto& point = cell_points[i];
 
-                if (point.z >= occupancy_min_z_ && point.z <= occupancy_max_z_)
+                if (cell_data.at(i).getMostRepresentativeInstance() == 0 && point.z >= occupancy_min_z_ && point.z <= occupancy_max_z_)
                 {
                     add_point_to_pcl(cell_data.at(i), point);
                 }
