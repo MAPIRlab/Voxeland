@@ -46,7 +46,6 @@ public:
                                            const std::set<Bonxai::CoordT>& voxels2,
                                            float coarsening_factor = 3);
 
-    template <typename DataT>
     double computeIoV(const std::set<Bonxai::CoordT>& localVoxels,
                       const std::set<Bonxai::CoordT>& globalInstance,
                       const std::set<Bonxai::CoordT>& localInstance);
@@ -54,10 +53,8 @@ public:
     template <typename DataT>
     std::set<Bonxai::CoordT> listOfVoxelsInObject(const SemanticObject& object);
 
-    template <typename DataT>
     void refineGlobalSemanticMap(int nObservationsToRemove);
 
-    template <typename DataT>
     void integrateNewSemantics(const std::vector<SemanticObject>& localMap,
                                const std::set<Bonxai::CoordT>& voxelizedLocalPointCloud,
                                float sensorX = 0.0f,
@@ -80,6 +77,7 @@ private:
     std::vector<std::uint32_t> color_palette;
     bool initialized = false;
     double kld_threshold;
+    voxeland::DataMode currentMode;
 
     double computeKLD(const std::vector<double>& P, const std::vector<double>& Q);
     bool checkBBoxIntersect(const BoundingBox3D& box1, const BoundingBox3D& box2);

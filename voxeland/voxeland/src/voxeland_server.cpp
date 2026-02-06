@@ -368,7 +368,7 @@ namespace voxeland_server
 
         if (modeHas(DataMode::SemanticsInstances))
         {
-            AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, semantics.refineGlobalSemanticMap<DataT>(15));
+            semantics.refineGlobalSemanticMap(15);
             nlohmann::json json_data = semantics.mapToJSON();
 
             std::string json_filename = "voxeland_instanceMap.json";
@@ -539,7 +539,7 @@ namespace voxeland_server
     void VoxelandServer::doGlobalRefinement()
     {
         voxeland::ScopedStopwatch watch("Global refinement");
-        AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, semantics.refineGlobalSemanticMap<DataT>(2));
+        semantics.refineGlobalSemanticMap(2);
     }
 
     template <typename DataT>
