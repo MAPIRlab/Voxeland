@@ -36,7 +36,7 @@ void SemanticMap::initialize(std::vector<std::string> dataset_categories,
     initialized = true;
 }
 
-inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& localMap,
+void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& localMap,
                                                const std::set<Bonxai::CoordT>& voxelizedLocalPointCloud,
                                                float sensorX,
                                                float sensorY,
@@ -209,7 +209,7 @@ inline void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>
     VXL_INFO("Integrating {} new local objects: {} integrated and {} added", localMap.size(), integrated, added);
 }
 
-inline void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
+void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
 {
     // cache the voxels for each global object to avoid repeated lookup
     std::map<InstanceID_t, std::set<Bonxai::CoordT>> geometry;
