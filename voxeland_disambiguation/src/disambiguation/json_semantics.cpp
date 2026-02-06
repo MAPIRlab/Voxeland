@@ -6,7 +6,7 @@
 #include <map>
 #include <memory>
 #include <string>
-#include "voxeland_map/semantics.hpp"
+#include "voxeland_map/semantic_map.hpp"
 
 using json = nlohmann::json;
 

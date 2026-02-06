@@ -6,8 +6,8 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include "voxeland_map/semantics.hpp"
-#include "cv_bridge/cv_bridge.hpp"
+#include "voxeland_map/semantic_map.hpp"
+#include <cv_bridge/cv_bridge.hpp>
 
 
 

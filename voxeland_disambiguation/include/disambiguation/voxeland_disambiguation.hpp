@@ -9,7 +9,7 @@
 #include <sensor_msgs/msg/detail/image__struct.hpp>
 #include <string>
 #include <vector>
-#include <voxeland_map/semantics.hpp>
+#include <voxeland_map/semantic_map.hpp>
 #include "json_semantics.hpp"
 #include <ros_lm_interfaces/srv/open_llm_request.hpp>
 #include "disambiguation/pipeline/interface_pipeline_step.hpp"
