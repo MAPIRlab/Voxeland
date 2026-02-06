@@ -1,11 +1,4 @@
-#ifndef voxeland_server__voxeland_server_HPP_
-#define voxeland_server__voxeland_server_HPP_
-
-#include <pcl/common/transforms.h>
-#include <pcl/filters/extract_indices.h>
-#include <pcl/filters/passthrough.h>
-#include <pcl/io/pcd_io.h>
-#include <pcl/segmentation/sac_segmentation.h>
+#pragma once
 
 #include <semantics_ros_wrapper.hpp>
 #include <voxeland_map/Utils/logging.hpp>
@@ -13,28 +6,21 @@
 #include <voxeland_map/data_modes.hpp>
 #include <voxeland_map/semantic_map.hpp>
 
-#include "bonxai/bonxai.hpp"
-#include "pcl_conversions/pcl_conversions.h"
-#include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
-#include "std_msgs/msg/color_rgba.hpp"
 #include "std_srvs/srv/empty.hpp"
-#include "voxeland_map/pcl_utils.hpp"
-#include "voxeland_map/probabilistic_map_templated.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
-#include "visualization_msgs/msg/marker.hpp"
+#include <visualization_msgs/msg/marker.hpp>
 
 /* Added by JL Matez */
 #include <memory>
-#include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
 #include <voxeland_msgs/srv/get_class_distributions.hpp>
 #include <voxeland_msgs/srv/update_map_results.hpp>
 
 #include "tf2_eigen/tf2_eigen.hpp"  // IWYU pragma: keep
-#include "tf2_ros/buffer.h"
-#include "tf2_ros/transform_listener.h"
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.hpp>
 
 namespace voxeland_server
 {
@@ -205,5 +191,3 @@ namespace voxeland_server
     };
 
 }  // namespace voxeland_server
-
-#endif  // voxeland_server__voxeland_server_HPP_

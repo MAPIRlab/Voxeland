@@ -1,3 +1,9 @@
+#include <pcl/common/transforms.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/filters/passthrough.h>
+#include <pcl/io/pcd_io.h>
+#include <pcl/segmentation/sac_segmentation.h>
+#include <pcl_conversions/pcl_conversions.h>
 #include <tf2_ros/create_timer_ros.h>
 
 #include <Profiling.hpp>
@@ -12,6 +18,7 @@
 
 #include "nlohmann/json.hpp"
 #include "voxeland_map/Utils/logging.hpp"
+#include "voxeland_map/probabilistic_map_templated.hpp"
 
 using namespace std::placeholders;
 
@@ -711,12 +718,8 @@ namespace voxeland_server
     }
 }  // namespace voxeland_server
 
-#include "export_map.cpp"
-
-#if ENABLE_DEBUG_GUI
-#include "debug_gui.cpp"
-#endif
-
 #include <rclcpp_components/register_node_macro.hpp>
+
+#include "export_map.cpp"
 
 RCLCPP_COMPONENTS_REGISTER_NODE(voxeland_server::VoxelandServer)

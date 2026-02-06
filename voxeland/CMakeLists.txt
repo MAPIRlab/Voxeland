@@ -69,6 +69,7 @@ if ( ament_cmake_FOUND )
     # Server node
     ament_auto_add_library(voxeland_server SHARED
       voxeland/src/voxeland_server.cpp
+      voxeland/src/debug_gui.cpp
     )
 
     target_link_libraries(voxeland_server

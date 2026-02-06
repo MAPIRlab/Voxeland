@@ -1,3 +1,5 @@
+#if ENABLE_DEBUG_GUI
+#include <pcl_conversions/pcl_conversions.h>
 #include <imgui_gl/imgui_gl.h>
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
@@ -281,7 +283,9 @@ namespace voxeland_server
         if (itemSelectedIdx >= semantics.globalSemanticMap.size())
             itemSelectedIdx = 0;
 
-        if (ImGui::BeginCombo("Selected Instance", semantics.globalSemanticMap.at(itemSelectedIdx).instanceName.c_str()))
+        const SemanticObject& object = semantics.globalSemanticMap.at(itemSelectedIdx);
+
+        if (ImGui::BeginCombo("Selected Instance", object.instanceName.c_str()))
         {
             for (size_t i = 0; i < semantics.globalSemanticMap.size(); i++)
             {
@@ -294,12 +298,17 @@ namespace voxeland_server
         }
 
         ImGui::Text("Alphas dirichlet:");
-        for (const auto& [categoryID, alpha] : semantics.globalSemanticMap.at(itemSelectedIdx).alphaParamsCategories)
+        ImGui::Indent(20.f);
+        for (const auto& [categoryID, alpha] : object.alphaParamsCategories)
         {
             ImGui::Text("%s: %f",
                         CategoryManager::getInstance().getCategoryName(categoryID).c_str(),
                         alpha);
         }
+        ImGui::Unindent(20.f);
+
+        ImGui::Text("Num observations: %d", object.numberObservations);
+        ImGui::Text("Under-segment score: %.2f", object.underSegmentScore);
 
         ImGui::End();
     }
@@ -410,3 +419,4 @@ namespace voxeland_server
     }
 
 }  // namespace voxeland_server
+#endif
