@@ -157,7 +157,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
                     }
                 }
 #endif
-                if (iouPasses || iosPasses || iovPasses)
+                if (iovPasses)
                 {
                     VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow), "Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f} IoV: {:.2f}",  //
                               localInstanceID,
@@ -268,7 +268,6 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                     VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow), "(Refine) Fusing global {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", i, j, iou, ios);
                     PAUSE_THREAD_UNTIL_GUI_CONTINUE;
                     fuseSemanticObjects(firstInstance, secondInstance);
-                    firstInstance.numberObservations += secondInstance.numberObservations;
                 }
                 else
                     VXL_DEBUG("(Refine) NOT Fusing global {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", i, j, iou, ios);
@@ -429,6 +428,9 @@ void SemanticMap::fuseSemanticObjects(SemanticObject& firstInstance, const Seman
 
     // Update appearances timestamps
     updateAppearancesTimestamps(firstInstance, secondInstance);
+
+    firstInstance.numberObservations += secondInstance.numberObservations;
+    firstInstance.underSegmentScore = std::max(firstInstance.underSegmentScore, secondInstance.underSegmentScore);
 }
 
 nlohmann::json SemanticMap::mapToJSON()
