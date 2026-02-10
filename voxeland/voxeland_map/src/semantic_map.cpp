@@ -101,7 +101,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
 
                 auto [iou, ios] = compute3DIoU(voxelsGlobal, voxelsLocal, 2);
                 
-                // IoV: Intersection over Volume - uses the full voxelized point cloud
+                // IoV: Intersection over Visible - uses the full voxelized point cloud
                 double iov = computeIoV(voxelizedLocalPointCloud, voxelsGlobal, voxelsLocal);
 
                 // ============================================================
