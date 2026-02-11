@@ -18,6 +18,7 @@ endif()
 
 get_directory_property(MYDEFS COMPILE_DEFINITIONS)
 
+add_subdirectory(../3rdparty/dbscan ${PROJECT_BINARY_DIR}/dbscan)
 
 if(MYDEFS MATCHES "USING_ROS")
     ament_target_dependencies(voxeland_map rclcpp)
@@ -34,6 +35,7 @@ target_include_directories(voxeland_map PUBLIC
 target_link_libraries(voxeland_map
     bonxai_core
     fmt
+    dbscan
     ${PCL_LIBRARIES})
 
 ####################################################
