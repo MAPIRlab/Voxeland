@@ -161,7 +161,7 @@ public:
 
         semantics.setLocalSemanticMap(localMap);
 
-        semantics.integrateNewSemantics(localMap, voxelizedLocalPointCloud);
+        semantics.integrateNewSemantics(localMap, voxelizedLocalPointCloud, sensorX, sensorY, sensorZ);
     }
 
     template <typename PointCloudTypeT>
