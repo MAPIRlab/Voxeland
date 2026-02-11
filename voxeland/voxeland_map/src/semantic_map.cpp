@@ -1,8 +1,8 @@
+#include <cmath>
+#include <set>
 #include <voxeland_map/category_manager.hpp>
 #include <voxeland_map/cell_types.hpp>
 #include <voxeland_map/semantic_map.hpp>
-#include <set>
-#include <cmath>
 
 SemanticMap::SemanticMap()
     : kld_threshold(0.1f)
@@ -107,7 +107,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
                 // HYBRID FUSION: IoV + Jensen-Shannon Semantic Similarity
                 // Combines geometric (IoU, IoS, IoV) with semantic evidence
                 // ============================================================
-                
+
                 // Calculate distance from sensor to the local instance center
                 float localCenterX = (localInstance.bbox.minX + localInstance.bbox.maxX) / 2.0f;
                 float localCenterY = (localInstance.bbox.minY + localInstance.bbox.maxY) / 2.0f;
@@ -120,14 +120,14 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
                 // Compute semantic similarity using Jensen-Shannon divergence
                 // This compares the FULL probability distributions, not just the top class
                 double semanticSimilarity = computeSemanticSimilarity(localInstance, globalInstance);
-                
+
                 // Base thresholds vary with distance:
                 // Close objects (< 1.5m): high threshold - precise segmentation expected
                 // Medium distance (1.5-3m): medium threshold
                 // Far objects (> 3m): low threshold - rely more on semantics
                 double baseIovThreshold;
                 double semanticWeight;  // How much to weight semantic similarity vs geometric metrics
-                
+
                 if (distanceToSensor < 1.5f)
                 {
                     baseIovThreshold = 0.35;
@@ -143,12 +143,12 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
                     baseIovThreshold = 0.15;
                     semanticWeight = 0.5;  // Trust semantics more when far
                 }
-                
+
                 // Compute combined fusion score using IoV (better than IoU for partial observations):
                 // fusionScore = (1 - semanticWeight) * IoV + semanticWeight * semanticSimilarity
                 // This creates a weighted combination of geometric and semantic evidence
                 double fusionScore = (1.0 - semanticWeight) * iov + semanticWeight * semanticSimilarity;
-                
+
                 // Adaptive threshold based on semantic similarity:
                 // - High semantic similarity (>0.8): lower the effective threshold (easier to fuse)
                 // - Low semantic similarity (<0.3): raise the effective threshold (harder to fuse)
@@ -163,40 +163,42 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
                     // Very different distributions - increase threshold by up to 0.15
                     thresholdModifier = 0.15 * (0.3 - semanticSimilarity) / 0.3;
                 }
-                
+
                 double fusionThreshold = baseIovThreshold + thresholdModifier;
-                
+
                 // Additional bonus for high-confidence semantic matches
                 // (when both objects are confident about the same category)
                 if (localMaxCategory == globalMaxCategory)
                 {
                     double localConfidence = localInstance.getCategoryAlpha(localMaxCategory);
                     double globalConfidence = globalInstance.getCategoryAlpha(globalMaxCategory);
-                    
-                    // Normalize confidences (rough approximation)
-                    double localSum = 0.0, globalSum = 0.0;
-                    for (const auto& [cat, alpha] : localInstance.alphaParamsCategories)
-                        localSum += alpha;
-                    for (const auto& [cat, alpha] : globalInstance.alphaParamsCategories)
-                        globalSum += alpha;
-                    
+
+                    // Normalize confidences
+                    double localSum = localInstance.getSumAlphas();
+                    double globalSum = globalInstance.getSumAlphas();
+
                     double localProb = localSum > 0 ? localConfidence / localSum : 0;
                     double globalProb = globalSum > 0 ? globalConfidence / globalSum : 0;
-                    
+
                     // If both have high confidence in the same class, add bonus to fusion score
                     if (localProb > 0.5 && globalProb > 0.5)
                     {
                         fusionScore += 0.05 * std::min(localProb, globalProb);
                     }
                 }
-                
+
                 VXL_DEBUG("Fusion candidate local {} - global {}: IoU={:.3f}, IoV={:.3f}, SemanticSim={:.3f}, FusionScore={:.3f}, Threshold={:.3f}",
-                          localInstanceID, globalInstanceID, iou, iov, semanticSimilarity, fusionScore, fusionThreshold);
-                
+                          localInstanceID,
+                          globalInstanceID,
+                          iou,
+                          iov,
+                          semanticSimilarity,
+                          fusionScore,
+                          fusionThreshold);
+
                 if (fusionScore > fusionThreshold)
                 {
-                    VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow), "Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS:{:.2f}  IoV:{:.2f}  SemSim:{:.2f}  Score:{:.2f}", 
-                              localInstanceID, globalInstanceID, iou, ios, iov, semanticSimilarity, fusionScore);
+                    VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow), "Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS:{:.2f}  IoV:{:.2f}  SemSim:{:.2f}  Score:{:.2f}", localInstanceID, globalInstanceID, iou, ios, iov, semanticSimilarity, fusionScore);
                     PAUSE_THREAD_UNTIL_GUI_CONTINUE;
                     fuseSemanticObjects(globalInstance, localInstance);
 
@@ -209,11 +211,17 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
                 }
                 else
                 {
-                    VXL_DEBUG("NOT Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS:{:.2f}  IoV:{:.2f}  SemSim:{:.2f}  Score:{:.2f}", 
-                              localInstanceID, globalInstanceID, iou, ios, iov, semanticSimilarity, fusionScore);
-                    
+                    VXL_DEBUG("NOT Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS:{:.2f}  IoV:{:.2f}  SemSim:{:.2f}  Score:{:.2f}",
+                              localInstanceID,
+                              globalInstanceID,
+                              iou,
+                              ios,
+                              iov,
+                              semanticSimilarity,
+                              fusionScore);
+
                     // Track potential under-segmentation using IoS vs IoV difference
-                    // If IoS is high but IoV is low, it suggests the local observation 
+                    // If IoS is high but IoV is low, it suggests the local observation
                     // covers part of a larger global object (under-segmentation)
                     double iosThreshold = baseIovThreshold;  // Use same base threshold
                     if (ios > iosThreshold)
@@ -393,7 +401,6 @@ double SemanticMap::computeKLD(const std::vector<double>& P, const std::vector<d
     }
 }
 
-
 double SemanticMap::computeSemanticSimilarity(const SemanticObject& obj1, const SemanticObject& obj2)
 {
     // Collect all categories present in either object
@@ -402,46 +409,34 @@ double SemanticMap::computeSemanticSimilarity(const SemanticObject& obj1, const 
         allCategories.insert(cat);
     for (const auto& [cat, _] : obj2.alphaParamsCategories)
         allCategories.insert(cat);
-    
+
     if (allCategories.empty())
         return 0.0;  // No semantic information available
-    
+
     // Compute total alpha sums for normalization
-    double sum1 = 0.0, sum2 = 0.0;
-    for (const auto& [cat, alpha] : obj1.alphaParamsCategories)
-        sum1 += alpha;
-    for (const auto& [cat, alpha] : obj2.alphaParamsCategories)
-        sum2 += alpha;
-    
+    double sum1 = obj1.getSumAlphas(), sum2 = obj2.getSumAlphas();
+
     if (sum1 <= 0.0 || sum2 <= 0.0)
         return 0.0;  // Invalid distributions
-    
+
     // Build normalized probability distributions P and Q
     // Use small epsilon to avoid division by zero in KL computation
     const double epsilon = 1e-10;
     std::vector<double> P, Q, M;
-    
+
     for (const auto& cat : allCategories)
     {
-        double p = epsilon;  // Default small probability
-        double q = epsilon;
-        
-        auto it1 = obj1.alphaParamsCategories.find(cat);
-        if (it1 != obj1.alphaParamsCategories.end())
-            p = it1->second / sum1;
-        
-        auto it2 = obj2.alphaParamsCategories.find(cat);
-        if (it2 != obj2.alphaParamsCategories.end())
-            q = it2->second / sum2;
-        
+        double p = std::max(obj1.getCategoryAlpha(cat) / sum1, epsilon);
+        double q = std::max(obj2.getCategoryAlpha(cat) / sum2, epsilon);
+
         P.push_back(p);
         Q.push_back(q);
         M.push_back((p + q) / 2.0);  // Midpoint distribution for JS divergence
     }
-    
+
     // Compute Jensen-Shannon divergence: JS(P||Q) = 0.5 * KL(P||M) + 0.5 * KL(Q||M)
     double kl_pm = 0.0, kl_qm = 0.0;
-    
+
     for (size_t i = 0; i < P.size(); ++i)
     {
         if (P[i] > epsilon)
@@ -449,14 +444,14 @@ double SemanticMap::computeSemanticSimilarity(const SemanticObject& obj1, const 
         if (Q[i] > epsilon)
             kl_qm += Q[i] * std::log(Q[i] / M[i]);
     }
-    
+
     double js_divergence = 0.5 * kl_pm + 0.5 * kl_qm;
-    
+
     // JS divergence is bounded [0, ln(2)] when using natural log
     // Normalize to [0, 1] and convert to similarity (1 - normalized_divergence)
     double js_normalized = js_divergence / std::log(2.0);
     double similarity = 1.0 - std::min(1.0, std::max(0.0, js_normalized));
-    
+
     return similarity;
 }
 

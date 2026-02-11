@@ -95,4 +95,12 @@ struct SemanticObject
     {
         alphaParamsCategories[categoryIndex] += probability;
     }
+
+    double getSumAlphas() const
+    {
+        double sum = 0;
+        for (const auto& [cat, alpha] : alphaParamsCategories)
+            sum += alpha;
+        return sum;
+    }
 };
