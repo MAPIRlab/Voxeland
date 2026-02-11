@@ -48,13 +48,13 @@ find_package(OpenMP REQUIRED)
 find_package(magic_enum REQUIRED)
 
 add_subdirectory(bonxai_core)
-add_subdirectory(voxeland_map)
 
 if ( ament_cmake_FOUND )
 
     project(voxeland)
 
     add_compile_definitions(USING_ROS=1)
+    add_subdirectory(voxeland_map)
 
     # Add colcon-specific configuration here
     message(STATUS "Building with colcon")
@@ -116,7 +116,7 @@ if ( ament_cmake_FOUND )
     )
 
 else()
-
-  message(STATUS "Building with cmake")
+    add_subdirectory(voxeland_map)
+    message(STATUS "Building with cmake")
   
 endif()
