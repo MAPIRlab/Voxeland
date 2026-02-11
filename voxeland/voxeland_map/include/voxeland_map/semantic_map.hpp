@@ -48,7 +48,8 @@ public:
 
     double computeIoV(const std::set<Bonxai::CoordT>& localVoxels,
                       const std::set<Bonxai::CoordT>& globalInstance,
-                      const std::set<Bonxai::CoordT>& localInstance);
+                      const std::set<Bonxai::CoordT>& localInstance,
+                      float coarsening_factor);
 
     template <typename DataT>
     std::set<Bonxai::CoordT> listOfVoxelsInObject(const SemanticObject& object);
@@ -78,7 +79,8 @@ private:
     bool initialized = false;
     double kld_threshold;
     voxeland::DataMode currentMode;
-
+    
+    std::set<Bonxai::CoordT> coarsenVoxels(const std::set<Bonxai::CoordT>& voxels, float coarsening_factor);
     double computeKLD(const std::vector<double>& P, const std::vector<double>& Q);
     bool checkBBoxIntersect(const BoundingBox3D& box1, const BoundingBox3D& box2);
     void updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D& update);

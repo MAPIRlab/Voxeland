@@ -37,10 +37,10 @@ void SemanticMap::initialize(std::vector<std::string> dataset_categories,
 }
 
 void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& localMap,
-                                               const std::set<Bonxai::CoordT>& voxelizedLocalPointCloud,
-                                               float sensorX,
-                                               float sensorY,
-                                               float sensorZ)
+                                        const std::set<Bonxai::CoordT>& voxelizedLocalPointCloud,
+                                        float sensorX,
+                                        float sensorY,
+                                        float sensorZ)
 {
     uint8_t integrated = 0;
     uint8_t added = 0;
@@ -99,7 +99,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
 
                 auto [iou, ios] = compute3DIoU(voxelsGlobal, voxelsLocal, 2);
 
-                double iov = computeIoV(voxelizedLocalPointCloud, voxelsGlobal, voxelsLocal);
+                double iov = computeIoV(voxelizedLocalPointCloud, voxelsGlobal, voxelsLocal, 1);
 
 #if 1
                 const double iouThreshold = localMaxCategory == globalMaxCategory ? 0.3 : 0.7;
@@ -173,7 +173,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
                     fused = true;
                     globalInstance.numberObservations++;
                     integrated++;
-                    // break;  // don't keep iterating over the globals, we are done with this local instance
+                    break;  // don't keep iterating over the globals, we are done with this local instance
                 }
                 else
                 {
@@ -268,6 +268,7 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                     VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow), "(Refine) Fusing global {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", i, j, iou, ios);
                     PAUSE_THREAD_UNTIL_GUI_CONTINUE;
                     fuseSemanticObjects(firstInstance, secondInstance);
+                    break;
                 }
                 else
                     VXL_DEBUG("(Refine) NOT Fusing global {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", i, j, iou, ios);
@@ -430,7 +431,7 @@ void SemanticMap::fuseSemanticObjects(SemanticObject& firstInstance, const Seman
     updateAppearancesTimestamps(firstInstance, secondInstance);
 
     firstInstance.numberObservations += secondInstance.numberObservations;
-    firstInstance.underSegmentScore = std::max(firstInstance.underSegmentScore, secondInstance.underSegmentScore);
+    firstInstance.underSegmentScore += secondInstance.underSegmentScore;
 }
 
 nlohmann::json SemanticMap::mapToJSON()
@@ -547,18 +548,22 @@ nlohmann::json SemanticMap::appearancesToJson()
     return data_json;
 }
 
+std::set<Bonxai::CoordT> SemanticMap::coarsenVoxels(const std::set<Bonxai::CoordT>& voxels, float coarsening_factor)
+{
+    std::set<Bonxai::CoordT> voxels_coarse;
+
+    for (const auto& coord : voxels)
+        voxels_coarse.insert(coord / coarsening_factor);
+
+    return voxels_coarse;
+}
+
 std::pair<double, double> SemanticMap::compute3DIoU(const std::set<Bonxai::CoordT>& voxels1,
                                                     const std::set<Bonxai::CoordT>& voxels2,
                                                     float coarsening_factor)
 {
-    std::set<Bonxai::CoordT> voxels1_coarse;
-    std::set<Bonxai::CoordT> voxels2_coarse;
-
-    for (const auto& coord : voxels1)
-        voxels1_coarse.insert(coord / coarsening_factor);
-
-    for (const auto& coord : voxels2)
-        voxels2_coarse.insert(coord / coarsening_factor);
+    std::set<Bonxai::CoordT> voxels1_coarse = coarsenVoxels(voxels1, coarsening_factor);
+    std::set<Bonxai::CoordT> voxels2_coarse = coarsenVoxels(voxels2, coarsening_factor);
 
     std::vector<Bonxai::CoordT> intersection_;
     std::vector<Bonxai::CoordT> union_;
@@ -589,14 +594,17 @@ std::pair<double, double> SemanticMap::compute3DIoU(const std::set<Bonxai::Coord
 
 double SemanticMap::computeIoV(const std::set<Bonxai::CoordT>& localVoxels,
                                const std::set<Bonxai::CoordT>& globalInstance,
-                               const std::set<Bonxai::CoordT>& localInstance)
+                               const std::set<Bonxai::CoordT>& localInstance,
+                               float coarsening_factor)
 {
+    std::set<Bonxai::CoordT> localVoxels_coarse = coarsenVoxels(localVoxels, coarsening_factor);
+
     // find all the voxels in the global instance which were visible in this image
     std::set<Bonxai::CoordT> visibleGlobalVoxels;
     std::set_intersection(globalInstance.begin(),
                           globalInstance.end(),
-                          localVoxels.begin(),
-                          localVoxels.end(),
+                          localVoxels_coarse.begin(),
+                          localVoxels_coarse.end(),
                           std::inserter(visibleGlobalVoxels, visibleGlobalVoxels.begin()));
     size_t numVisibleVoxels = visibleGlobalVoxels.size();
 
