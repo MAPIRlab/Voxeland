@@ -52,7 +52,7 @@ public:
                       float coarsening_factor);
 
     template <typename DataT>
-    std::set<Bonxai::CoordT> listOfVoxelsInObject(const SemanticObject& object);
+    std::set<Bonxai::CoordT> listOfVoxelsInObject(const SemanticObject& object, double probabilityThr = 1.0);
 
     void refineGlobalSemanticMap(int nObservationsToRemove);
 

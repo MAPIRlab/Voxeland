@@ -70,7 +70,7 @@ inline void SemanticMap::addInstancesGeometryToLocalSemanticMap(std::vector<Sema
 }
 
 template <typename DataT>
-inline std::set<Bonxai::CoordT> SemanticMap::listOfVoxelsInObject(const SemanticObject& object)
+inline std::set<Bonxai::CoordT> SemanticMap::listOfVoxelsInObject(const SemanticObject& object, double probabilityThr)
 {
     std::set<Bonxai::CoordT> cellsInside;
 
@@ -94,22 +94,13 @@ inline std::set<Bonxai::CoordT> SemanticMap::listOfVoxelsInObject(const Semantic
                 if (!cell)
                     continue;
 
-                // do we want to consider all voxels in which a single vote exists for this instance, or only the ones where the instance wins?
-#define CONSIDER_ANY_VOTE 0
-#if CONSIDER_ANY_VOTE
-                auto it = std::find(cell->data.instances_candidates.begin(), cell->data.instances_candidates.end(), object.instanceID);
-                if (it != cell->data.instances_candidates.end())
+                if (cell->data.getMostRepresentativeInstance() == object.instanceID                                      //
+                    || (probabilityThr < 1 && cell->data.GetProbabilityOfInstance(object.instanceID) >= probabilityThr)  // if thr >=1, dont bother checking!
+                )
                 {
 #pragma omp critical
                     cellsInside.insert(coord);
                 }
-#else
-                if (cell->data.getMostRepresentativeInstance() == object.instanceID)
-                {
-#pragma omp critical
-                    cellsInside.insert(coord);
-                }
-#endif
             }
         }
     }

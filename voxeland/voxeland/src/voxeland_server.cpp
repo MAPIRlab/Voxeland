@@ -590,6 +590,7 @@ namespace voxeland_server
 
         if (number_iterations % 10 == 0)
         {
+            voxeland::ScopedStopwatch watch("Global refinement");
             doGlobalRefinement();
 
             // remove old markers after global refinement

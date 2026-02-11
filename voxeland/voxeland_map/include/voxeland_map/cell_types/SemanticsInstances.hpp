@@ -53,7 +53,6 @@ namespace voxeland
                 getRGBheader());
         }
 
-        // IMPORTANT: This only considers the classes in defaultCategories. If you use this with open vocabulary techniques, any classes that are not in COCO are ignored!
         std::vector<double> GetClassProbabilities()
         {
             if (instances_candidates.size() == 0)
@@ -90,6 +89,8 @@ namespace voxeland
         {
             if (instances_votes.size() == 0)
                 return 0;
+            updateCandidatesAndVotes();
+
             InstanceID_t idxMaxVotes1 = 0;
 
             if (instances_votes.size() > 1)
@@ -120,15 +121,27 @@ namespace voxeland
                     idxMaxVotes1 = idxMaxVotes2;
             }
 
-
             SemanticMap& semantics = SemanticMap::get_instance();
             const SemanticObject* globalInstance = &semantics.globalSemanticMap[instances_candidates[idxMaxVotes1]];
 
-            // if the instance has been fused with others, find the new instance that represents the fusion
-            while (!globalInstance->isStillValid())
-                globalInstance = &semantics.globalSemanticMap[globalInstance->pointsTo];
-
             return globalInstance->instanceID;
+        }
+
+        double GetProbabilityOfInstance(InstanceID_t id)
+        {
+            updateCandidatesAndVotes();
+            size_t idx = -1;
+            double sum = 0;
+            for (size_t i = 0; i < instances_candidates.size(); i++)
+            {
+                sum = instances_votes.at(i);
+                if (instances_candidates.at(i) == id)
+                    idx = i;
+            }
+
+            if (idx == -1)
+                return 0;
+            return instances_votes.at(idx) / sum;
         }
 
         // we implement this one as a class member because we really would like to call updateCandidatesAndVotes() before presenting any info to the user
@@ -153,7 +166,7 @@ namespace voxeland
                 instances_candidates.push_back(thisGlobalID);
                 instances_votes.push_back(1);
             }
-            // TODO since this adds a vote for every *pixel* that falls inside the voxel, we could end up running into numerical precission issues if left running for a while
+            // TODO (pepe) since this adds a vote for every *pixel* that falls inside the voxel, we could end up running into numerical precission issues if left running for a while
             // might be a good idea to, at some point, reduce the votes to all the instances by a set amount to avoid that
         }
 
@@ -161,6 +174,17 @@ namespace voxeland
         void updateCandidatesAndVotes()
         {
             SemanticMap& semantics = SemanticMap::get_instance();
+
+            // possible early out
+            {
+                bool needed = false;
+                for (size_t i = 0; i < instances_candidates.size(); i++)
+                    if (!semantics.globalSemanticMap.at(instances_candidates.at(i)).isStillValid())
+                        needed = true;
+
+                if (!needed)
+                    return;
+            }
 
             std::vector<InstanceID_t> candidates_temp;
             candidates_temp.reserve(instances_candidates.size());

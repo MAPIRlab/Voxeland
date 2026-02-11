@@ -187,15 +187,6 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
                     }
                 }
 
-                VXL_DEBUG("Fusion candidate local {} - global {}: IoU={:.3f}, IoV={:.3f}, SemanticSim={:.3f}, FusionScore={:.3f}, Threshold={:.3f}",
-                          localInstanceID,
-                          globalInstanceID,
-                          iou,
-                          iov,
-                          semanticSimilarity,
-                          fusionScore,
-                          fusionThreshold);
-
                 if (fusionScore > fusionThreshold)
                 {
                     VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow), "Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS:{:.2f}  IoV:{:.2f}  SemSim:{:.2f}  Score:{:.2f}", localInstanceID, globalInstanceID, iou, ios, iov, semanticSimilarity, fusionScore);
