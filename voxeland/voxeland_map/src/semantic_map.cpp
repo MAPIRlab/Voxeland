@@ -4,6 +4,8 @@
 #include <voxeland_map/cell_types.hpp>
 #include <voxeland_map/semantic_map.hpp>
 
+#include "voxeland_map/geometry_operations.hpp"
+
 SemanticMap::SemanticMap()
     : kld_threshold(0.1f)
     , color_palette({ 0xFAD4E0, 0x9DBBE3, 0xBFE3DF, 0xB59CD9, 0xFFF5CC, 0xFFD9BD, 0xEE9D94, 0xF7ADCF, 0xe6194B, 0x3cb44b, 0xffe119, 0x4363d8, 0xf58231, 0x911eb4, 0x42d4f4, 0xf032e6, 0xbfef45, 0xfabed4, 0x469990, 0xdcbeff, 0x9A6324, 0xfffac8 })
@@ -87,7 +89,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
             // Find category with maximum probability for global instance
             CategoryManager::CategoryIndex globalMaxCategory = globalInstance.mostLikelyCategory();
 
-            if (globalInstance.isStillValid() && checkBBoxIntersect(localInstance.bbox, globalInstance.bbox))
+            if (globalInstance.isStillValid() && GeometryOperations::checkBBoxIntersect(localInstance.bbox, globalInstance.bbox))
             {
                 // get all the voxels that belong to the global instance
                 std::set<Bonxai::CoordT> voxelsGlobal;
@@ -275,13 +277,11 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         {
             SemanticObject& secondInstance = globalSemanticMap[j];
 
-            if (secondInstance.isStillValid() && checkBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
+            if (secondInstance.isStillValid() && GeometryOperations::checkBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
             {
                 std::set<Bonxai::CoordT> voxelsSecond = geometry.at(j);
 
                 // Adaptive threshold based on:
-                // 1. Semantic similarity (same class = lower threshold)
-                // 2. Number of observations (more observations = more confident, need higher IoU)
                 double iouThreshold = 0.6;  // Base threshold
 
                 CategoryManager::CategoryIndex secondClassIdx = secondInstance.mostLikelyCategory();
@@ -306,6 +306,48 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
             }
         }
     }
+}
+
+std::pair<double, double> SemanticMap::compute3DIoU(const std::set<Bonxai::CoordT>& voxels1,
+                                                    const std::set<Bonxai::CoordT>& voxels2,
+                                                    uint coarsening_factor)
+{
+    std::set<Bonxai::CoordT> voxels1_coarse = GeometryOperations::DownsampleVoxels(voxels1, coarsening_factor);
+    std::set<Bonxai::CoordT> voxels2_coarse = GeometryOperations::DownsampleVoxels(voxels2, coarsening_factor);
+
+    std::set<Bonxai::CoordT> intersection_ = GeometryOperations::SetIntersection(voxels1_coarse, voxels2_coarse);
+    std::set<Bonxai::CoordT> union_ = GeometryOperations::SetUnion(voxels1_coarse, voxels2_coarse);
+
+    double IoU = 0.;
+    if (union_.size() > 0)
+        IoU = ((double)intersection_.size()) / union_.size();
+
+    double IoS = 0.;
+    if (voxels1_coarse.size() > 0)
+        IoS = ((double)intersection_.size()) / voxels1_coarse.size();
+    if (voxels2_coarse.size() > 0)
+        IoS = std::max(IoS, ((double)intersection_.size()) / voxels2_coarse.size());
+
+    return std::pair<double, double>(IoU, IoS);
+}
+
+double SemanticMap::computeIoV(const std::set<Bonxai::CoordT>& localVoxels,
+                               const std::set<Bonxai::CoordT>& globalInstance,
+                               const std::set<Bonxai::CoordT>& localInstance,
+                               uint coarsening_factor)
+{
+    std::set<Bonxai::CoordT> localVoxels_coarse = GeometryOperations::DownsampleVoxels(localVoxels, coarsening_factor);
+
+    // find all the voxels in the global instance which were visible in this image
+    std::set<Bonxai::CoordT> visibleGlobalVoxels = GeometryOperations::SetIntersection(globalInstance, localVoxels_coarse);
+    size_t numVisibleVoxels = visibleGlobalVoxels.size();
+
+    // find which of the visible voxels were identified as part of this local instance
+    std::set<Bonxai::CoordT> globalVoxelsInMask = GeometryOperations::SetIntersection(visibleGlobalVoxels, localInstance);
+    size_t numVoxelsInMask = globalVoxelsInMask.size();
+
+    double iov = numVisibleVoxels > 0 ? numVoxelsInMask / static_cast<double>(numVisibleVoxels) : 0;
+    return iov;
 }
 
 void SemanticMap::setLocalSemanticMap(const std::vector<SemanticObject>& localMap)
@@ -446,24 +488,6 @@ double SemanticMap::computeSemanticSimilarity(const SemanticObject& obj1, const 
     return similarity;
 }
 
-bool SemanticMap::checkBBoxIntersect(const BoundingBox3D& bbox1, const BoundingBox3D& bbox2)
-{
-    // Check for no overlap along x-axis
-    if (bbox1.maxX < bbox2.minX || bbox2.maxX < bbox1.minX)
-        return false;
-
-    // Check for no overlap along y-axis
-    if (bbox1.maxY < bbox2.minY || bbox2.maxY < bbox1.minY)
-        return false;
-
-    // Check for no overlap along z-axis
-    if (bbox1.maxZ < bbox2.minZ || bbox2.maxZ < bbox1.minZ)
-        return false;
-
-    // If there is overlap along all axes, the boxes intersect
-    return true;
-}
-
 void SemanticMap::updateAlphaCategories(SemanticObject& original, const SemanticObject& update)
 {
     // Merge category probabilities from update into original
@@ -471,19 +495,6 @@ void SemanticMap::updateAlphaCategories(SemanticObject& original, const Semantic
     {
         original.alphaParamsCategories[categoryIndex] += probability;
     }
-}
-
-void SemanticMap::updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D& update)
-{
-    // Update min bounds
-    original.minX = std::min(update.minX, original.minX);
-    original.minY = std::min(update.minY, original.minY);
-    original.minZ = std::min(update.minZ, original.minZ);
-
-    // Update max bounds
-    original.maxX = std::max(update.maxX, original.maxX);
-    original.maxY = std::max(update.maxY, original.maxY);
-    original.maxZ = std::max(update.maxZ, original.maxZ);
 }
 
 void SemanticMap::updateAppearancesTimestamps(SemanticObject& original, const SemanticObject& update)
@@ -510,7 +521,7 @@ void SemanticMap::fuseSemanticObjects(SemanticObject& firstInstance, const Seman
     updateAlphaCategories(firstInstance, secondInstance);
 
     // Update Bounding Box
-    updateBBoxBounds(firstInstance.bbox, secondInstance.bbox);
+    GeometryOperations::updateBBoxBounds(firstInstance.bbox, secondInstance.bbox);
 
     // Update appearances timestamps
     updateAppearancesTimestamps(firstInstance, secondInstance);
@@ -566,6 +577,7 @@ nlohmann::json SemanticMap::mapToJSON()
 
     return data_json;
 }
+
 void SemanticMap::updateSemanticMapResultsFromJSON(const nlohmann::json& data_json)
 {
     if (!initialized)
@@ -594,6 +606,7 @@ void SemanticMap::updateSemanticMapResultsFromJSON(const nlohmann::json& data_js
         }
     }
 }
+
 nlohmann::json SemanticMap::appearancesToJson()
 {
     nlohmann::json data_json;
@@ -631,79 +644,4 @@ nlohmann::json SemanticMap::appearancesToJson()
     }
 
     return data_json;
-}
-
-std::set<Bonxai::CoordT> SemanticMap::coarsenVoxels(const std::set<Bonxai::CoordT>& voxels, uint coarsening_factor)
-{
-    if (coarsening_factor <= 1)
-        return voxels;
-    std::set<Bonxai::CoordT> voxels_coarse;
-
-    for (const auto& coord : voxels)
-        voxels_coarse.insert(coord / coarsening_factor);
-
-    return voxels_coarse;
-}
-
-std::pair<double, double> SemanticMap::compute3DIoU(const std::set<Bonxai::CoordT>& voxels1,
-                                                    const std::set<Bonxai::CoordT>& voxels2,
-                                                    uint coarsening_factor)
-{
-    std::set<Bonxai::CoordT> voxels1_coarse = coarsenVoxels(voxels1, coarsening_factor);
-    std::set<Bonxai::CoordT> voxels2_coarse = coarsenVoxels(voxels2, coarsening_factor);
-
-    std::vector<Bonxai::CoordT> intersection_;
-    std::vector<Bonxai::CoordT> union_;
-
-    std::set_intersection(voxels1_coarse.begin(),
-                          voxels1_coarse.end(),
-                          voxels2_coarse.begin(),
-                          voxels2_coarse.end(),
-                          std::back_inserter(intersection_));
-    std::set_union(voxels1_coarse.begin(),
-                   voxels1_coarse.end(),
-                   voxels2_coarse.begin(),
-                   voxels2_coarse.end(),
-                   std::back_inserter(union_));
-
-    double IoU = 0.;
-    if (union_.size() > 0)
-        IoU = ((double)intersection_.size()) / union_.size();
-
-    double IoS = 0.;
-    if (voxels1_coarse.size() > 0)
-        IoS = ((double)intersection_.size()) / voxels1_coarse.size();
-    if (voxels2_coarse.size() > 0)
-        IoS = std::max(IoS, ((double)intersection_.size()) / voxels2_coarse.size());
-
-    return std::pair<double, double>(IoU, IoS);
-}
-
-double SemanticMap::computeIoV(const std::set<Bonxai::CoordT>& localVoxels,
-                               const std::set<Bonxai::CoordT>& globalInstance,
-                               const std::set<Bonxai::CoordT>& localInstance,
-                               uint coarsening_factor)
-{
-    std::set<Bonxai::CoordT> localVoxels_coarse = coarsenVoxels(localVoxels, coarsening_factor);
-
-    // find all the voxels in the global instance which were visible in this image
-    std::set<Bonxai::CoordT> visibleGlobalVoxels;
-    std::set_intersection(globalInstance.begin(),
-                          globalInstance.end(),
-                          localVoxels_coarse.begin(),
-                          localVoxels_coarse.end(),
-                          std::inserter(visibleGlobalVoxels, visibleGlobalVoxels.begin()));
-    size_t numVisibleVoxels = visibleGlobalVoxels.size();
-
-    // find which of the visible voxels were identified as part of this local instance
-    std::set<Bonxai::CoordT> globalVoxelsInMask;
-    std::set_intersection(visibleGlobalVoxels.begin(),
-                          visibleGlobalVoxels.end(),
-                          localInstance.begin(),
-                          localInstance.end(),
-                          std::inserter(globalVoxelsInMask, globalVoxelsInMask.begin()));
-    size_t numVoxelsInMask = globalVoxelsInMask.size();
-
-    double iov = numVisibleVoxels > 0 ? numVoxelsInMask / static_cast<double>(numVisibleVoxels) : 0;
-    return iov;
 }

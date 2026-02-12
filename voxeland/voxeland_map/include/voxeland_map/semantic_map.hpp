@@ -80,7 +80,6 @@ private:
     double kld_threshold;
     voxeland::DataMode currentMode;
     
-    std::set<Bonxai::CoordT> coarsenVoxels(const std::set<Bonxai::CoordT>& voxels, uint coarsening_factor);
     double computeKLD(const std::vector<double>& P, const std::vector<double>& Q);
     
     /**
@@ -96,8 +95,6 @@ private:
      * @return Semantic similarity score in range [0, 1]
      */
     double computeSemanticSimilarity(const SemanticObject& obj1, const SemanticObject& obj2);
-    bool checkBBoxIntersect(const BoundingBox3D& box1, const BoundingBox3D& box2);
-    void updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D& update);
     void fuseSemanticObjects(SemanticObject& firstInstance, const SemanticObject& secondInstance);
 
     void updateAlphaCategories(SemanticObject& original, const SemanticObject& update);
