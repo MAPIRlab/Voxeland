@@ -41,7 +41,7 @@ struct SemanticObject
     uint32_t numberObservations = 1;
     BoundingBox3D bbox;
 
-    std::optional<std::set<Bonxai::CoordT>> localGeometry;
+    std::optional<std::set<Bonxai::IndicesT>> localGeometry;
 
     int32_t pointsTo = -1;  // In case a semantic object is integrated with another, the pointsTo variable
     // need to be set with the instanceID of the main object, hence if pointsTo is not empty, it won't check

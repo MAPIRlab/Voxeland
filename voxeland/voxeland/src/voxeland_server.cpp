@@ -502,7 +502,7 @@ namespace voxeland_server
         for (size_t i = 0; i < request->query_points.size(); i++)
         {
             geometry_msgs::msg::Point point = request->query_points[i];
-            Bonxai::CoordT coord = grid->posToCoord(point.x, point.y, point.z);
+            Bonxai::IndicesT coord = grid->posToCoord(point.x, point.y, point.z);
             Bonxai::ProbabilisticCell<DataT>* cell = accessor.value(coord);
 
             // get p(class | occupied) and p(occupied) from the cell

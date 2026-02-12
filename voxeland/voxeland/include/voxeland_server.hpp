@@ -121,7 +121,7 @@ namespace voxeland_server
 
         SemanticMap& semantics = SemanticMap::get_instance();
         std::unique_ptr<Bonxai::ProbabilisticMap> bonxai_;
-        std::vector<Bonxai::CoordT> key_ray_;
+        std::vector<Bonxai::IndicesT> key_ray_;
 
         double max_range_;
         std::string world_frame_id_;  // the map frame

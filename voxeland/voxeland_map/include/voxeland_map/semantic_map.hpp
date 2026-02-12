@@ -42,22 +42,22 @@ public:
     std::string getCategoryName(CategoryManager::CategoryIndex index) const;
     size_t getNumCategories() const;
 
-    std::pair<double, double> compute3DIoU(const std::set<Bonxai::CoordT>& voxels1,
-                                           const std::set<Bonxai::CoordT>& voxels2,
+    std::pair<double, double> compute3DIoU(const std::set<Bonxai::IndicesT>& voxels1,
+                                           const std::set<Bonxai::IndicesT>& voxels2,
                                            uint coarsening_factor = 3);
 
-    double computeIoV(const std::set<Bonxai::CoordT>& localVoxels,
-                      const std::set<Bonxai::CoordT>& globalInstance,
-                      const std::set<Bonxai::CoordT>& localInstance,
+    double computeIoV(const std::set<Bonxai::IndicesT>& localVoxels,
+                      const std::set<Bonxai::IndicesT>& globalInstance,
+                      const std::set<Bonxai::IndicesT>& localInstance,
                       uint coarsening_factor);
 
     template <typename DataT>
-    std::set<Bonxai::CoordT> listOfVoxelsInObject(const SemanticObject& object, double probabilityThr = 1.0);
+    std::set<Bonxai::IndicesT> listOfVoxelsInObject(const SemanticObject& object, double probabilityThr = 1.0);
 
     void refineGlobalSemanticMap(int nObservationsToRemove);
 
     void integrateNewSemantics(const std::vector<SemanticObject>& localMap,
-                               const std::set<Bonxai::CoordT>& voxelizedLocalPointCloud,
+                               const std::set<Bonxai::IndicesT>& voxelizedLocalPointCloud,
                                float sensorX = 0.0f,
                                float sensorY = 0.0f,
                                float sensorZ = 0.0f);

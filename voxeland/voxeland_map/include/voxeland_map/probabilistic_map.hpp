@@ -19,12 +19,12 @@ namespace Bonxai
     class ProbabilisticMapT;
 
     template <class Functor>
-    void RayIterator(const CoordT& key_origin, const CoordT& key_end, const Functor& func);
+    void RayIterator(const IndicesT& key_origin, const IndicesT& key_end, const Functor& func);
 
-    inline void ComputeRay(const CoordT& key_origin, const CoordT& key_end, std::vector<CoordT>& ray)
+    inline void ComputeRay(const IndicesT& key_origin, const IndicesT& key_end, std::vector<IndicesT>& ray)
     {
         ray.clear();
-        RayIterator(key_origin, key_end, [&ray](const CoordT& coord) {
+        RayIterator(key_origin, key_end, [&ray](const IndicesT& coord) {
             ray.push_back(coord);
             return true;
         });
@@ -75,8 +75,8 @@ namespace Bonxai
 
         virtual ~ProbabilisticMap() {}
 
-        virtual Point3D coordToPos(CoordT coord) = 0;
-        virtual CoordT posToCoord(Point3D point) = 0;
+        virtual Point3D coordToPos(IndicesT coord) = 0;
+        virtual IndicesT posToCoord(Point3D point) = 0;
 
     protected:
         virtual void updateFreeCells(const Vector3D& origin) = 0;
@@ -102,7 +102,7 @@ namespace Bonxai
     //--------------------------------------------------
 
     template <class Functor>
-    inline void RayIterator(const CoordT& key_origin, const CoordT& key_end, const Functor& func)
+    inline void RayIterator(const IndicesT& key_origin, const IndicesT& key_end, const Functor& func)
     {
         if (key_origin == key_end)
         {
@@ -113,10 +113,10 @@ namespace Bonxai
             return;
         }
 
-        CoordT error = { 0, 0, 0 };
-        CoordT coord = key_origin;
-        CoordT delta = (key_end - coord);
-        const CoordT step = { delta.x < 0 ? -1 : 1, delta.y < 0 ? -1 : 1, delta.z < 0 ? -1 : 1 };
+        IndicesT error = { 0, 0, 0 };
+        IndicesT coord = key_origin;
+        IndicesT delta = (key_end - coord);
+        const IndicesT step = { delta.x < 0 ? -1 : 1, delta.y < 0 ? -1 : 1, delta.z < 0 ? -1 : 1 };
 
         delta = { delta.x < 0 ? -delta.x : delta.x,
                   delta.y < 0 ? -delta.y : delta.y,

@@ -64,7 +64,7 @@ struct Point3D
   [[nodiscard]] double& operator[](size_t index);
 };
 
-struct CoordT
+struct IndicesT
 {
   int32_t x;
   int32_t y;
@@ -73,27 +73,27 @@ struct CoordT
   // Access to x, y, z, using index 0, 1, 2
   [[nodiscard]] int32_t& operator[](size_t index);
 
-  [[nodiscard]] bool operator==(const CoordT& other) const;
-  [[nodiscard]] bool operator!=(const CoordT& other) const;
-  bool operator<(const CoordT& other) const;
+  [[nodiscard]] bool operator==(const IndicesT& other) const;
+  [[nodiscard]] bool operator!=(const IndicesT& other) const;
+  bool operator<(const IndicesT& other) const;
 
-  [[nodiscard]] CoordT operator+(const CoordT& other) const;
-  [[nodiscard]] CoordT operator-(const CoordT& other) const;
-  [[nodiscard]] CoordT operator/(const int div) const;
+  [[nodiscard]] IndicesT operator+(const IndicesT& other) const;
+  [[nodiscard]] IndicesT operator-(const IndicesT& other) const;
+  [[nodiscard]] IndicesT operator/(const int div) const;
   
-  CoordT& operator+=(const CoordT& other);
-  CoordT& operator-=(const CoordT& other);
+  IndicesT& operator+=(const IndicesT& other);
+  IndicesT& operator-=(const IndicesT& other);
 
 };
 
-[[nodiscard]] inline CoordT PosToCoord(const Point3D& point, double inv_resolution)
+[[nodiscard]] inline IndicesT PosToCoord(const Point3D& point, double inv_resolution)
 {
   return { int32_t(point.x * inv_resolution) - std::signbit(point.x),
            int32_t(point.y * inv_resolution) - std::signbit(point.y),
            int32_t(point.z * inv_resolution) - std::signbit(point.z) };
 }
 
-[[nodiscard]] inline Point3D CoordToPos(const CoordT& coord, double resolution)
+[[nodiscard]] inline Point3D CoordToPos(const IndicesT& coord, double resolution)
 {
   return { (double(coord.x) + 0.5) * resolution,
            (double(coord.y) + 0.5) * resolution,
@@ -274,7 +274,7 @@ public:
 
   using LeafGrid = Grid<DataT>;
   using InnerGrid = Grid<std::shared_ptr<LeafGrid>>;
-  using RootMap = std::unordered_map<CoordT, InnerGrid>;
+  using RootMap = std::unordered_map<IndicesT, InnerGrid>;
 
   RootMap root_map;
 
@@ -293,13 +293,13 @@ public:
   [[nodiscard]] size_t activeCellsCount() const;
 
   /// @brief posToCoord is used to convert real coordinates to CoordT indices.
-  [[nodiscard]] CoordT posToCoord(double x, double y, double z);
+  [[nodiscard]] IndicesT posToCoord(double x, double y, double z);
 
   /// @brief posToCoord is used to convert real coordinates to CoordT indices.
-  [[nodiscard]] CoordT posToCoord(const Point3D& pos) { return posToCoord(pos.x, pos.y, pos.z); }
+  [[nodiscard]] IndicesT posToCoord(const Point3D& pos) { return posToCoord(pos.x, pos.y, pos.z); }
 
   /// @brief coordToPos converts CoordT indices to Point3D.
-  [[nodiscard]] Point3D coordToPos(const CoordT& coord);
+  [[nodiscard]] Point3D coordToPos(const IndicesT& coord);
 
   /**
    *  @brief forEachCell apply a function of type:
@@ -330,14 +330,14 @@ public:
      * @param value   value to set.
      * @return        the previous state of the cell (ON = true).
      */
-    bool setValue(const CoordT& coord, const DataT& value);
+    bool setValue(const IndicesT& coord, const DataT& value);
 
     /** @brief value getter.
      *
      * @param coord   coordinate of the cell.
      * @return        return the pointer to the value or nullptr if not set.
      */
-    [[nodiscard]] DataT* value(const CoordT& coord, bool create_if_missing = false);
+    [[nodiscard]] DataT* value(const IndicesT& coord, bool create_if_missing = false);
 
     /** @brief setCellOn is similar to setValue, but the value is changed only if the
      * cell has been created, otherwise, the previous value is used.
@@ -347,14 +347,14 @@ public:
      * exist before.
      * @return                the previous state of the cell (ON = true).
      */
-    bool setCellOn(const CoordT& coord, const DataT& default_value = DataT());
+    bool setCellOn(const IndicesT& coord, const DataT& default_value = DataT());
 
     /** @brief setCellOff will disable a cell without deleting its content.
      *
      * @param coord   coordinate of the cell.
      * @return        the previous state of the cell (ON = true).
      */
-    bool setCellOff(const CoordT& coord);
+    bool setCellOff(const IndicesT& coord);
 
     /// @brief lastInnerdGrid returns the pointer to the InnerGrid in the cache.
     [[nodiscard]] const InnerGrid* lastInnerdGrid() const { return prev_inner_ptr_; }
@@ -370,25 +370,25 @@ public:
      * @param create_if_missing   if true, create the Root, Inner and Leaf, if not
      * present.
      */
-    [[nodiscard]] LeafGrid* getLeafGrid(const CoordT& coord, bool create_if_missing = false);
+    [[nodiscard]] LeafGrid* getLeafGrid(const IndicesT& coord, bool create_if_missing = false);
 
   private:
     VoxelGrid& grid_;
-    CoordT prev_root_coord_ = { std::numeric_limits<int32_t>::max(), 0, 0 };
-    CoordT prev_inner_coord_ = { std::numeric_limits<int32_t>::max(), 0, 0 };
+    IndicesT prev_root_coord_ = { std::numeric_limits<int32_t>::max(), 0, 0 };
+    IndicesT prev_inner_coord_ = { std::numeric_limits<int32_t>::max(), 0, 0 };
     InnerGrid* prev_inner_ptr_ = nullptr;
     LeafGrid* prev_leaf_ptr_ = nullptr;
   };
 
   Accessor createAccessor() { return Accessor(*this); }
 
-  [[nodiscard]] CoordT getRootKey(const CoordT& coord);
+  [[nodiscard]] IndicesT getRootKey(const IndicesT& coord);
 
-  [[nodiscard]] CoordT getInnerKey(const CoordT& coord);
+  [[nodiscard]] IndicesT getInnerKey(const IndicesT& coord);
 
-  [[nodiscard]] uint32_t getInnerIndex(const CoordT& coord);
+  [[nodiscard]] uint32_t getInnerIndex(const IndicesT& coord);
 
-  [[nodiscard]] uint32_t getLeafIndex(const CoordT& coord);
+  [[nodiscard]] uint32_t getLeafIndex(const IndicesT& coord);
 };
 
 //----------------------------------------------------
@@ -470,7 +470,7 @@ inline PointOut ConvertPoint(const PointIn& v)
   }
 }
 
-inline int32_t& CoordT::operator[](size_t index)
+inline int32_t& IndicesT::operator[](size_t index)
 {
   switch (index)
   {
@@ -485,32 +485,32 @@ inline int32_t& CoordT::operator[](size_t index)
   }
 }
 
-inline bool CoordT::operator==(const CoordT& other) const
+inline bool IndicesT::operator==(const IndicesT& other) const
 {
   return x == other.x && y == other.y && z == other.z;
 }
 
-inline bool CoordT::operator!=(const CoordT& other) const
+inline bool IndicesT::operator!=(const IndicesT& other) const
 {
   return !(*this == other);
 }
 
-inline bool CoordT::operator<(const CoordT& other) const
+inline bool IndicesT::operator<(const IndicesT& other) const
 {
   return x < other.x || (x == other.x && y < other.y) || (x == other.x && y == other.y && z < other.z);
 }
 
-inline CoordT CoordT::operator+(const CoordT& other) const
+inline IndicesT IndicesT::operator+(const IndicesT& other) const
 {
   return { x + other.x, y + other.y, z + other.z };
 }
 
-inline CoordT CoordT::operator-(const CoordT& other) const
+inline IndicesT IndicesT::operator-(const IndicesT& other) const
 {
   return { x - other.x, y - other.y, z - other.z };
 }
 
-inline CoordT& CoordT::operator+=(const CoordT& other)
+inline IndicesT& IndicesT::operator+=(const IndicesT& other)
 {
   x += other.x;
   y += other.y;
@@ -518,7 +518,7 @@ inline CoordT& CoordT::operator+=(const CoordT& other)
   return *this;
 }
 
-inline CoordT& CoordT::operator-=(const CoordT& other)
+inline IndicesT& IndicesT::operator-=(const IndicesT& other)
 {
   x -= other.x;
   y -= other.y;
@@ -526,7 +526,7 @@ inline CoordT& CoordT::operator-=(const CoordT& other)
   return *this;
 }
 
-inline CoordT CoordT::operator/(const int div) const
+inline IndicesT IndicesT::operator/(const int div) const
 {
   return { x / div, y / div, z / div };
 }
@@ -579,7 +579,7 @@ inline VoxelGrid<DataT>::VoxelGrid(double voxel_size, uint8_t inner_bits, uint8_
 }
 
 template <typename DataT>
-inline CoordT VoxelGrid<DataT>::posToCoord(double x, double y, double z)
+inline IndicesT VoxelGrid<DataT>::posToCoord(double x, double y, double z)
 {
   return { static_cast<int32_t>(x * inv_resolution - std::signbit(x)),
            static_cast<int32_t>(y * inv_resolution - std::signbit(y)),
@@ -587,7 +587,7 @@ inline CoordT VoxelGrid<DataT>::posToCoord(double x, double y, double z)
 }
 
 template <typename DataT>
-inline Point3D VoxelGrid<DataT>::coordToPos(const CoordT& coord)
+inline Point3D VoxelGrid<DataT>::coordToPos(const IndicesT& coord)
 {
   return { (double(coord.x) + 0.5) * resolution,
            (double(coord.y) + 0.5) * resolution,
@@ -595,21 +595,21 @@ inline Point3D VoxelGrid<DataT>::coordToPos(const CoordT& coord)
 }
 
 template <typename DataT>
-inline CoordT VoxelGrid<DataT>::getRootKey(const CoordT& coord)
+inline IndicesT VoxelGrid<DataT>::getRootKey(const IndicesT& coord)
 {
   const int32_t MASK = ~((1 << Log2N) - 1);
   return { coord.x & MASK, coord.y & MASK, coord.z & MASK };
 }
 
 template <typename DataT>
-inline CoordT VoxelGrid<DataT>::getInnerKey(const CoordT& coord)
+inline IndicesT VoxelGrid<DataT>::getInnerKey(const IndicesT& coord)
 {
   const int32_t MASK = ~((1 << LEAF_BITS) - 1);
   return { coord.x & MASK, coord.y & MASK, coord.z & MASK };
 }
 
 template <typename DataT>
-inline uint32_t VoxelGrid<DataT>::getInnerIndex(const CoordT& coord)
+inline uint32_t VoxelGrid<DataT>::getInnerIndex(const IndicesT& coord)
 {
   // clang-format off
   return ((coord.x >> LEAF_BITS) & INNER_MASK) |
@@ -619,7 +619,7 @@ inline uint32_t VoxelGrid<DataT>::getInnerIndex(const CoordT& coord)
 }
 
 template <typename DataT>
-inline uint32_t VoxelGrid<DataT>::getLeafIndex(const CoordT& coord)
+inline uint32_t VoxelGrid<DataT>::getLeafIndex(const IndicesT& coord)
 {
   // clang-format off
   return (coord.x & LEAF_MASK) |
@@ -629,9 +629,9 @@ inline uint32_t VoxelGrid<DataT>::getLeafIndex(const CoordT& coord)
 }
 
 template <typename DataT>
-inline bool VoxelGrid<DataT>::Accessor::setValue(const CoordT& coord, const DataT& value)
+inline bool VoxelGrid<DataT>::Accessor::setValue(const IndicesT& coord, const DataT& value)
 {
-  const CoordT inner_key = grid_.getInnerKey(coord);
+  const IndicesT inner_key = grid_.getInnerKey(coord);
   if (inner_key != prev_inner_coord_ || prev_leaf_ptr_ == nullptr)
   {
     prev_leaf_ptr_ = getLeafGrid(coord, true);
@@ -646,9 +646,9 @@ inline bool VoxelGrid<DataT>::Accessor::setValue(const CoordT& coord, const Data
 
 //----------------------------------
 template <typename DataT>
-inline DataT* VoxelGrid<DataT>::Accessor::value(const CoordT& coord, bool create_if_missing)
+inline DataT* VoxelGrid<DataT>::Accessor::value(const IndicesT& coord, bool create_if_missing)
 {
-  const CoordT inner_key = grid_.getInnerKey(coord);
+  const IndicesT inner_key = grid_.getInnerKey(coord);
 
   if (inner_key != prev_inner_coord_)
   {
@@ -675,9 +675,9 @@ inline DataT* VoxelGrid<DataT>::Accessor::value(const CoordT& coord, bool create
 
 //----------------------------------
 template <typename DataT>
-inline bool VoxelGrid<DataT>::Accessor::setCellOn(const CoordT& coord, const DataT& default_value)
+inline bool VoxelGrid<DataT>::Accessor::setCellOn(const IndicesT& coord, const DataT& default_value)
 {
-  const CoordT inner_key = grid_.getInnerKey(coord);
+  const IndicesT inner_key = grid_.getInnerKey(coord);
 
   if (inner_key != prev_inner_coord_)
   {
@@ -695,9 +695,9 @@ inline bool VoxelGrid<DataT>::Accessor::setCellOn(const CoordT& coord, const Dat
 
 //----------------------------------
 template <typename DataT>
-inline bool VoxelGrid<DataT>::Accessor::setCellOff(const CoordT& coord)
+inline bool VoxelGrid<DataT>::Accessor::setCellOff(const IndicesT& coord)
 {
-  const CoordT inner_key = grid_.getInnerKey(coord);
+  const IndicesT inner_key = grid_.getInnerKey(coord);
 
   if (inner_key != prev_inner_coord_)
   {
@@ -714,11 +714,11 @@ inline bool VoxelGrid<DataT>::Accessor::setCellOff(const CoordT& coord)
 
 //----------------------------------
 template <typename DataT>
-inline typename VoxelGrid<DataT>::LeafGrid* VoxelGrid<DataT>::Accessor::getLeafGrid(const CoordT& coord,
+inline typename VoxelGrid<DataT>::LeafGrid* VoxelGrid<DataT>::Accessor::getLeafGrid(const IndicesT& coord,
                                                                                     bool create_if_missing)
 {
   InnerGrid* inner_ptr = prev_inner_ptr_;
-  const CoordT root_key = grid_.getRootKey(coord);
+  const IndicesT root_key = grid_.getRootKey(coord);
 
   if (root_key != prev_root_coord_ || !inner_ptr)
   {
@@ -777,7 +777,7 @@ inline size_t VoxelGrid<DataT>::memUsage() const
     }
   }
 
-  total_size += root_map.size() * (sizeof(CoordT) + sizeof(void*));
+  total_size += root_map.size() * (sizeof(IndicesT) + sizeof(void*));
 
   for (const auto& [key, inner_grid] : root_map)
   {
@@ -840,7 +840,7 @@ inline void VoxelGrid<DataT>::forEachCell(VisitorFunction func)
       {
         const int32_t leaf_index = *leaf_it;
         const int32_t LEAF_BITS_2 = LEAF_BITS * 2;
-        CoordT pos = { xB | (leaf_index & MASK_LEAF),
+        IndicesT pos = { xB | (leaf_index & MASK_LEAF),
                        yB | ((leaf_index >> LEAF_BITS) & MASK_LEAF),
                        zB | ((leaf_index >> (LEAF_BITS_2)) & MASK_LEAF) };
         // apply the visitor
@@ -1136,9 +1136,9 @@ inline void Mask::set(uint32_t n, bool On)
 namespace std
 {
 template <>
-struct hash<Bonxai::CoordT>
+struct hash<Bonxai::IndicesT>
 {
-  std::size_t operator()(const Bonxai::CoordT& p) const
+  std::size_t operator()(const Bonxai::IndicesT& p) const
   {
     // same as OpenVDB
     // cast to uint avoid UB on signed overflow 

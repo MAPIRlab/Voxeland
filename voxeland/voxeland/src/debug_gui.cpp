@@ -185,7 +185,7 @@ namespace voxeland_server
             if (!globalObjectsToDraw[i])
                 continue;
 
-            std::set<Bonxai::CoordT> coords;
+            std::set<Bonxai::IndicesT> coords;
             coords = semantics.listOfVoxelsInObject<DataT>(semantics.globalSemanticMap.at(i));
 
             for (const auto& coord : coords)
@@ -249,7 +249,7 @@ namespace voxeland_server
     template <typename DataT>
     void VoxelandServer::PrintVoxelInfo(const Bonxai::Point3D& point)
     {
-        const Bonxai::CoordT coord = bonxai_->posToCoord(point);
+        const Bonxai::IndicesT coord = bonxai_->posToCoord(point);
         Bonxai::ProbabilisticCell<DataT>* cell = BonxaiQuery<DataT>::getAccessor().value(coord);
         if (!cell)
         {
@@ -382,7 +382,7 @@ namespace voxeland_server
                     continue;
                 }
 
-                for (const Bonxai::CoordT& coord : semantics.lastLocalSemanticMap.at(i).localGeometry.value())
+                for (const Bonxai::IndicesT& coord : semantics.lastLocalSemanticMap.at(i).localGeometry.value())
                 {
                     const Bonxai::Point3D point = bonxai_->coordToPos(coord);
                     uint32_t rgb = semantics.indexToHexColor(i);

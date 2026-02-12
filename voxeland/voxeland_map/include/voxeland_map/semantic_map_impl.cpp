@@ -70,15 +70,15 @@ inline void SemanticMap::addInstancesGeometryToLocalSemanticMap(std::vector<Sema
 }
 
 template <typename DataT>
-inline std::set<Bonxai::CoordT> SemanticMap::listOfVoxelsInObject(const SemanticObject& object, double probabilityThr)
+inline std::set<Bonxai::IndicesT> SemanticMap::listOfVoxelsInObject(const SemanticObject& object, double probabilityThr)
 {
-    std::set<Bonxai::CoordT> cellsInside;
+    std::set<Bonxai::IndicesT> cellsInside;
 
     Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>* bonxai = BonxaiQuery<DataT>::getBonxai()->grid();
 
-    const Bonxai::CoordT coordMin = bonxai->posToCoord(Bonxai::Point3D(
+    const Bonxai::IndicesT coordMin = bonxai->posToCoord(Bonxai::Point3D(
         object.bbox.minX - bonxai->resolution, object.bbox.minY - bonxai->resolution, object.bbox.minZ - bonxai->resolution));
-    const Bonxai::CoordT coordMax = bonxai->posToCoord(Bonxai::Point3D(
+    const Bonxai::IndicesT coordMax = bonxai->posToCoord(Bonxai::Point3D(
         object.bbox.maxX + bonxai->resolution, object.bbox.maxY + bonxai->resolution, object.bbox.maxZ + bonxai->resolution));
 
 // Iterate over all points inside the bounding box
@@ -89,7 +89,7 @@ inline std::set<Bonxai::CoordT> SemanticMap::listOfVoxelsInObject(const Semantic
         {
             for (int z = coordMin.z; z <= coordMax.z; z++)
             {
-                Bonxai::CoordT coord = Bonxai::CoordT{ x, y, z };
+                Bonxai::IndicesT coord = Bonxai::IndicesT{ x, y, z };
                 Bonxai::ProbabilisticCell<DataT>* cell = BonxaiQuery<DataT>::getAccessor().value(coord);
                 if (!cell)
                     continue;

@@ -30,7 +30,7 @@ namespace Bonxai
 
     void WritePointsFromPCD(const std::string& filepath, const std::vector<Bonxai::Point3D>& points);
 
-    void WritePointsFromPCD(const std::string& filepath, const std::vector<Bonxai::CoordT>& points);
+    void WritePointsFromPCD(const std::string& filepath, const std::vector<Bonxai::IndicesT>& points);
 
 }  // namespace Bonxai
 

@@ -41,7 +41,7 @@ void SemanticMap::initialize(std::vector<std::string> dataset_categories,
 }
 
 void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& localMap,
-                                        const std::set<Bonxai::CoordT>& voxelizedLocalPointCloud,
+                                        const std::set<Bonxai::IndicesT>& voxelizedLocalPointCloud,
                                         float sensorX,
                                         float sensorY,
                                         float sensorZ)
@@ -77,8 +77,8 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
 
         if (!localInstance.localGeometry.has_value())
             continue;
-        const std::set<Bonxai::CoordT>& voxelsLocal = *localInstance.localGeometry;
-        std::map<InstanceID_t, std::set<Bonxai::CoordT>> globalsGeometry;  // cache the voxels for each global object to avoid repeated lookup
+        const std::set<Bonxai::IndicesT>& voxelsLocal = *localInstance.localGeometry;
+        std::map<InstanceID_t, std::set<Bonxai::IndicesT>> globalsGeometry;  // cache the voxels for each global object to avoid repeated lookup
 
         // Find category with maximum probability for local instance
         CategoryManager::CategoryIndex localMaxCategory = localInstance.mostLikelyCategory();
@@ -92,7 +92,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
             if (globalInstance.isStillValid() && GeometryOperations::checkBBoxIntersect(localInstance.bbox, globalInstance.bbox))
             {
                 // get all the voxels that belong to the global instance
-                std::set<Bonxai::CoordT> voxelsGlobal;
+                std::set<Bonxai::IndicesT> voxelsGlobal;
                 if (globalsGeometry.contains(globalInstanceID))
                     voxelsGlobal = globalsGeometry.at(globalInstanceID);
                 else
@@ -245,15 +245,15 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
 void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
 {
     // cache the voxels for each global object to avoid repeated lookup
-    std::map<InstanceID_t, std::set<Bonxai::CoordT>> geometry;
+    std::map<InstanceID_t, std::set<Bonxai::IndicesT>> geometry;
 
     for (InstanceID_t i = 1; i < globalSemanticMap.size(); i++)
     {
         if (globalSemanticMap.at(i).isStillValid())
         {
-            std::set<Bonxai::CoordT> voxelsGlobal;
+            std::set<Bonxai::IndicesT> voxelsGlobal;
             AUTO_TEMPLATE_INSTANCES_ONLY(currentMode,
-                                         voxelsGlobal = listOfVoxelsInObject<DataT>(globalSemanticMap.at(i)));
+                                         voxelsGlobal = listOfVoxelsInObject<DataT>(globalSemanticMap.at(i), 0.4));
 
             // remove instances with very few observations
             if (globalSemanticMap.at(i).numberObservations <= nObservationsToRemove || voxelsGlobal.size() == 0)
@@ -270,7 +270,7 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         if (!firstInstance.isStillValid())
             continue;
 
-        std::set<Bonxai::CoordT> voxelsFirst = geometry.at(i);
+        std::set<Bonxai::IndicesT> voxelsFirst = geometry.at(i);
         CategoryManager::CategoryIndex firstClassIdx = firstInstance.mostLikelyCategory();
 
         for (InstanceID_t j = i + 1; j < globalSemanticMap.size(); j++)
@@ -279,19 +279,16 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
 
             if (secondInstance.isStillValid() && GeometryOperations::checkBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
             {
-                std::set<Bonxai::CoordT> voxelsSecond = geometry.at(j);
+                std::set<Bonxai::IndicesT> voxelsSecond = geometry.at(j);
 
-                // Adaptive threshold based on:
-                double iouThreshold = 0.6;  // Base threshold
+                const double semanticSimThr = 0.4;
+                double semanticSimilarity = computeSemanticSimilarity(firstInstance, secondInstance);
 
-                CategoryManager::CategoryIndex secondClassIdx = secondInstance.mostLikelyCategory();
+                if (semanticSimilarity > semanticSimThr)
+                {
+                    std::vector<std::vector<size_t>> clusters = dbscan();
+                }
 
-                // If both instances have the same category, be more permissive
-                bool sameCategory = firstClassIdx == secondClassIdx;
-                if (sameCategory)
-                    iouThreshold = 0.2;
-
-                auto [iou, ios] = compute3DIoU(voxelsFirst, voxelsSecond, 3);
                 if (iou > iouThreshold)
                 {
                     // Fuse the second instance with the first one
@@ -308,15 +305,15 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
     }
 }
 
-std::pair<double, double> SemanticMap::compute3DIoU(const std::set<Bonxai::CoordT>& voxels1,
-                                                    const std::set<Bonxai::CoordT>& voxels2,
+std::pair<double, double> SemanticMap::compute3DIoU(const std::set<Bonxai::IndicesT>& voxels1,
+                                                    const std::set<Bonxai::IndicesT>& voxels2,
                                                     uint coarsening_factor)
 {
-    std::set<Bonxai::CoordT> voxels1_coarse = GeometryOperations::DownsampleVoxels(voxels1, coarsening_factor);
-    std::set<Bonxai::CoordT> voxels2_coarse = GeometryOperations::DownsampleVoxels(voxels2, coarsening_factor);
+    std::set<Bonxai::IndicesT> voxels1_coarse = GeometryOperations::DownsampleVoxels(voxels1, coarsening_factor);
+    std::set<Bonxai::IndicesT> voxels2_coarse = GeometryOperations::DownsampleVoxels(voxels2, coarsening_factor);
 
-    std::set<Bonxai::CoordT> intersection_ = GeometryOperations::SetIntersection(voxels1_coarse, voxels2_coarse);
-    std::set<Bonxai::CoordT> union_ = GeometryOperations::SetUnion(voxels1_coarse, voxels2_coarse);
+    std::set<Bonxai::IndicesT> intersection_ = GeometryOperations::SetIntersection(voxels1_coarse, voxels2_coarse);
+    std::set<Bonxai::IndicesT> union_ = GeometryOperations::SetUnion(voxels1_coarse, voxels2_coarse);
 
     double IoU = 0.;
     if (union_.size() > 0)
@@ -331,19 +328,19 @@ std::pair<double, double> SemanticMap::compute3DIoU(const std::set<Bonxai::Coord
     return std::pair<double, double>(IoU, IoS);
 }
 
-double SemanticMap::computeIoV(const std::set<Bonxai::CoordT>& localVoxels,
-                               const std::set<Bonxai::CoordT>& globalInstance,
-                               const std::set<Bonxai::CoordT>& localInstance,
+double SemanticMap::computeIoV(const std::set<Bonxai::IndicesT>& localVoxels,
+                               const std::set<Bonxai::IndicesT>& globalInstance,
+                               const std::set<Bonxai::IndicesT>& localInstance,
                                uint coarsening_factor)
 {
-    std::set<Bonxai::CoordT> localVoxels_coarse = GeometryOperations::DownsampleVoxels(localVoxels, coarsening_factor);
+    std::set<Bonxai::IndicesT> localVoxels_coarse = GeometryOperations::DownsampleVoxels(localVoxels, coarsening_factor);
 
     // find all the voxels in the global instance which were visible in this image
-    std::set<Bonxai::CoordT> visibleGlobalVoxels = GeometryOperations::SetIntersection(globalInstance, localVoxels_coarse);
+    std::set<Bonxai::IndicesT> visibleGlobalVoxels = GeometryOperations::SetIntersection(globalInstance, localVoxels_coarse);
     size_t numVisibleVoxels = visibleGlobalVoxels.size();
 
     // find which of the visible voxels were identified as part of this local instance
-    std::set<Bonxai::CoordT> globalVoxelsInMask = GeometryOperations::SetIntersection(visibleGlobalVoxels, localInstance);
+    std::set<Bonxai::IndicesT> globalVoxelsInMask = GeometryOperations::SetIntersection(visibleGlobalVoxels, localInstance);
     size_t numVoxelsInMask = globalVoxelsInMask.size();
 
     double iov = numVisibleVoxels > 0 ? numVoxelsInMask / static_cast<double>(numVisibleVoxels) : 0;

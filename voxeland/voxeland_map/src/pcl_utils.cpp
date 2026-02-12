@@ -49,7 +49,7 @@ inline pcl::PointXYZ toPointXYZ(const Bonxai::Point3D& p)
     return { float(p.x), float(p.y), float(p.z) };
 }
 
-inline pcl::PointXYZ toPointXYZ(const Bonxai::CoordT& p)
+inline pcl::PointXYZ toPointXYZ(const Bonxai::IndicesT& p)
 {
     return { float(p.x), float(p.y), float(p.z) };
 }
@@ -77,7 +77,7 @@ void Bonxai::WritePointsFromPCD(const std::string& filepath, const std::vector<P
     WritePointsFromPCD_Impl(filepath, points);
 }
 
-void Bonxai::WritePointsFromPCD(const std::string& filepath, const std::vector<CoordT>& points)
+void Bonxai::WritePointsFromPCD(const std::string& filepath, const std::vector<IndicesT>& points)
 {
     WritePointsFromPCD_Impl(filepath, points);
 }

@@ -153,7 +153,7 @@ public:
         // generate a voxelized version of the entire point cloud, to check whether a given pre-existing voxel is visible or not
         // this will be used to measure how much of a global instance is being identified as a single object in this image
         Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>* bonxai = BonxaiQuery<DataT>::getBonxai()->grid();
-        std::set<Bonxai::CoordT> voxelizedLocalPointCloud;
+        std::set<Bonxai::IndicesT> voxelizedLocalPointCloud;
         for (size_t i = 0; i < pc.points.size(); i++)
             voxelizedLocalPointCloud.insert(bonxai->posToCoord(Bonxai::Point3D(pc.points[i].x, pc.points[i].y, pc.points[i].z)));
 

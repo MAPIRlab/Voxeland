@@ -53,33 +53,33 @@ namespace Bonxai
         template <typename PointT>
         void getOccupiedVoxels(std::vector<PointT>& cells_points, std::vector<DataT>& cells_data);
 
-        void getOccupiedVoxels(std::vector<Bonxai::CoordT>& coords, std::vector<DataT>& cells_data);
+        void getOccupiedVoxels(std::vector<Bonxai::IndicesT>& coords, std::vector<DataT>& cells_data);
 
         [[nodiscard]] VoxelGrid<ProbabilisticCell<DataT>>* grid() { return &_grid; }
 
         [[nodiscard]] const VoxelGrid<ProbabilisticCell<DataT>>* grid() const { return &_grid; }
 
-        [[nodiscard]] bool isOccupied(const Bonxai::CoordT& coord) const;
+        [[nodiscard]] bool isOccupied(const Bonxai::IndicesT& coord) const;
 
-        [[nodiscard]] bool isUnknown(const Bonxai::CoordT& coord) const;
+        [[nodiscard]] bool isUnknown(const Bonxai::IndicesT& coord) const;
 
-        [[nodiscard]] bool isFree(const Bonxai::CoordT& coord) const;
+        [[nodiscard]] bool isFree(const Bonxai::IndicesT& coord) const;
 
-        void getFreeVoxels(std::vector<Bonxai::CoordT>& coords);
+        void getFreeVoxels(std::vector<Bonxai::IndicesT>& coords);
 
     private:
         VoxelGrid<ProbabilisticCell<DataT>> _grid;
         uint8_t _update_count = 1;
 
-        std::vector<CoordT> _miss_coords;
-        std::vector<CoordT> _hit_coords;
+        std::vector<IndicesT> _miss_coords;
+        std::vector<IndicesT> _hit_coords;
 
         mutable typename Bonxai::VoxelGrid<ProbabilisticCell<DataT>>::Accessor _accessor;
 
         void updateFreeCells(const Vector3D& origin) override;
 
-        Point3D coordToPos(CoordT coord) override { return _grid.coordToPos(coord); }
-        CoordT posToCoord(Point3D point) override { return _grid.posToCoord(point); }
+        Point3D coordToPos(IndicesT coord) override { return _grid.coordToPos(coord); }
+        IndicesT posToCoord(Point3D point) override { return _grid.posToCoord(point); }
     };
 
     // Method template definitions
@@ -150,7 +150,7 @@ namespace Bonxai
     template <typename PointT>
     void ProbabilisticMapT<DataT>::getOccupiedVoxels(std::vector<PointT>& cells_points, std::vector<DataT>& cells_data)
     {
-        std::vector<Bonxai::CoordT> coords;
+        std::vector<Bonxai::IndicesT> coords;
         coords.clear();
         getOccupiedVoxels(coords, cells_data);
         for (const auto& coord : coords)
@@ -161,11 +161,11 @@ namespace Bonxai
     }
 
     template <typename DataT>
-    void ProbabilisticMapT<DataT>::getOccupiedVoxels(std::vector<Bonxai::CoordT>& coords,
+    void ProbabilisticMapT<DataT>::getOccupiedVoxels(std::vector<Bonxai::IndicesT>& coords,
                                                      std::vector<DataT>& cells_data)
     {
         coords.clear();
-        auto visitor = [&](ProbabilisticCell<DataT>& cell, const CoordT& coord) {
+        auto visitor = [&](ProbabilisticCell<DataT>& cell, const IndicesT& coord) {
             if (cell.probability_log > _options.occupancy_threshold_log)
             {
                 coords.push_back(coord);
@@ -176,7 +176,7 @@ namespace Bonxai
     }
 
     template <typename DataT>
-    [[nodiscard]] bool ProbabilisticMapT<DataT>::isOccupied(const Bonxai::CoordT& coord) const
+    [[nodiscard]] bool ProbabilisticMapT<DataT>::isOccupied(const Bonxai::IndicesT& coord) const
     {
         if (auto* cell = _accessor.value(coord, false))
         {
@@ -186,7 +186,7 @@ namespace Bonxai
     }
 
     template <typename DataT>
-    [[nodiscard]] bool ProbabilisticMapT<DataT>::isUnknown(const Bonxai::CoordT& coord) const
+    [[nodiscard]] bool ProbabilisticMapT<DataT>::isUnknown(const Bonxai::IndicesT& coord) const
     {
         if (auto* cell = _accessor.value(coord, false))
         {
@@ -196,7 +196,7 @@ namespace Bonxai
     }
 
     template <typename DataT>
-    [[nodiscard]] bool ProbabilisticMapT<DataT>::isFree(const Bonxai::CoordT& coord) const
+    [[nodiscard]] bool ProbabilisticMapT<DataT>::isFree(const Bonxai::IndicesT& coord) const
     {
         if (auto* cell = _accessor.value(coord, false))
         {
@@ -206,10 +206,10 @@ namespace Bonxai
     }
 
     template <typename DataT>
-    void ProbabilisticMapT<DataT>::getFreeVoxels(std::vector<Bonxai::CoordT>& coords)
+    void ProbabilisticMapT<DataT>::getFreeVoxels(std::vector<Bonxai::IndicesT>& coords)
     {
         coords.clear();
-        auto visitor = [&](ProbabilisticCell<DataT>& cell, const CoordT& coord) {
+        auto visitor = [&](ProbabilisticCell<DataT>& cell, const IndicesT& coord) {
             if (cell.probability_log < _options.occupancy_threshold_log)
             {
                 coords.push_back(coord);
@@ -224,7 +224,7 @@ namespace Bonxai
         auto accessor = _grid.createAccessor();
 
         // same as addMissPoint, but using lambda will force inlining
-        auto clearPoint = [this, &accessor](const CoordT& coord) {
+        auto clearPoint = [this, &accessor](const IndicesT& coord) {
             ProbabilisticCell<DataT>* cell = accessor.value(coord, true);
             if (cell->update_id != _update_count)
             {
