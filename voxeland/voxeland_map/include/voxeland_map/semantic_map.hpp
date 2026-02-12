@@ -44,12 +44,12 @@ public:
 
     std::pair<double, double> compute3DIoU(const std::set<Bonxai::CoordT>& voxels1,
                                            const std::set<Bonxai::CoordT>& voxels2,
-                                           float coarsening_factor = 3);
+                                           uint coarsening_factor = 3);
 
     double computeIoV(const std::set<Bonxai::CoordT>& localVoxels,
                       const std::set<Bonxai::CoordT>& globalInstance,
                       const std::set<Bonxai::CoordT>& localInstance,
-                      float coarsening_factor);
+                      uint coarsening_factor);
 
     template <typename DataT>
     std::set<Bonxai::CoordT> listOfVoxelsInObject(const SemanticObject& object, double probabilityThr = 1.0);
@@ -80,7 +80,7 @@ private:
     double kld_threshold;
     voxeland::DataMode currentMode;
     
-    std::set<Bonxai::CoordT> coarsenVoxels(const std::set<Bonxai::CoordT>& voxels, float coarsening_factor);
+    std::set<Bonxai::CoordT> coarsenVoxels(const std::set<Bonxai::CoordT>& voxels, uint coarsening_factor);
     double computeKLD(const std::vector<double>& P, const std::vector<double>& Q);
     
     /**

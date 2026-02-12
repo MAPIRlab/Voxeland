@@ -633,8 +633,10 @@ nlohmann::json SemanticMap::appearancesToJson()
     return data_json;
 }
 
-std::set<Bonxai::CoordT> SemanticMap::coarsenVoxels(const std::set<Bonxai::CoordT>& voxels, float coarsening_factor)
+std::set<Bonxai::CoordT> SemanticMap::coarsenVoxels(const std::set<Bonxai::CoordT>& voxels, uint coarsening_factor)
 {
+    if (coarsening_factor <= 1)
+        return voxels;
     std::set<Bonxai::CoordT> voxels_coarse;
 
     for (const auto& coord : voxels)
@@ -645,7 +647,7 @@ std::set<Bonxai::CoordT> SemanticMap::coarsenVoxels(const std::set<Bonxai::Coord
 
 std::pair<double, double> SemanticMap::compute3DIoU(const std::set<Bonxai::CoordT>& voxels1,
                                                     const std::set<Bonxai::CoordT>& voxels2,
-                                                    float coarsening_factor)
+                                                    uint coarsening_factor)
 {
     std::set<Bonxai::CoordT> voxels1_coarse = coarsenVoxels(voxels1, coarsening_factor);
     std::set<Bonxai::CoordT> voxels2_coarse = coarsenVoxels(voxels2, coarsening_factor);
@@ -680,7 +682,7 @@ std::pair<double, double> SemanticMap::compute3DIoU(const std::set<Bonxai::Coord
 double SemanticMap::computeIoV(const std::set<Bonxai::CoordT>& localVoxels,
                                const std::set<Bonxai::CoordT>& globalInstance,
                                const std::set<Bonxai::CoordT>& localInstance,
-                               float coarsening_factor)
+                               uint coarsening_factor)
 {
     std::set<Bonxai::CoordT> localVoxels_coarse = coarsenVoxels(localVoxels, coarsening_factor);
 
