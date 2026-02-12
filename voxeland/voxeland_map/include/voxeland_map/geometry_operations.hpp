@@ -11,7 +11,7 @@ namespace GeometryOperations
     std::set<T> SetUnion(const std::set<T>& a, const std::set<T>& b)
     {
         std::set<T> union_;
-        std::set_union(a.begin(), a.end(), b.begin(), b.end(), std::inserter(union_));
+        std::set_union(a.begin(), a.end(), b.begin(), b.end(), std::inserter(union_, union_.begin()));
         return union_;
     }
 
@@ -19,7 +19,7 @@ namespace GeometryOperations
     std::set<T> SetIntersection(const std::set<T>& a, const std::set<T>& b)
     {
         std::set<T> intersection;
-        std::set_intersection(a.begin(), a.end(), b.begin(), b.end(), std::inserter(intersection));
+        std::set_intersection(a.begin(), a.end(), b.begin(), b.end(), std::inserter(intersection, intersection.begin()));
         return intersection;
     }
 
