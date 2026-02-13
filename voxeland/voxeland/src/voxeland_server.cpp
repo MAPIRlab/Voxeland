@@ -46,6 +46,7 @@ namespace voxeland_server
     {
 #if ENABLE_DEBUG_GUI
         SetupGUI();
+        functionQueueTimer = create_timer(std::chrono::milliseconds(30), [&]() { functionQueue.run(); });
 #endif
 
         {

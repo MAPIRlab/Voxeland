@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(dbscan)
 set(CMAKE_CXX_STANDARD 20)
 
-add_library(dbscan dbscan.cpp)
+add_library(dbscan SHARED dbscan.cpp)
 target_include_directories(dbscan PUBLIC vendor)
 
 add_executable(dbscan_example example.cpp)

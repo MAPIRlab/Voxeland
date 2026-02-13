@@ -191,8 +191,8 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
 
                 if (fusionScore > fusionThreshold)
                 {
-                    VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow), "Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS:{:.2f}  IoV:{:.2f}  SemSim:{:.2f}  Score:{:.2f}", localInstanceID, globalInstanceID, iou, ios, iov, semanticSimilarity, fusionScore);
-                    PAUSE_THREAD_UNTIL_GUI_CONTINUE;
+                    VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow), "Integrating local {} - global {}:\n\tIoU:{:.2f}  IoS:{:.2f}  IoV:{:.2f}  SemSim:{:.2f}  Score:{:.2f}", localInstanceID, globalInstanceID, iou, ios, iov, semanticSimilarity, fusionScore);
+                    PAUSE_THREAD_UNTIL_GUI_CONTINUE(debugging_utils::pause_on_integration);
                     fuseSemanticObjects(globalInstance, localInstance);
 
                     lastMapLocalToGlobal[localInstanceID] = globalInstanceID;
@@ -253,7 +253,7 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         {
             std::set<Bonxai::IndicesT> voxelsGlobal;
             AUTO_TEMPLATE_INSTANCES_ONLY(currentMode,
-                                         voxelsGlobal = listOfVoxelsInObject<DataT>(globalSemanticMap.at(i), 0.4));
+                                         voxelsGlobal = listOfVoxelsInObject<DataT>(globalSemanticMap.at(i), 1));
 
             // remove instances with very few observations
             if (globalSemanticMap.at(i).numberObservations <= nObservationsToRemove || voxelsGlobal.size() == 0)
@@ -265,41 +265,58 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
 
     for (InstanceID_t i = 1; i < globalSemanticMap.size(); i++)
     {
-        SemanticObject& firstInstance = globalSemanticMap[i];
+        SemanticObject& instance = globalSemanticMap[i];
+        if (!instance.isStillValid())
+            continue;
+        std::vector<std::set<Bonxai::IndicesT>> clusters = GeometryOperations::TrySplitInstance(geometry.at(i));
+
+        if (clusters.size() > 1)
+        {
+            debugInfo.mostRecentClusters = clusters;
+            VXL_DEBUG("Splitting instance {} into {} chunks", i, clusters.size());
+            PAUSE_THREAD_UNTIL_GUI_CONTINUE(debugging_utils::pause_on_splitting);
+        }
+    }
+
+    for (InstanceID_t firstIdx = 1; firstIdx < globalSemanticMap.size(); firstIdx++)
+    {
+        SemanticObject& firstInstance = globalSemanticMap[firstIdx];
 
         if (!firstInstance.isStillValid())
             continue;
 
-        std::set<Bonxai::IndicesT> voxelsFirst = geometry.at(i);
+        std::set<Bonxai::IndicesT> voxelsFirst = geometry.at(firstIdx);
         CategoryManager::CategoryIndex firstClassIdx = firstInstance.mostLikelyCategory();
 
-        for (InstanceID_t j = i + 1; j < globalSemanticMap.size(); j++)
+        for (InstanceID_t secondIdx = firstIdx + 1; secondIdx < globalSemanticMap.size(); secondIdx++)
         {
-            SemanticObject& secondInstance = globalSemanticMap[j];
+            SemanticObject& secondInstance = globalSemanticMap[secondIdx];
 
             if (secondInstance.isStillValid() && GeometryOperations::checkBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
             {
-                std::set<Bonxai::IndicesT> voxelsSecond = geometry.at(j);
+                std::set<Bonxai::IndicesT> voxelsSecond = geometry.at(secondIdx);
+                double iouThreshold = 0.6;  // Base threshold
 
-                const double semanticSimThr = 0.4;
-                double semanticSimilarity = computeSemanticSimilarity(firstInstance, secondInstance);
+                CategoryManager::CategoryIndex secondClassIdx = secondInstance.mostLikelyCategory();
 
-                if (semanticSimilarity > semanticSimThr)
-                {
-                    std::vector<std::vector<size_t>> clusters = dbscan();
-                }
+                // If both instances have the same category, be more permissive
+                bool sameCategory = firstClassIdx == secondClassIdx;
+                if (sameCategory)
+                    iouThreshold = 0.2;
+
+                auto [iou, ios] = compute3DIoU(voxelsFirst, voxelsSecond, 3);
 
                 if (iou > iouThreshold)
                 {
                     // Fuse the second instance with the first one
-                    secondInstance.pointsTo = i;
-                    VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow), "(Refine) Fusing global {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", i, j, iou, ios);
-                    PAUSE_THREAD_UNTIL_GUI_CONTINUE;
+                    secondInstance.pointsTo = firstIdx;
+                    VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow), "(Refine) Fusing global {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", firstIdx, secondIdx, iou, ios);
+                    PAUSE_THREAD_UNTIL_GUI_CONTINUE(debugging_utils::pause_on_fusion);
                     fuseSemanticObjects(firstInstance, secondInstance);
                     break;
                 }
                 else
-                    VXL_DEBUG("(Refine) NOT Fusing global {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", i, j, iou, ios);
+                    VXL_DEBUG("(Refine) NOT Fusing global {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", firstIdx, secondIdx, iou, ios);
             }
         }
     }

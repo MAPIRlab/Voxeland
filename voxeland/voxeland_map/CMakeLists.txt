@@ -8,6 +8,7 @@ add_library(voxeland_map
     include/voxeland_map/category_manager.hpp
     src/pcl_utils.cpp
     src/semantic_map.cpp
+    src/geometry_operations.cpp
     src/category_manager.cpp
 )
 

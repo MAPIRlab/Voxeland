@@ -73,6 +73,12 @@ public:
     void updateSemanticMapResultsFromJSON(const nlohmann::json& data_json);
     nlohmann::json appearancesToJson();
 
+    struct DebugInformation
+    {
+        std::vector<std::set<Bonxai::IndicesT>> mostRecentClusters;
+    };
+    DebugInformation debugInfo;
+
 private:
     std::vector<InstanceID_t> lastMapLocalToGlobal;
     std::vector<std::uint32_t> color_palette;

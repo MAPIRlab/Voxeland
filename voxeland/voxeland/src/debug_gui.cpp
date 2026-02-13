@@ -1,6 +1,6 @@
 #if ENABLE_DEBUG_GUI
-#include <pcl_conversions/pcl_conversions.h>
 #include <imgui_gl/imgui_gl.h>
+#include <pcl_conversions/pcl_conversions.h>
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <imgui_gl/utils.hpp>
@@ -269,7 +269,33 @@ namespace voxeland_server
     {
         ImGui::Begin("Instance Info");
         if (ImGui::Button("Trigger Global Refinement"))
-            doGlobalRefinement();
+            functionQueue.submit([&]() { doGlobalRefinement(); });
+
+        {
+            static bool showClusters = false;
+            ImGui::Checkbox("Show clusters", &showClusters);
+            static auto clusterPub = create_publisher<PointCloud2>("clusteringRefinement", 1);
+            PointCloud2 cloud;
+            cloud.data.clear();
+            pcl::PointCloud<pcl::PointXYZRGBSemantics> pcl_cloud;
+            if (showClusters)
+            {
+                for (size_t i = 0; i < semantics.debugInfo.mostRecentClusters.size(); i++)
+                {
+                    for (const auto& indices : semantics.debugInfo.mostRecentClusters.at(i))
+                    {
+                        const Bonxai::Point3D point = bonxai_->coordToPos(indices);
+
+                        std::uint32_t rgb = semantics.indexToHexColor(i);
+                        pcl_cloud.emplace_back((float)point.x, (float)point.y, (float)point.z, *reinterpret_cast<float*>(&rgb), -1);
+                    }
+                }
+            }
+            pcl::toROSMsg(pcl_cloud, cloud);
+            cloud.header.frame_id = world_frame_id_;
+            cloud.header.stamp = now();
+            clusterPub->publish(cloud);
+        }
 
         if (semantics.globalSemanticMap.size() == 0)
         {
@@ -316,9 +342,9 @@ namespace voxeland_server
     void VoxelandServer::PauseButton()
     {
         ImGui::Begin("PauseButton");
-        {
-            ImGui::Checkbox("Pause on object fusion", &debugging_utils::debug_paused_enabled);
-        }
+        ImGui::Checkbox("Pause on integration", &debugging_utils::pause_on_integration);
+        ImGui::Checkbox("Pause on fusion", &debugging_utils::pause_on_fusion);
+        ImGui::Checkbox("Pause on splitting", &debugging_utils::pause_on_splitting);
 
         if (debugging_utils::debug_paused)
         {

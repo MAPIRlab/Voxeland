@@ -5,14 +5,16 @@
 namespace debugging_utils
 {
     inline volatile bool debug_paused = false;
-    inline bool debug_paused_enabled = false;
+    inline bool pause_on_integration = false;
+    inline bool pause_on_fusion = false;
+    inline bool pause_on_splitting = false;
 
     inline std::mutex mutex;
 }  // namespace debugging_utils
 
 #if ENABLE_DEBUG_GUI
-#define PAUSE_THREAD_UNTIL_GUI_CONTINUE                \
-    if (debugging_utils::debug_paused_enabled)         \
+#define PAUSE_THREAD_UNTIL_GUI_CONTINUE(condition)     \
+    if (condition)                                     \
     {                                                  \
         fprintf(stderr, "THREAD PAUSED\n");            \
         debugging_utils::debug_paused = true;          \
@@ -23,5 +25,5 @@ namespace debugging_utils
         fprintf(stderr, "THREAD EXECUTION RESUMED\n"); \
     }
 #else
-#define PAUSE_THREAD_UNTIL_GUI_CONTINUE
+#define PAUSE_THREAD_UNTIL_GUI_CONTINUE(condition)
 #endif

@@ -23,47 +23,12 @@ namespace GeometryOperations
         return intersection;
     }
 
-    inline std::set<Bonxai::CoordT> DownsampleVoxels(const std::set<Bonxai::CoordT>& voxels, uint coarsening_factor)
-    {
-        if (coarsening_factor <= 1)
-            return voxels;
-        std::set<Bonxai::CoordT> voxels_coarse;
+    std::set<Bonxai::IndicesT> DownsampleVoxels(const std::set<Bonxai::IndicesT>& voxels, uint coarsening_factor);
 
-        for (const auto& coord : voxels)
-            voxels_coarse.insert(coord / coarsening_factor);
+    void updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D& update);
 
-        return voxels_coarse;
-    }
+    bool checkBBoxIntersect(const BoundingBox3D& bbox1, const BoundingBox3D& bbox2);
 
-    inline void updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D& update)
-    {
-        // Update min bounds
-        original.minX = std::min(update.minX, original.minX);
-        original.minY = std::min(update.minY, original.minY);
-        original.minZ = std::min(update.minZ, original.minZ);
-
-        // Update max bounds
-        original.maxX = std::max(update.maxX, original.maxX);
-        original.maxY = std::max(update.maxY, original.maxY);
-        original.maxZ = std::max(update.maxZ, original.maxZ);
-    }
-
-    inline bool checkBBoxIntersect(const BoundingBox3D& bbox1, const BoundingBox3D& bbox2)
-    {
-        // Check for no overlap along x-axis
-        if (bbox1.maxX < bbox2.minX || bbox2.maxX < bbox1.minX)
-            return false;
-
-        // Check for no overlap along y-axis
-        if (bbox1.maxY < bbox2.minY || bbox2.maxY < bbox1.minY)
-            return false;
-
-        // Check for no overlap along z-axis
-        if (bbox1.maxZ < bbox2.minZ || bbox2.maxZ < bbox1.minZ)
-            return false;
-
-        // If there is overlap along all axes, the boxes intersect
-        return true;
-    }
+    std::vector<std::set<Bonxai::IndicesT>> TrySplitInstance(const std::set<Bonxai::IndicesT>& voxels_in);
 
 }  // namespace GeometryOperations

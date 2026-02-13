@@ -6,6 +6,7 @@
 #include <voxeland_map/data_modes.hpp>
 #include <voxeland_map/semantic_map.hpp>
 
+#include "FunctionQueue.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "std_srvs/srv/empty.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
@@ -180,6 +181,8 @@ namespace voxeland_server
         std::vector<uint8_t> globalObjectsToDraw;
         std::vector<uint8_t> localObjectsToDraw;
         Bonxai::Point3D selectedCoordinates;
+        FunctionQueue functionQueue;
+        rclcpp::TimerBase::SharedPtr functionQueueTimer;
 
         // these are mutually exclusive
         // the GUI is normally rendered as part of the spin cycle, from the main thread, to avoid data sync issues

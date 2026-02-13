@@ -10,6 +10,7 @@
 #include <tuple>
 #include <cstring>
 
+using namespace dbscan;
 
 auto check_from_chars_error(std::errc err, const std::string_view& line, int line_counter)
 {
@@ -133,7 +134,7 @@ auto dbscan2d(const std::span<const float>& data, float eps, int min_pts)
 
     std::memcpy(points.data(), data.data(), sizeof(float) * data.size());
 
-    auto clusters = dbscan(points, eps, min_pts);
+    auto clusters = dbscan::dbscan(points, eps, min_pts);
     auto flat     = label (clusters, points.size());
 
     for(size_t i = 0; i < points.size(); i++)
@@ -149,7 +150,7 @@ auto dbscan3d(const std::span<const float>& data, float eps, int min_pts)
 
     std::memcpy(points.data(), data.data(), sizeof(float) * data.size());
 
-    auto clusters = dbscan(points, eps, min_pts);
+    auto clusters = dbscan::dbscan(points, eps, min_pts);
     auto flat     = label (clusters, points.size());
 
     for(size_t i = 0; i < points.size(); i++)
