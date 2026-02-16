@@ -183,6 +183,7 @@ namespace voxeland_server
         Bonxai::Point3D selectedCoordinates;
         FunctionQueue functionQueue;
         rclcpp::TimerBase::SharedPtr functionQueueTimer;
+        bool showClusters = false;
 
         // these are mutually exclusive
         // the GUI is normally rendered as part of the spin cycle, from the main thread, to avoid data sync issues

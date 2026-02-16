@@ -20,7 +20,7 @@ namespace debugging_utils
         debugging_utils::debug_paused = true;                           \
         debugging_utils::mutex.unlock();                                \
         while (debugging_utils::debug_paused)                           \
-            std::this_thread::sleep_for(std::chrono::milliseconds(15)); \
+            std::this_thread::sleep_for(std::chrono::milliseconds(30)); \
         debugging_utils::mutex.lock();                                  \
         fprintf(stderr, "THREAD EXECUTION RESUMED\n");                  \
     }

@@ -149,44 +149,72 @@ namespace voxeland_server
                 globalObjectsToDraw[i] = false;
         }
 
-        // add all the voxels in each of the selected instances to a pcl message, with the color and instanceID
-        pcl::PointCloud<pcl::PointXYZRGBSemantics> pcl_cloud;
-        auto add_point_to_pcl = [&](DataT& data, const Bonxai::Point3D& point) {
-            InstanceID_t instanceID = data.getMostRepresentativeInstance();
-            const SemanticObject& instance = semantics.globalSemanticMap.at(instanceID);
-            voxeland::Color visualization_color;
-            if (viewUnderSegmentationScore)
-                visualization_color = voxeland::valueToColor(instance.underSegmentScore / instance.numberObservations, 0, 1);
-            else
-                visualization_color = data.toColor();
-            std::uint32_t rgb = voxeland::serializeColor(visualization_color);
-            pcl_cloud.emplace_back((float)point.x, (float)point.y, (float)point.z, *reinterpret_cast<float*>(&rgb), instanceID);
-        };
-
-        bool drawAny = std::any_of(globalObjectsToDraw.begin(), globalObjectsToDraw.end(), std::identity());
-        if(drawAny)
+        // render the selected instances
         {
-            std::vector<DataT> cell_data;
-            std::vector<Bonxai::Point3D> cell_points;
-            bonxai_->With<DataT>()->getOccupiedVoxels(cell_points, cell_data);
-            for (size_t i = 0; i < cell_points.size(); i++)
-            {
-                const auto& point = cell_points[i];
+            // add all the voxels in each of the selected instances to a pcl message, with the color and instanceID
+            pcl::PointCloud<pcl::PointXYZRGBSemantics> pcl_cloud;
+            auto add_point_to_pcl = [&](DataT& data, const Bonxai::Point3D& point) {
+                InstanceID_t instanceID = data.getMostRepresentativeInstance();
+                const SemanticObject& instance = semantics.globalSemanticMap.at(instanceID);
+                voxeland::Color visualization_color;
+                if (viewUnderSegmentationScore)
+                    visualization_color = voxeland::valueToColor(instance.underSegmentScore / instance.numberObservations, 0, 1);
+                else
+                    visualization_color = data.toColor();
+                std::uint32_t rgb = voxeland::serializeColor(visualization_color);
+                pcl_cloud.emplace_back((float)point.x, (float)point.y, (float)point.z, *reinterpret_cast<float*>(&rgb), instanceID);
+            };
 
-                InstanceID_t instance = cell_data.at(i).getMostRepresentativeInstance();
-                if (globalObjectsToDraw[instance] && point.z >= occupancy_min_z_ && point.z <= occupancy_max_z_)
+            bool drawAny = std::any_of(globalObjectsToDraw.begin(), globalObjectsToDraw.end(), std::identity());
+            if (drawAny)
+            {
+                std::vector<DataT> cell_data;
+                std::vector<Bonxai::Point3D> cell_points;
+                bonxai_->With<DataT>()->getOccupiedVoxels(cell_points, cell_data);
+                for (size_t i = 0; i < cell_points.size(); i++)
                 {
-                    add_point_to_pcl(cell_data.at(i), point);
+                    const auto& point = cell_points[i];
+
+                    InstanceID_t instance = cell_data.at(i).getMostRepresentativeInstance();
+                    if (globalObjectsToDraw[instance] && point.z >= occupancy_min_z_ && point.z <= occupancy_max_z_)
+                    {
+                        add_point_to_pcl(cell_data.at(i), point);
+                    }
                 }
             }
+
+            PointCloud2 cloud;
+            pcl::toROSMsg(pcl_cloud, cloud);
+
+            cloud.header.frame_id = world_frame_id_;
+            cloud.header.stamp = now();
+            debugInstancesPub->publish(cloud);
         }
 
-        PointCloud2 cloud;
-        pcl::toROSMsg(pcl_cloud, cloud);
+        // render segmentation clustering
+        {
+            static auto clusterPub = create_publisher<PointCloud2>("clusteringRefinement", 1);
+            PointCloud2 cloud;
+            cloud.data.clear();
+            pcl::PointCloud<pcl::PointXYZRGBSemantics> pcl_cloud;
+            if (showClusters)
+            {
+                for (size_t i = 0; i < semantics.debugInfo.mostRecentClusters.size(); i++)
+                {
+                    for (const auto& indices : semantics.debugInfo.mostRecentClusters.at(i))
+                    {
+                        const Bonxai::Point3D point = bonxai_->coordToPos(indices);
 
-        cloud.header.frame_id = world_frame_id_;
-        cloud.header.stamp = now();
-        debugInstancesPub->publish(cloud);
+                        std::uint32_t rgb = semantics.indexToHexColor(i);
+                        pcl_cloud.emplace_back((float)point.x, (float)point.y, (float)point.z, *reinterpret_cast<float*>(&rgb), -1);
+                    }
+                }
+            }
+            pcl::toROSMsg(pcl_cloud, cloud);
+            cloud.header.frame_id = world_frame_id_;
+            cloud.header.stamp = now();
+            clusterPub->publish(cloud);
+        }
     }
 
     void VoxelandServer::GetQueryPoint()
@@ -250,32 +278,6 @@ namespace voxeland_server
         if (ImGui::Button("Trigger Global Refinement"))
             functionQueue.submit([&]() { doGlobalRefinement(); });
 
-        {
-            static bool showClusters = false;
-            ImGui::Checkbox("Show clusters", &showClusters);
-            static auto clusterPub = create_publisher<PointCloud2>("clusteringRefinement", 1);
-            PointCloud2 cloud;
-            cloud.data.clear();
-            pcl::PointCloud<pcl::PointXYZRGBSemantics> pcl_cloud;
-            if (showClusters)
-            {
-                for (size_t i = 0; i < semantics.debugInfo.mostRecentClusters.size(); i++)
-                {
-                    for (const auto& indices : semantics.debugInfo.mostRecentClusters.at(i))
-                    {
-                        const Bonxai::Point3D point = bonxai_->coordToPos(indices);
-
-                        std::uint32_t rgb = semantics.indexToHexColor(i);
-                        pcl_cloud.emplace_back((float)point.x, (float)point.y, (float)point.z, *reinterpret_cast<float*>(&rgb), -1);
-                    }
-                }
-            }
-            pcl::toROSMsg(pcl_cloud, cloud);
-            cloud.header.frame_id = world_frame_id_;
-            cloud.header.stamp = now();
-            clusterPub->publish(cloud);
-        }
-
         if (semantics.globalSemanticMap.size() == 0)
         {
             ImGui::Text("There are no instances to show");
@@ -321,10 +323,13 @@ namespace voxeland_server
     void VoxelandServer::PauseButton()
     {
         ImGui::Begin("PauseButton");
+#if SEPARATE_RENDER_THREAD
         ImGui::Checkbox("Pause on integration", &debugging_utils::pause_on_integration);
         ImGui::Checkbox("Pause on fusion", &debugging_utils::pause_on_fusion);
         ImGui::Checkbox("Pause on splitting", &debugging_utils::pause_on_splitting);
-
+        ImGui::SameLine();
+        ImGui::Checkbox("Show clusters", &showClusters);
+#endif
         if (debugging_utils::debug_paused)
         {
             paused = true;
