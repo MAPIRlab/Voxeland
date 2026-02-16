@@ -163,8 +163,8 @@ namespace voxeland_server
             pcl_cloud.emplace_back((float)point.x, (float)point.y, (float)point.z, *reinterpret_cast<float*>(&rgb), instanceID);
         };
 
-        // background is very expensive to draw with the normal iteration strategy, handle it separately
-        if (globalObjectsToDraw.at(0))
+        bool drawAny = std::any_of(globalObjectsToDraw.begin(), globalObjectsToDraw.end(), std::identity());
+        if(drawAny)
         {
             std::vector<DataT> cell_data;
             std::vector<Bonxai::Point3D> cell_points;
@@ -173,31 +173,10 @@ namespace voxeland_server
             {
                 const auto& point = cell_points[i];
 
-                if (cell_data.at(i).getMostRepresentativeInstance() == 0 && point.z >= occupancy_min_z_ && point.z <= occupancy_max_z_)
+                InstanceID_t instance = cell_data.at(i).getMostRepresentativeInstance();
+                if (globalObjectsToDraw[instance] && point.z >= occupancy_min_z_ && point.z <= occupancy_max_z_)
                 {
                     add_point_to_pcl(cell_data.at(i), point);
-                }
-            }
-        }
-
-        for (size_t i = 1; i < semantics.globalSemanticMap.size(); i++)
-        {
-            if (!globalObjectsToDraw[i])
-                continue;
-
-            std::set<Bonxai::IndicesT> coords;
-            coords = semantics.listOfVoxelsInObject<DataT>(semantics.globalSemanticMap.at(i));
-
-            for (const auto& coord : coords)
-            {
-                const Bonxai::Point3D point = bonxai_->coordToPos(coord);
-
-                Bonxai::ProbabilisticCell<DataT>* cell = BonxaiQuery<DataT>::getAccessor().value(coord);
-
-                if (cell->probability_log > bonxai_->options().occupancy_threshold_log  //
-                    && point.z >= occupancy_min_z_ && point.z <= occupancy_max_z_)
-                {
-                    add_point_to_pcl(cell->data, point);
                 }
             }
         }
