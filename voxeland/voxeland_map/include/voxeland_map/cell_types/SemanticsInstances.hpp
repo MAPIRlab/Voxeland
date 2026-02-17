@@ -144,6 +144,27 @@ namespace voxeland
             return instances_votes.at(idx) / sum;
         }
 
+        void ReplaceInstanceVotes(InstanceID_t out, InstanceID_t in)
+        {
+            updateCandidatesAndVotes();
+
+            size_t idxOut = std::distance(instances_candidates.begin(), std::find(instances_candidates.begin(), instances_candidates.end(), out));
+            size_t idxIn = std::distance(instances_candidates.begin(), std::find(instances_candidates.begin(), instances_candidates.end(), in));
+
+            if (idxOut < instances_candidates.size())
+            {
+                if (idxIn < instances_candidates.size())
+                {
+                    // if the "in" instance was already in this voxel, combine both lots of votes and delete the "out" instance as a candidate
+                    instances_candidates.at(idxIn) += instances_candidates.at(idxOut);
+                    instances_candidates.erase(instances_candidates.begin() + idxOut);
+                    instances_votes.erase(instances_votes.begin() + idxOut);
+                }
+                else
+                    instances_candidates.at(idxOut) = in;
+            }
+        }
+
         // we implement this one as a class member because we really would like to call updateCandidatesAndVotes() before presenting any info to the user
         std::string GetDebugInfo()
         {

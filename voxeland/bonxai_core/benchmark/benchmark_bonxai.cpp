@@ -16,7 +16,7 @@ static void Bonxai_Create(benchmark::State& state)
 
     for (const auto& point : *cloud)
     {
-      auto coord = grid.posToCoord(point.x, point.y, point.z);
+      auto coord = grid.posToIndex(point.x, point.y, point.z);
       accessor.setValue(coord, 42);
     }
   }
@@ -32,7 +32,7 @@ static void Bonxai_Update(benchmark::State& state)
     auto accessor = grid.createAccessor();
     for (const auto& point : *cloud)
     {
-      auto coord = grid.posToCoord(point.x, point.y, point.z);
+      auto coord = grid.posToIndex(point.x, point.y, point.z);
       accessor.setValue(coord, 42);
     }
   }
@@ -43,7 +43,7 @@ static void Bonxai_Update(benchmark::State& state)
 
     for (const auto& point : *cloud)
     {
-      auto coord = grid.posToCoord(point.x, point.y, point.z);
+      auto coord = grid.posToIndex(point.x, point.y, point.z);
       accessor.setValue(coord, 42);
     }
   }
@@ -60,7 +60,7 @@ static void Bonxai_IterateAllCells(benchmark::State& state)
     auto accessor = grid.createAccessor();
     for (const auto& point : *cloud)
     {
-      auto coord = grid.posToCoord(point.x, point.y, point.z);
+      auto coord = grid.posToIndex(point.x, point.y, point.z);
       accessor.setValue(coord, 42);
     }
   }

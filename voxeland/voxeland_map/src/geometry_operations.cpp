@@ -1,6 +1,7 @@
 #include "voxeland_map/geometry_operations.hpp"
 
 #include <dbscan/dbscan.hpp>
+#include <voxeland_map/bonxai_query.hpp>
 
 std::set<Bonxai::IndicesT> GeometryOperations::DownsampleVoxels(const std::set<Bonxai::IndicesT>& voxels, uint coarsening_factor)
 {
@@ -14,7 +15,30 @@ std::set<Bonxai::IndicesT> GeometryOperations::DownsampleVoxels(const std::set<B
     return voxels_coarse;
 }
 
-void GeometryOperations::updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D& update)
+BoundingBox3D GeometryOperations::FindBBox(const std::set<Bonxai::IndicesT>& voxels)
+{
+    Bonxai::ProbabilisticMap* bonxai = VoxelandMap::g_bonxai;
+    BoundingBox3D bbox;
+    for (const auto& voxel : voxels)
+        UpdateBBoxBounds(bbox, bonxai->indexToPos(voxel));
+
+    return bbox;
+}
+
+void GeometryOperations::UpdateBBoxBounds(BoundingBox3D& original, const Bonxai::Point3D& update)
+{
+    // Update min bounds
+    original.minX = std::min((float)update.x, original.minX);
+    original.minY = std::min((float)update.y, original.minY);
+    original.minZ = std::min((float)update.z, original.minZ);
+
+    // Update max bounds
+    original.maxX = std::max((float)update.x, original.maxX);
+    original.maxY = std::max((float)update.y, original.maxY);
+    original.maxZ = std::max((float)update.z, original.maxZ);
+}
+
+void GeometryOperations::UpdateBBoxBounds(BoundingBox3D& original, const BoundingBox3D& update)
 {
     // Update min bounds
     original.minX = std::min(update.minX, original.minX);
@@ -27,7 +51,7 @@ void GeometryOperations::updateBBoxBounds(BoundingBox3D& original, const Boundin
     original.maxZ = std::max(update.maxZ, original.maxZ);
 }
 
-bool GeometryOperations::checkBBoxIntersect(const BoundingBox3D& bbox1, const BoundingBox3D& bbox2)
+bool GeometryOperations::CheckBBoxIntersect(const BoundingBox3D& bbox1, const BoundingBox3D& bbox2)
 {
     // Check for no overlap along x-axis
     if (bbox1.maxX < bbox2.minX || bbox2.maxX < bbox1.minX)

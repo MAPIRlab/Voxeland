@@ -503,7 +503,7 @@ namespace voxeland_server
         for (size_t i = 0; i < request->query_points.size(); i++)
         {
             geometry_msgs::msg::Point point = request->query_points[i];
-            Bonxai::IndicesT coord = grid->posToCoord(point.x, point.y, point.z);
+            Bonxai::IndicesT coord = grid->posToIndex(point.x, point.y, point.z);
             Bonxai::ProbabilisticCell<DataT>* cell = accessor.value(coord);
 
             // get p(class | occupied) and p(occupied) from the cell
@@ -605,9 +605,7 @@ namespace voxeland_server
         }
         publishAllWithInstances<DataT>(cloud->header.stamp);
 
-        std::set<InstanceID_t> visibleInstances = semantics.getCurrentVisibleInstances<DataT>(occupancy_min_z_, occupancy_max_z_);
-
-        SemanticsROSWrapper::InstanceMapMsgs msgs = semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp, visibleInstances);
+        SemanticsROSWrapper::InstanceMapMsgs msgs = semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp);
         semantic_map_pub_->publish(msgs.instanceMap);
 
         textPub->publish(msgs.textMarkers);

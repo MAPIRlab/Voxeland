@@ -75,8 +75,8 @@ namespace Bonxai
 
         virtual ~ProbabilisticMap() {}
 
-        virtual Point3D coordToPos(IndicesT coord) = 0;
-        virtual IndicesT posToCoord(Point3D point) = 0;
+        virtual Point3D indexToPos(IndicesT coord) = 0;
+        virtual IndicesT posToIndex(Point3D point) = 0;
 
     protected:
         virtual void updateFreeCells(const Vector3D& origin) = 0;

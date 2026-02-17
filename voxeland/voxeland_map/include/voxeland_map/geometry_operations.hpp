@@ -25,9 +25,12 @@ namespace GeometryOperations
 
     std::set<Bonxai::IndicesT> DownsampleVoxels(const std::set<Bonxai::IndicesT>& voxels, uint coarsening_factor);
 
-    void updateBBoxBounds(BoundingBox3D& original, const BoundingBox3D& update);
+    BoundingBox3D FindBBox(const std::set<Bonxai::IndicesT>& voxels);
 
-    bool checkBBoxIntersect(const BoundingBox3D& bbox1, const BoundingBox3D& bbox2);
+    void UpdateBBoxBounds(BoundingBox3D& original, const Bonxai::Point3D& update);
+    void UpdateBBoxBounds(BoundingBox3D& original, const BoundingBox3D& update);
+
+    bool CheckBBoxIntersect(const BoundingBox3D& bbox1, const BoundingBox3D& bbox2);
 
     std::vector<std::set<Bonxai::IndicesT>> TrySplitInstance(const std::set<Bonxai::IndicesT>& voxels_in);
 

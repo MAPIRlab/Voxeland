@@ -2,13 +2,14 @@
 #include <voxeland_map/debugging_utils.hpp>
 
 #include "semantic_map.hpp"  // this is fine! it only affects the IDE! the pragmas will save us
+#include "voxeland_map/bonxai_query.hpp"
 
 template <typename DataT>
 inline std::set<InstanceID_t> SemanticMap::getCurrentVisibleInstances(double minOccupancyZ, double maxOccupancyZ)
 {
     std::vector<DataT> cell_data;
     std::vector<Bonxai::Point3D> cell_points;
-    Bonxai::ProbabilisticMapT<DataT>* bonxai = BonxaiQuery<DataT>::getBonxai();
+    Bonxai::ProbabilisticMapT<DataT>* bonxai = BonxaiQuery<DataT>::getBonxaiT();
     bonxai->getOccupiedVoxels(cell_points, cell_data);
 
     std::set<InstanceID_t> visibleInstances;
@@ -39,7 +40,7 @@ inline std::set<InstanceID_t> SemanticMap::getCurrentVisibleInstances(double min
 template <typename DataT, typename PointCloudTypeT>
 inline void SemanticMap::addInstancesGeometryToLocalSemanticMap(std::vector<SemanticObject>& localMap, const PointCloudTypeT& pc)
 {
-    Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>* bonxai = BonxaiQuery<DataT>::getBonxai()->grid();
+    Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>* bonxai = BonxaiQuery<DataT>::getBonxaiT()->grid();
 
     for (size_t i = 0; i < pc.points.size(); i++)
     {
@@ -49,7 +50,7 @@ inline void SemanticMap::addInstancesGeometryToLocalSemanticMap(std::vector<Sema
             localMap[instanceID].localGeometry.emplace();
 
         localMap[instanceID].localGeometry.value().insert(
-            bonxai->posToCoord(Bonxai::Point3D(pc.points[i].x, pc.points[i].y, pc.points[i].z)));
+            bonxai->posToIndex(Bonxai::Point3D(pc.points[i].x, pc.points[i].y, pc.points[i].z)));
 
         // Update min bounds
         localMap[instanceID].bbox.minX =
@@ -74,11 +75,11 @@ inline std::set<Bonxai::IndicesT> SemanticMap::listOfVoxelsInObject(const Semant
 {
     std::set<Bonxai::IndicesT> cellsInside;
 
-    Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>* bonxai = BonxaiQuery<DataT>::getBonxai()->grid();
+    Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>* bonxai = BonxaiQuery<DataT>::getBonxaiT()->grid();
 
-    const Bonxai::IndicesT coordMin = bonxai->posToCoord(Bonxai::Point3D(
+    const Bonxai::IndicesT coordMin = bonxai->posToIndex(Bonxai::Point3D(
         object.bbox.minX - bonxai->resolution, object.bbox.minY - bonxai->resolution, object.bbox.minZ - bonxai->resolution));
-    const Bonxai::IndicesT coordMax = bonxai->posToCoord(Bonxai::Point3D(
+    const Bonxai::IndicesT coordMax = bonxai->posToIndex(Bonxai::Point3D(
         object.bbox.maxX + bonxai->resolution, object.bbox.maxY + bonxai->resolution, object.bbox.maxZ + bonxai->resolution));
 
 // Iterate over all points inside the bounding box
@@ -106,21 +107,4 @@ inline std::set<Bonxai::IndicesT> SemanticMap::listOfVoxelsInObject(const Semant
     }
 
     return cellsInside;
-}
-
-template <typename DataT>
-inline Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>::Accessor& BonxaiQuery<DataT>::getAccessor()
-{
-    // accessor was created for another thread, we need a new one
-    if (!accessor && bonxai)
-        createAccessor(bonxai);
-
-    return *accessor;
-}
-
-template <typename DataT>
-inline void BonxaiQuery<DataT>::createAccessor(Bonxai::ProbabilisticMapT<DataT>* _bonxai)
-{
-    bonxai = _bonxai;
-    accessor.emplace(_bonxai->grid()->createAccessor());
 }

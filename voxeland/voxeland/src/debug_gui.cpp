@@ -192,7 +192,7 @@ namespace voxeland_server
                 {
                     for (const auto& indices : semantics.debugInfo.mostRecentClusters.at(i))
                     {
-                        const Bonxai::Point3D point = bonxai_->coordToPos(indices);
+                        const Bonxai::Point3D point = bonxai_->indexToPos(indices);
 
                         std::uint32_t rgb = semantics.indexToHexColor(i);
                         pcl_cloud.emplace_back((float)point.x, (float)point.y, (float)point.z, *reinterpret_cast<float*>(&rgb), -1);
@@ -245,7 +245,7 @@ namespace voxeland_server
     template <typename DataT>
     void VoxelandServer::PrintVoxelInfo(const Bonxai::Point3D& point)
     {
-        const Bonxai::IndicesT coord = bonxai_->posToCoord(point);
+        const Bonxai::IndicesT coord = bonxai_->posToIndex(point);
         Bonxai::ProbabilisticCell<DataT>* cell = BonxaiQuery<DataT>::getAccessor().value(coord);
         if (!cell)
         {
@@ -403,7 +403,7 @@ namespace voxeland_server
 
                 for (const Bonxai::IndicesT& coord : semantics.lastLocalSemanticMap.at(i).localGeometry.value())
                 {
-                    const Bonxai::Point3D point = bonxai_->coordToPos(coord);
+                    const Bonxai::Point3D point = bonxai_->indexToPos(coord);
                     uint32_t rgb = semantics.indexToHexColor(i);
                     rgb &= 0x0000ffff;  // force the red channel to 0 to make the local geometry more visually distinct from the global one
                     out_pcl.emplace_back(point.x, point.y, point.z, *reinterpret_cast<float*>(&rgb), i);

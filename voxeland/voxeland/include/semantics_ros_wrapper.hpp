@@ -74,7 +74,7 @@ public:
         visualization_msgs::msg::MarkerArray textMarkers;
     };
 
-    InstanceMapMsgs getSemanticMapAsROSMessage(const rclcpp::Time& rostime, const std::set<InstanceID_t> visibleInstances)
+    InstanceMapMsgs getSemanticMapAsROSMessage(const rclcpp::Time& rostime)
     {
         segmentation_msgs::msg::InstanceSemanticMap map;
 
@@ -83,7 +83,7 @@ public:
 
         for (size_t i = 0; i < semantics.globalSemanticMap.size(); i++)
         {
-            if (visibleInstances.count(i) > 0 && semantics.globalSemanticMap.at(i).isStillValid())
+            if (semantics.globalSemanticMap.at(i).isStillValid())
             {
                 vision_msgs::msg::Detection3D instance;
                 instance.id = semantics.globalSemanticMap.at(i).instanceName;
@@ -152,10 +152,10 @@ public:
         
         // generate a voxelized version of the entire point cloud, to check whether a given pre-existing voxel is visible or not
         // this will be used to measure how much of a global instance is being identified as a single object in this image
-        Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>* bonxai = BonxaiQuery<DataT>::getBonxai()->grid();
+        Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>* bonxai = BonxaiQuery<DataT>::getBonxaiT()->grid();
         std::set<Bonxai::IndicesT> voxelizedLocalPointCloud;
         for (size_t i = 0; i < pc.points.size(); i++)
-            voxelizedLocalPointCloud.insert(bonxai->posToCoord(Bonxai::Point3D(pc.points[i].x, pc.points[i].y, pc.points[i].z)));
+            voxelizedLocalPointCloud.insert(bonxai->posToIndex(Bonxai::Point3D(pc.points[i].x, pc.points[i].y, pc.points[i].z)));
 
         semantics.addInstancesGeometryToLocalSemanticMap<DataT, PointCloudTypeT>(localMap, pc);
 

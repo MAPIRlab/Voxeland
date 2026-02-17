@@ -86,14 +86,14 @@ struct IndicesT
 
 };
 
-[[nodiscard]] inline IndicesT PosToCoord(const Point3D& point, double inv_resolution)
+[[nodiscard]] inline IndicesT posToIndex(const Point3D& point, double inv_resolution)
 {
   return { int32_t(point.x * inv_resolution) - std::signbit(point.x),
            int32_t(point.y * inv_resolution) - std::signbit(point.y),
            int32_t(point.z * inv_resolution) - std::signbit(point.z) };
 }
 
-[[nodiscard]] inline Point3D CoordToPos(const IndicesT& coord, double resolution)
+[[nodiscard]] inline Point3D indexToPos(const IndicesT& coord, double resolution)
 {
   return { (double(coord.x) + 0.5) * resolution,
            (double(coord.y) + 0.5) * resolution,
@@ -292,14 +292,14 @@ public:
   /// @brief Return the total number of active cells
   [[nodiscard]] size_t activeCellsCount() const;
 
-  /// @brief posToCoord is used to convert real coordinates to CoordT indices.
-  [[nodiscard]] IndicesT posToCoord(double x, double y, double z);
+  /// @brief posToIndex is used to convert real coordinates to CoordT indices.
+  [[nodiscard]] IndicesT posToIndex(double x, double y, double z);
 
-  /// @brief posToCoord is used to convert real coordinates to CoordT indices.
-  [[nodiscard]] IndicesT posToCoord(const Point3D& pos) { return posToCoord(pos.x, pos.y, pos.z); }
+  /// @brief posToIndex is used to convert real coordinates to CoordT indices.
+  [[nodiscard]] IndicesT posToIndex(const Point3D& pos) { return posToIndex(pos.x, pos.y, pos.z); }
 
-  /// @brief coordToPos converts CoordT indices to Point3D.
-  [[nodiscard]] Point3D coordToPos(const IndicesT& coord);
+  /// @brief indexToPos converts CoordT indices to Point3D.
+  [[nodiscard]] Point3D indexToPos(const IndicesT& coord);
 
   /**
    *  @brief forEachCell apply a function of type:
@@ -579,7 +579,7 @@ inline VoxelGrid<DataT>::VoxelGrid(double voxel_size, uint8_t inner_bits, uint8_
 }
 
 template <typename DataT>
-inline IndicesT VoxelGrid<DataT>::posToCoord(double x, double y, double z)
+inline IndicesT VoxelGrid<DataT>::posToIndex(double x, double y, double z)
 {
   return { static_cast<int32_t>(x * inv_resolution - std::signbit(x)),
            static_cast<int32_t>(y * inv_resolution - std::signbit(y)),
@@ -587,7 +587,7 @@ inline IndicesT VoxelGrid<DataT>::posToCoord(double x, double y, double z)
 }
 
 template <typename DataT>
-inline Point3D VoxelGrid<DataT>::coordToPos(const IndicesT& coord)
+inline Point3D VoxelGrid<DataT>::indexToPos(const IndicesT& coord)
 {
   return { (double(coord.x) + 0.5) * resolution,
            (double(coord.y) + 0.5) * resolution,

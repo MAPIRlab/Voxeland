@@ -40,7 +40,7 @@ int main(int argc, char** argv)
 
   for (const auto& point : *cloud)
   {
-    auto coord = grid.posToCoord(point.x, point.y, point.z);
+    auto coord = grid.posToIndex(point.x, point.y, point.z);
     t_accessor.setValue(coord, 42);
   }
   //----------------------

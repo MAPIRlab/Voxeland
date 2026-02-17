@@ -78,8 +78,8 @@ namespace Bonxai
 
         void updateFreeCells(const Vector3D& origin) override;
 
-        Point3D coordToPos(IndicesT coord) override { return _grid.coordToPos(coord); }
-        IndicesT posToCoord(Point3D point) override { return _grid.posToCoord(point); }
+        Point3D indexToPos(IndicesT coord) override { return _grid.indexToPos(coord); }
+        IndicesT posToIndex(Point3D point) override { return _grid.posToIndex(point); }
     };
 
     // Method template definitions
@@ -117,7 +117,7 @@ namespace Bonxai
     template <typename PointT>
     void ProbabilisticMapT<DataT>::addHitPoint(const Vector3D& point, const PointT& data)
     {
-        const auto coord = _grid.posToCoord(point);
+        const auto coord = _grid.posToIndex(point);
         ProbabilisticCell<DataT>* cell = _accessor.value(coord, true);
 
         cell->data.update(data);
@@ -134,7 +134,7 @@ namespace Bonxai
     template <typename DataT>
     void ProbabilisticMapT<DataT>::addMissPoint(const Vector3D& point)
     {
-        const auto coord = _grid.posToCoord(point);
+        const auto coord = _grid.posToIndex(point);
         ProbabilisticCell<DataT>* cell = _accessor.value(coord, true);
 
         if (cell->update_id != _update_count)
@@ -155,7 +155,7 @@ namespace Bonxai
         getOccupiedVoxels(coords, cells_data);
         for (const auto& coord : coords)
         {
-            const auto p = coordToPos(coord);
+            const auto p = indexToPos(coord);
             cells_points.emplace_back(p.x, p.y, p.z);
         }
     }
@@ -235,7 +235,7 @@ namespace Bonxai
             return true;
         };
 
-        const auto coord_origin = _grid.posToCoord(origin);
+        const auto coord_origin = _grid.posToIndex(origin);
 
         for (const auto& coord_end : _hit_coords)
         {

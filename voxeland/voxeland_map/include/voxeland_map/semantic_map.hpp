@@ -102,26 +102,17 @@ private:
     
     double computeKLD(const std::vector<double>& P, const std::vector<double>& Q);
     
+    SemanticObject& CreateGlobalInstance();
     void fuseSemanticObjects(SemanticObject& firstInstance, const SemanticObject& secondInstance);
 
     void updateAlphaCategories(SemanticObject& original, const SemanticObject& update);
     void updateAppearancesTimestamps(SemanticObject& original, const SemanticObject& update);
-};
 
-template <typename DataT>
-class BonxaiQuery
-{
-public:
-    static void createAccessor(Bonxai::ProbabilisticMapT<DataT>* _bonxai);
-
-    // Note that, before calling this function, the accessor object has to be created beforehand.
-    static typename Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>::Accessor& getAccessor();
-
-    static Bonxai::ProbabilisticMapT<DataT>* getBonxai() { return bonxai; }
-
-private:
-    inline static Bonxai::ProbabilisticMapT<DataT>* bonxai;
-    inline static thread_local std::optional<typename Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>::Accessor> accessor;
+    struct FusionScore
+    {
+        InstanceID_t fuseWithID;
+        double normalizedScore;
+    };
 };
 
 //----------------------------------------------------------

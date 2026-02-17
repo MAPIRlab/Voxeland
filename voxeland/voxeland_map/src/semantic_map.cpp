@@ -72,7 +72,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
     // Both loops start at 1 to skip "unknown" class
     for (InstanceID_t localInstanceID = 1; localInstanceID < localMap.size(); localInstanceID++)
     {
-        bool fused = false;
+        std::optional<FusionScore> bestScore;
         const SemanticObject& localInstance = localMap[localInstanceID];
 
         if (!localInstance.localGeometry.has_value())
@@ -89,154 +89,91 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
             // Find category with maximum probability for global instance
             CategoryManager::CategoryIndex globalMaxCategory = globalInstance.mostLikelyCategory();
 
-            if (globalInstance.isStillValid() && GeometryOperations::checkBBoxIntersect(localInstance.bbox, globalInstance.bbox))
+            if (!globalInstance.isStillValid() || !GeometryOperations::CheckBBoxIntersect(localInstance.bbox, globalInstance.bbox))
+                continue;
+
+            // get all the voxels that belong to the global instance
+            std::set<Bonxai::IndicesT> voxelsGlobal;
+            if (globalsGeometry.contains(globalInstanceID))
+                voxelsGlobal = globalsGeometry.at(globalInstanceID);
+            else
             {
-                // get all the voxels that belong to the global instance
-                std::set<Bonxai::IndicesT> voxelsGlobal;
-                if (globalsGeometry.contains(globalInstanceID))
-                    voxelsGlobal = globalsGeometry.at(globalInstanceID);
-                else
+                AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsGlobal = listOfVoxelsInObject<DataT>(globalInstance));
+                globalsGeometry.insert({ globalInstanceID, voxelsGlobal });
+            }
+
+            auto [iou, ios] = compute3DIoU(voxelsGlobal, voxelsLocal, 2);
+
+            double iov = computeIoV(voxelizedLocalPointCloud, voxelsGlobal, voxelsLocal, 1);
+
+            // ============================================================
+            // HYBRID FUSION: IoV + Jensen-Shannon Semantic Similarity
+            // Combines geometric (IoU, IoS, IoV) with semantic evidence
+            // ============================================================
+
+            // Compute semantic similarity using Jensen-Shannon divergence
+            // This compares the FULL probability distributions, not just the top class
+            double semanticSimilarity = computeSemanticSimilarity(localInstance, globalInstance);
+
+            double fusionThreshold = std::lerp(0.7, 0.4, semanticSimilarity);
+            double nFusionScore = iov / fusionThreshold;
+
+            if (nFusionScore >= 1.0)
+            {
+                if (!bestScore || nFusionScore > bestScore->normalizedScore)
                 {
-                    AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsGlobal = listOfVoxelsInObject<DataT>(globalInstance));
-                    globalsGeometry.insert({ globalInstanceID, voxelsGlobal });
-                }
-
-                auto [iou, ios] = compute3DIoU(voxelsGlobal, voxelsLocal, 2);
-
-                double iov = computeIoV(voxelizedLocalPointCloud, voxelsGlobal, voxelsLocal, 1);
-
-                // ============================================================
-                // HYBRID FUSION: IoV + Jensen-Shannon Semantic Similarity
-                // Combines geometric (IoU, IoS, IoV) with semantic evidence
-                // ============================================================
-
-                // Calculate distance from sensor to the local instance center
-                float localCenterX = (localInstance.bbox.minX + localInstance.bbox.maxX) / 2.0f;
-                float localCenterY = (localInstance.bbox.minY + localInstance.bbox.maxY) / 2.0f;
-                float localCenterZ = (localInstance.bbox.minZ + localInstance.bbox.maxZ) / 2.0f;
-                float distanceToSensor = std::sqrt(
-                    (localCenterX - sensorX) * (localCenterX - sensorX) +
-                    (localCenterY - sensorY) * (localCenterY - sensorY) +
-                    (localCenterZ - sensorZ) * (localCenterZ - sensorZ));
-
-                // Compute semantic similarity using Jensen-Shannon divergence
-                // This compares the FULL probability distributions, not just the top class
-                double semanticSimilarity = computeSemanticSimilarity(localInstance, globalInstance);
-
-                // Base thresholds vary with distance:
-                // Close objects (< 1.5m): high threshold - precise segmentation expected
-                // Medium distance (1.5-3m): medium threshold
-                // Far objects (> 3m): low threshold - rely more on semantics
-                double baseIovThreshold;
-                double semanticWeight;  // How much to weight semantic similarity vs geometric metrics
-
-                if (distanceToSensor < 1.5f)
-                {
-                    baseIovThreshold = 0.35;
-                    semanticWeight = 0.2;  // Trust geometry more when close
-                }
-                else if (distanceToSensor < 3.0f)
-                {
-                    baseIovThreshold = 0.25;
-                    semanticWeight = 0.35;  // Balanced
-                }
-                else
-                {
-                    baseIovThreshold = 0.15;
-                    semanticWeight = 0.5;  // Trust semantics more when far
-                }
-
-                // Compute combined fusion score using IoV (better than IoU for partial observations):
-                // fusionScore = (1 - semanticWeight) * IoV + semanticWeight * semanticSimilarity
-                // This creates a weighted combination of geometric and semantic evidence
-                double fusionScore = (1.0 - semanticWeight) * iov + semanticWeight * semanticSimilarity;
-
-                // Adaptive threshold based on semantic similarity:
-                // - High semantic similarity (>0.8): lower the effective threshold (easier to fuse)
-                // - Low semantic similarity (<0.3): raise the effective threshold (harder to fuse)
-                double thresholdModifier = 0.0;
-                if (semanticSimilarity > 0.8)
-                {
-                    // Very similar distributions - reduce threshold by up to 0.1
-                    thresholdModifier = -0.1 * (semanticSimilarity - 0.8) / 0.2;
-                }
-                else if (semanticSimilarity < 0.3)
-                {
-                    // Very different distributions - increase threshold by up to 0.15
-                    thresholdModifier = 0.15 * (0.3 - semanticSimilarity) / 0.3;
-                }
-
-                double fusionThreshold = baseIovThreshold + thresholdModifier;
-
-                // Additional bonus for high-confidence semantic matches
-                // (when both objects are confident about the same category)
-                if (localMaxCategory == globalMaxCategory)
-                {
-                    double localConfidence = localInstance.getCategoryAlpha(localMaxCategory);
-                    double globalConfidence = globalInstance.getCategoryAlpha(globalMaxCategory);
-
-                    // Normalize confidences
-                    double localSum = localInstance.getSumAlphas();
-                    double globalSum = globalInstance.getSumAlphas();
-
-                    double localProb = localSum > 0 ? localConfidence / localSum : 0;
-                    double globalProb = globalSum > 0 ? globalConfidence / globalSum : 0;
-
-                    // If both have high confidence in the same class, add bonus to fusion score
-                    if (localProb > 0.5 && globalProb > 0.5)
-                    {
-                        fusionScore += 0.05 * std::min(localProb, globalProb);
-                    }
-                }
-
-                if (fusionScore > fusionThreshold)
-                {
-                    VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow), "Integrating local {} - global {}:\n\tIoU:{:.2f}  IoS:{:.2f}  IoV:{:.2f}  SemSim:{:.2f}  Score:{:.2f}", localInstanceID, globalInstanceID, iou, ios, iov, semanticSimilarity, fusionScore);
-                    PAUSE_THREAD_UNTIL_GUI_CONTINUE(debugging_utils::pause_on_integration);
-                    fuseSemanticObjects(globalInstance, localInstance);
-
-                    lastMapLocalToGlobal[localInstanceID] = globalInstanceID;
-
-                    fused = true;
-                    globalInstance.numberObservations++;
-                    integrated++;
-                    break;  // don't keep iterating over the globals, we are done with this local instance
-                }
-                else
-                {
-                    VXL_DEBUG("NOT Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS:{:.2f}  IoV:{:.2f}  SemSim:{:.2f}  Score:{:.2f}",
+                    bestScore = FusionScore{ .fuseWithID = globalInstanceID, .normalizedScore = nFusionScore };
+                    VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow),
+                              "Integrating local {} - global {}:\n\tIoU:{:.2f}  IoS:{:.2f}  IoV:{:.2f}  SemSim:{:.2f}",
                               localInstanceID,
                               globalInstanceID,
                               iou,
                               ios,
                               iov,
-                              semanticSimilarity,
-                              fusionScore);
+                              semanticSimilarity);
+                    PAUSE_THREAD_UNTIL_GUI_CONTINUE(debugging_utils::pause_on_integration);
+                }
+            }
+            else
+            {
+                VXL_DEBUG("NOT Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS:{:.2f}  IoV:{:.2f}  SemSim:{:.2f}",
+                          localInstanceID,
+                          globalInstanceID,
+                          iou,
+                          ios,
+                          iov,
+                          semanticSimilarity);
 
-                    // Track potential under-segmentation using IoS vs IoV difference
-                    // If IoS is high but IoV is low, it suggests the local observation
-                    // covers part of a larger global object (under-segmentation)
-                    double iosThreshold = baseIovThreshold;  // Use same base threshold
-                    if (ios > iosThreshold)
-                    {
-                        globalInstance.underSegmentScore += ios - iov;
-                        globalInstance.numberObservations++;
-                    }
+                // Track potential under-segmentation using IoS vs IoV difference
+                // If IoS is high but IoV is low, it suggests the local observation covers part of a larger global object (under-segmentation)
+                if (ios > fusionThreshold)
+                {
+                    globalInstance.underSegmentScore += ios - iov;
+                    globalInstance.numberObservations++;
                 }
             }
         }
 
-        if (!fused)
+        if (bestScore.has_value())
         {
-            lastMapLocalToGlobal[localInstanceID] = globalSemanticMap.size();
-            // Create new object integrating localMap information
-            SemanticObject newObject = SemanticObject(globalSemanticMap.size(), localInstance.bbox);
-            newObject.alphaParamsCategories = localInstance.alphaParamsCategories;
-            updateAppearancesTimestamps(newObject, localInstance);
+            SemanticObject& globalInstance = globalSemanticMap.at(bestScore->fuseWithID);
+            fuseSemanticObjects(globalInstance, localInstance);
 
-            // Add it to the global map
-            globalSemanticMap.push_back(newObject);
-            added += 1;
+            lastMapLocalToGlobal[localInstanceID] = globalInstance.instanceID;
+
+            globalInstance.numberObservations++;
+            integrated++;
+        }
+        else
+        {
+            // Create new object integrating localMap information
+            SemanticObject& newObject = CreateGlobalInstance();
+            newObject.bbox = localInstance.bbox;
+            newObject.alphaParamsCategories = localInstance.alphaParamsCategories;
+            newObject.appearancesTimestamps = localInstance.appearancesTimestamps;
+
+            lastMapLocalToGlobal[localInstanceID] = newObject.instanceID;
+            added++;
         }
     }
     VXL_INFO("Integrating {} new local objects: {} integrated and {} added", localMap.size(), integrated, added);
@@ -263,18 +200,45 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         }
     }
 
-    for (InstanceID_t i = 1; i < globalSemanticMap.size(); i++)
+    for (InstanceID_t startInstIdx = 1; startInstIdx < globalSemanticMap.size(); startInstIdx++)
     {
-        SemanticObject& instance = globalSemanticMap[i];
-        if (!instance.isStillValid())
+        if (!globalSemanticMap[startInstIdx].isStillValid())
             continue;
-        std::vector<std::set<Bonxai::IndicesT>> clusters = GeometryOperations::TrySplitInstance(geometry.at(i));
+        std::vector<std::set<Bonxai::IndicesT>> clusters = GeometryOperations::TrySplitInstance(geometry.at(startInstIdx));
 
         if (clusters.size() > 1)
         {
             debugInfo.mostRecentClusters = clusters;
-            VXL_DEBUG("Splitting instance {} into {} chunks", i, clusters.size());
+            VXL_DEBUG("Splitting instance {} into {} chunks", startInstIdx, clusters.size());
             PAUSE_THREAD_UNTIL_GUI_CONTINUE(debugging_utils::pause_on_splitting);
+
+            // the first cluster will be assigned to the old instance ID
+            geometry[startInstIdx] = clusters.at(0);
+
+            // every other cluster has now been promoted to being its own instance
+            for (size_t clusterIdx = 1; clusterIdx < clusters.size(); clusterIdx++)
+            {
+                auto thisCluster = clusters.at(clusterIdx);
+                SemanticObject& newObject = CreateGlobalInstance();
+                newObject.bbox = GeometryOperations::FindBBox(thisCluster);
+                newObject.alphaParamsCategories = globalSemanticMap[startInstIdx].alphaParamsCategories;
+                newObject.appearancesTimestamps = globalSemanticMap[startInstIdx].appearancesTimestamps;
+                VXL_DEBUG("Creating instance {}", newObject.instanceID);
+                VXL_ASSERT(newObject.alphaParamsCategories.size() > 0);
+
+                // update the cache
+                geometry.insert({ newObject.instanceID, thisCluster });
+
+                // update the votes on each of the voxels to point to the new instance
+                for (const auto& voxel : thisCluster)
+                {
+                    AUTO_TEMPLATE_INSTANCES_ONLY(currentMode,
+                                                 { 
+                                                    Bonxai::ProbabilisticCell<DataT>* cell = BonxaiQuery<DataT>::getAccessor().value(voxel);
+                                                    cell->data.ReplaceInstanceVotes(startInstIdx, newObject.instanceID);
+                                                 });
+                }
+            }
         }
     }
 
@@ -292,7 +256,7 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         {
             SemanticObject& secondInstance = globalSemanticMap[secondIdx];
 
-            if (secondInstance.isStillValid() && GeometryOperations::checkBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
+            if (secondInstance.isStillValid() && GeometryOperations::CheckBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
             {
                 std::set<Bonxai::IndicesT> voxelsSecond = geometry.at(secondIdx);
                 double iouThreshold = 0.6;  // Base threshold
@@ -310,7 +274,12 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                 {
                     // Fuse the second instance with the first one
                     secondInstance.pointsTo = firstIdx;
-                    VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow), "(Refine) Fusing global {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", firstIdx, secondIdx, iou, ios);
+                    VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow),
+                              "(Refine) Fusing global {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}",
+                              firstIdx,
+                              secondIdx,
+                              iou,
+                              ios);
                     PAUSE_THREAD_UNTIL_GUI_CONTINUE(debugging_utils::pause_on_fusion);
                     fuseSemanticObjects(firstInstance, secondInstance);
                     break;
@@ -448,6 +417,13 @@ double SemanticMap::computeKLD(const std::vector<double>& P, const std::vector<d
     }
 }
 
+SemanticObject& SemanticMap::CreateGlobalInstance()
+{
+    InstanceID_t id = globalSemanticMap.size();
+    globalSemanticMap.emplace_back(id);
+    return globalSemanticMap.back();
+}
+
 double SemanticMap::computeSemanticSimilarity(const SemanticObject& obj1, const SemanticObject& obj2)
 {
     // Collect all categories present in either object
@@ -535,7 +511,7 @@ void SemanticMap::fuseSemanticObjects(SemanticObject& firstInstance, const Seman
     updateAlphaCategories(firstInstance, secondInstance);
 
     // Update Bounding Box
-    GeometryOperations::updateBBoxBounds(firstInstance.bbox, secondInstance.bbox);
+    GeometryOperations::UpdateBBoxBounds(firstInstance.bbox, secondInstance.bbox);
 
     // Update appearances timestamps
     updateAppearancesTimestamps(firstInstance, secondInstance);
