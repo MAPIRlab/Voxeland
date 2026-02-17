@@ -69,7 +69,7 @@ bool GeometryOperations::CheckBBoxIntersect(const BoundingBox3D& bbox1, const Bo
     return true;
 }
 
-std::vector<std::set<Bonxai::IndicesT>> GeometryOperations::TrySplitInstance(const std::set<Bonxai::IndicesT>& voxels_in)
+std::vector<std::set<Bonxai::IndicesT>> GeometryOperations::ClusterVoxelCloud(const std::set<Bonxai::IndicesT>& voxels_in)
 {
     std::vector<Bonxai::IndicesT> indices;
     indices.reserve(voxels_in.size());

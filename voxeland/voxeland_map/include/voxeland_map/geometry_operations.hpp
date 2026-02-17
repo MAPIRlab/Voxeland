@@ -32,6 +32,6 @@ namespace GeometryOperations
 
     bool CheckBBoxIntersect(const BoundingBox3D& bbox1, const BoundingBox3D& bbox2);
 
-    std::vector<std::set<Bonxai::IndicesT>> TrySplitInstance(const std::set<Bonxai::IndicesT>& voxels_in);
+    std::vector<std::set<Bonxai::IndicesT>> ClusterVoxelCloud(const std::set<Bonxai::IndicesT>& voxels_in);
 
 }  // namespace GeometryOperations

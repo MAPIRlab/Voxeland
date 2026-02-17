@@ -200,11 +200,12 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         }
     }
 
+    // iterate over individual instances, see if they need to be split into smaller chunks
     for (InstanceID_t startInstIdx = 1; startInstIdx < globalSemanticMap.size(); startInstIdx++)
     {
         if (!globalSemanticMap[startInstIdx].isStillValid())
             continue;
-        std::vector<std::set<Bonxai::IndicesT>> clusters = GeometryOperations::TrySplitInstance(geometry.at(startInstIdx));
+        std::vector<std::set<Bonxai::IndicesT>> clusters = GeometryOperations::ClusterVoxelCloud(geometry.at(startInstIdx));
 
         if (clusters.size() > 1)
         {
@@ -223,7 +224,6 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                 newObject.bbox = GeometryOperations::FindBBox(thisCluster);
                 newObject.alphaParamsCategories = globalSemanticMap[startInstIdx].alphaParamsCategories;
                 newObject.appearancesTimestamps = globalSemanticMap[startInstIdx].appearancesTimestamps;
-                VXL_DEBUG("Creating instance {}", newObject.instanceID);
                 VXL_ASSERT(newObject.alphaParamsCategories.size() > 0);
 
                 // update the cache
@@ -233,15 +233,16 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                 for (const auto& voxel : thisCluster)
                 {
                     AUTO_TEMPLATE_INSTANCES_ONLY(currentMode,
-                                                 { 
-                                                    Bonxai::ProbabilisticCell<DataT>* cell = BonxaiQuery<DataT>::getAccessor().value(voxel);
-                                                    cell->data.ReplaceInstanceVotes(startInstIdx, newObject.instanceID);
+                                                 {
+                                                     Bonxai::ProbabilisticCell<DataT>* cell = BonxaiQuery<DataT>::getAccessor().value(voxel);
+                                                     cell->data.ReplaceInstanceVotes(startInstIdx, newObject.instanceID);
                                                  });
                 }
             }
         }
     }
 
+    // iterate over instance pairs, try to fuse them into bigger chunks
     for (InstanceID_t firstIdx = 1; firstIdx < globalSemanticMap.size(); firstIdx++)
     {
         SemanticObject& firstInstance = globalSemanticMap[firstIdx];
@@ -250,7 +251,6 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
             continue;
 
         std::set<Bonxai::IndicesT> voxelsFirst = geometry.at(firstIdx);
-        CategoryManager::CategoryIndex firstClassIdx = firstInstance.mostLikelyCategory();
 
         for (InstanceID_t secondIdx = firstIdx + 1; secondIdx < globalSemanticMap.size(); secondIdx++)
         {
@@ -259,33 +259,34 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
             if (secondInstance.isStillValid() && GeometryOperations::CheckBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
             {
                 std::set<Bonxai::IndicesT> voxelsSecond = geometry.at(secondIdx);
-                double iouThreshold = 0.6;  // Base threshold
 
-                CategoryManager::CategoryIndex secondClassIdx = secondInstance.mostLikelyCategory();
+                double semSim = computeSemanticSimilarity(firstInstance, secondInstance);
+                if (semSim < 0.3)
+                {
+                    VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  SemSim: {:.2f}", firstIdx, secondIdx, semSim);
+                    continue;
+                }
 
-                // If both instances have the same category, be more permissive
-                bool sameCategory = firstClassIdx == secondClassIdx;
-                if (sameCategory)
-                    iouThreshold = 0.2;
+                std::set<Bonxai::IndicesT> _union = GeometryOperations::SetUnion(voxelsFirst, voxelsSecond);
+                std::vector<std::set<Bonxai::IndicesT>> clusters = GeometryOperations::ClusterVoxelCloud(_union);
 
-                auto [iou, ios] = compute3DIoU(voxelsFirst, voxelsSecond, 3);
+                VXL_ASSERT(clusters.size() < 3);  // given that we have already run the clustering algorithm on individual instances, we should never get more than two
 
-                if (iou > iouThreshold)
+                if (clusters.size() == 1)
                 {
                     // Fuse the second instance with the first one
-                    secondInstance.pointsTo = firstIdx;
                     VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow),
-                              "(Refine) Fusing global {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}",
+                              "(Refine) Fusing global {} - global {}.  SemSim: {:.2f}",
                               firstIdx,
                               secondIdx,
-                              iou,
-                              ios);
+                              semSim);
                     PAUSE_THREAD_UNTIL_GUI_CONTINUE(debugging_utils::pause_on_fusion);
+                    secondInstance.pointsTo = firstIdx;
                     fuseSemanticObjects(firstInstance, secondInstance);
-                    break;
+                    geometry[firstIdx] = _union;
                 }
                 else
-                    VXL_DEBUG("(Refine) NOT Fusing global {} - global {}:\n\tIoU:{:.2f}  IoS: {:.2f}", firstIdx, secondIdx, iou, ios);
+                    VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  SemSim: {:.2f}", firstIdx, secondIdx, semSim);
             }
         }
     }
@@ -421,6 +422,7 @@ SemanticObject& SemanticMap::CreateGlobalInstance()
 {
     InstanceID_t id = globalSemanticMap.size();
     globalSemanticMap.emplace_back(id);
+    VXL_DEBUG("Creating instance {}", id);
     return globalSemanticMap.back();
 }
 
