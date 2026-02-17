@@ -185,11 +185,6 @@ namespace voxeland_server
         rclcpp::TimerBase::SharedPtr functionQueueTimer;
         bool showClusters = false;
 
-        // these are mutually exclusive
-        // the GUI is normally rendered as part of the spin cycle, from the main thread, to avoid data sync issues
-        // however, while using a debugger, we need a separate thread to be able to use the GUI while the execution is paused
-        // this is controlled in SetupGUI()
-        rclcpp::TimerBase::SharedPtr renderTimer;
         std::jthread renderThread;
 #endif
     };

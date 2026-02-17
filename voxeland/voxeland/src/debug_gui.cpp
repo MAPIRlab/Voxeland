@@ -39,36 +39,25 @@ namespace voxeland_server
                 selectedCoordinates.z = point->point.z;
             });
 
-        // this needs to be run from the same thread that does the actual rendering
-        auto createWindow = [&]() {
-            ImguiGL::Setup(
-                fmt::format("{}/resources/debug_gui.ini", ament_index_cpp::get_package_share_directory("voxeland")).c_str(),
-                "voxeland_gui",
-                1200,
-                900);
-        };
-
         // decide whether to run GUI in main thread (usually preferrable) or not (necessary to visualize while using a debugger)
-#define SEPARATE_RENDER_THREAD 1
-#if SEPARATE_RENDER_THREAD
         renderThread = std::jthread([&]() {
             // wait until initialization is done to minimize the chances of multithreading issues
             // This is horrible, but whatever :)
             while (currentMode == voxeland::DataMode::Uninitialized)
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-            createWindow();
-            rclcpp::Rate rate(30);
+            ImguiGL::Setup(
+                fmt::format("{}/resources/debug_gui.ini", ament_index_cpp::get_package_share_directory("voxeland")).c_str(),
+                "voxeland_gui",
+                1200,
+                900);
+            rclcpp::Rate rate(20);
             while (rclcpp::ok())
             {
                 rate.sleep();
                 RenderGUI();
             }
         });
-#else
-        createWindow();
-        renderTimer = create_wall_timer(std::chrono::milliseconds(30), std::bind(&VoxelandServer::RenderGUI, this));
-#endif
     }
 
     void VoxelandServer::RenderGUI()
@@ -274,6 +263,7 @@ namespace voxeland_server
 
     void VoxelandServer::PrintInstanceInfo()
     {
+        static std::string comparisonText;
         ImGui::Begin("Instance Info");
         if (ImGui::Button("Trigger Global Refinement"))
             functionQueue.submit([&]() { doGlobalRefinement(); });
@@ -285,28 +275,29 @@ namespace voxeland_server
             return;
         }
         static int itemSelectedIdx = 0;  // Here we store our selection data as an index.
-
-        // sometimes instances disappear and we don't want a segfault
-        if (itemSelectedIdx >= semantics.globalSemanticMap.size())
-            itemSelectedIdx = 0;
-
-        const SemanticObject& object = semantics.globalSemanticMap.at(itemSelectedIdx);
-
-        if (ImGui::BeginCombo("Selected Instance", object.instanceName.c_str()))
-        {
-            for (size_t i = 0; i < semantics.globalSemanticMap.size(); i++)
+        const SemanticObject& selectedInstance = semantics.globalSemanticMap.at(itemSelectedIdx);
+        auto selectInstance = [this, &selectedInstance](const char* label, int& itemSelectedIdx) {
+            ImGui::SetNextItemWidth(200);
+            if (ImGui::BeginCombo(label, selectedInstance.instanceName.c_str()))
             {
-                if (!semantics.globalSemanticMap.at(i).isStillValid())
-                    continue;
-                if (ImGui::Selectable(semantics.globalSemanticMap.at(i).instanceName.c_str()))
-                    itemSelectedIdx = i;
+                for (size_t i = 0; i < semantics.globalSemanticMap.size(); i++)
+                {
+                    if (!semantics.globalSemanticMap.at(i).isStillValid())
+                        continue;
+                    if (ImGui::Selectable(semantics.globalSemanticMap.at(i).instanceName.c_str()))
+                    {
+                        itemSelectedIdx = i;
+                        comparisonText = "";
+                    }
+                }
+                ImGui::EndCombo();
             }
-            ImGui::EndCombo();
-        }
+        };
+        selectInstance("Selected Instance", itemSelectedIdx);
 
         ImGui::Text("Alphas dirichlet:");
         ImGui::Indent(20.f);
-        for (const auto& [categoryID, alpha] : object.alphaParamsCategories)
+        for (const auto& [categoryID, alpha] : selectedInstance.alphaParamsCategories)
         {
             ImGui::Text("%s: %f",
                         CategoryManager::getInstance().getCategoryName(categoryID).c_str(),
@@ -314,8 +305,28 @@ namespace voxeland_server
         }
         ImGui::Unindent(20.f);
 
-        ImGui::Text("Num observations: %d", object.numberObservations);
-        ImGui::Text("Under-segment score: %.2f", object.underSegmentScore);
+        ImGui::Text("Num observations: %d", selectedInstance.numberObservations);
+        ImGui::Text("Under-segment score: %.2f", selectedInstance.underSegmentScore);
+
+        static int compareInstanceIdx = 0;
+        selectInstance("Compare with", compareInstanceIdx);
+        const SemanticObject& compareInstance = semantics.globalSemanticMap.at(compareInstanceIdx);
+        ImGui::SameLine();
+        if (ImGui::Button("Calculate"))
+        {
+            std::set<Bonxai::IndicesT> voxels1, voxels2;
+            AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxels1 = semantics.listOfVoxelsInObject<DataT>(selectedInstance););
+            AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxels2 = semantics.listOfVoxelsInObject<DataT>(compareInstance););
+            auto [iou, ios] = semantics.compute3DIoU(voxels1, voxels2);
+            double semSim = semantics.computeSemanticSimilarity(selectedInstance, compareInstance);
+            comparisonText = fmt::format("IoU: {:.2f}\nIoS: {:.2f}\nSemanticSimilarity: {:.2f}", iou, ios, semSim);
+        }
+        if (comparisonText != "")
+        {
+            ImGui::Indent(20.f);
+            ImGui::Text("%s", comparisonText.c_str());
+            ImGui::Unindent(20.f);
+        }
 
         ImGui::End();
     }
@@ -323,13 +334,11 @@ namespace voxeland_server
     void VoxelandServer::PauseButton()
     {
         ImGui::Begin("PauseButton");
-#if SEPARATE_RENDER_THREAD
         ImGui::Checkbox("Pause on integration", &debugging_utils::pause_on_integration);
         ImGui::Checkbox("Pause on fusion", &debugging_utils::pause_on_fusion);
         ImGui::Checkbox("Pause on splitting", &debugging_utils::pause_on_splitting);
         ImGui::SameLine();
         ImGui::Checkbox("Show clusters", &showClusters);
-#endif
         if (debugging_utils::debug_paused)
         {
             paused = true;

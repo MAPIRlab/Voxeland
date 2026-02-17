@@ -54,6 +54,20 @@ public:
     template <typename DataT>
     std::set<Bonxai::IndicesT> listOfVoxelsInObject(const SemanticObject& object, double probabilityThr = 1.0);
 
+    /**
+     * @brief Compute semantic similarity between two SemanticObjects using Jensen-Shannon divergence
+     * 
+     * Jensen-Shannon divergence is a symmetric and bounded (0-1) measure of similarity between
+     * two probability distributions. Returns a similarity score where:
+     * - 1.0 = identical distributions
+     * - 0.0 = completely different distributions
+     * 
+     * @param obj1 First semantic object
+     * @param obj2 Second semantic object  
+     * @return Semantic similarity score in range [0, 1]
+     */
+    double computeSemanticSimilarity(const SemanticObject& obj1, const SemanticObject& obj2);
+
     void refineGlobalSemanticMap(int nObservationsToRemove);
 
     void integrateNewSemantics(const std::vector<SemanticObject>& localMap,
@@ -88,19 +102,6 @@ private:
     
     double computeKLD(const std::vector<double>& P, const std::vector<double>& Q);
     
-    /**
-     * @brief Compute semantic similarity between two SemanticObjects using Jensen-Shannon divergence
-     * 
-     * Jensen-Shannon divergence is a symmetric and bounded (0-1) measure of similarity between
-     * two probability distributions. Returns a similarity score where:
-     * - 1.0 = identical distributions
-     * - 0.0 = completely different distributions
-     * 
-     * @param obj1 First semantic object
-     * @param obj2 Second semantic object  
-     * @return Semantic similarity score in range [0, 1]
-     */
-    double computeSemanticSimilarity(const SemanticObject& obj1, const SemanticObject& obj2);
     void fuseSemanticObjects(SemanticObject& firstInstance, const SemanticObject& secondInstance);
 
     void updateAlphaCategories(SemanticObject& original, const SemanticObject& update);
