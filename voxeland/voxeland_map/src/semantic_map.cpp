@@ -207,6 +207,14 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
             continue;
         std::vector<std::set<Bonxai::IndicesT>> clusters = GeometryOperations::ClusterVoxelCloud(geometry.at(startInstIdx));
 
+        // if it's all disperse points, this instance is cooked
+        if(clusters.size() == 0)
+        {
+            globalSemanticMap[startInstIdx].pointsTo = 0;
+            continue;
+        }
+
+        // more than one chunk, let's split it into multiple instances
         if (clusters.size() > 1)
         {
             debugInfo.mostRecentClusters = clusters;
