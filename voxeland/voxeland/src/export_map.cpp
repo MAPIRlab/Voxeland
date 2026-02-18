@@ -126,19 +126,14 @@ namespace voxeland_server
             if (voxel.z < occupancy_min_z_ || voxel.z > occupancy_max_z_)
                 continue;
 
-            // Get color from visualization
+            // Get color from visualization (this calls updateCandidatesAndVotes() internally)
             voxeland::Color viz_color = cell_data[i].toColor();
 
-            // Get instance ID
-            InstanceID_t instanceID = 0;
-
-            if (!cell_data[i].instances_candidates.empty() && !cell_data[i].instances_votes.empty())
-            {
-                auto itInstances = std::max_element(cell_data[i].instances_votes.begin(),
-                                                    cell_data[i].instances_votes.end());
-                auto idxMaxVotes = std::distance(cell_data[i].instances_votes.begin(), itInstances);
-                instanceID = cell_data[i].instances_candidates[idxMaxVotes];
-            }
+            // Get instance ID using the same logic as toColor()/visualization:
+            // - background demotion (prefers real instance over background when close)
+            // - instance fusion redirect (follows pointsTo chain)
+            // Note: updateCandidatesAndVotes() was already called by toColor() above
+            InstanceID_t instanceID = cell_data[i].getMostRepresentativeInstance();
 
             // Calculate uncertainty_instances and uncertainty_categories
             float uncertainty_instances = 0.0f;
@@ -399,6 +394,25 @@ namespace voxeland_server
             else
             {
                 VXL_ERROR("Failed to save map JSON: {}", json_path);
+            }
+
+            // Save fusion history if enabled
+            if (semantics.enableFusionHistory && !semantics.getFusionHistory().empty())
+            {
+                std::filesystem::path ply_p(output_ply_path_);
+                std::string fusion_history_path = (ply_p.parent_path() / (std::string("voxeland_fusion_history_") + detector_name_ + "_" + scene_name_ + ".txt")).string();
+
+                std::ofstream fusion_outfile(fusion_history_path);
+                if (fusion_outfile.is_open())
+                {
+                    fusion_outfile << semantics.fusionHistoryToString();
+                    fusion_outfile.close();
+                    VXL_INFO("Saved fusion history ({} fusions) to {}", semantics.getFusionHistory().size(), fusion_history_path);
+                }
+                else
+                {
+                    VXL_ERROR("Failed to save fusion history: {}", fusion_history_path);
+                }
             }
         }
     }
