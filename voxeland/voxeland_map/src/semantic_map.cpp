@@ -269,7 +269,7 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                 std::set<Bonxai::IndicesT> voxelsSecond = geometry.at(secondIdx);
 
                 double semSim = computeSemanticSimilarity(firstInstance, secondInstance);
-                if (semSim < 0.3)
+                if (semSim < 0.5)
                 {
                     VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  SemSim: {:.2f}", firstIdx, secondIdx, semSim);
                     continue;

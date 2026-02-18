@@ -69,7 +69,7 @@ bool GeometryOperations::CheckBBoxIntersect(const BoundingBox3D& bbox1, const Bo
     return true;
 }
 
-std::vector<std::set<Bonxai::IndicesT>> GeometryOperations::ClusterVoxelCloud(const std::set<Bonxai::IndicesT>& voxels_in)
+std::vector<std::set<Bonxai::IndicesT>> GeometryOperations::ClusterVoxelCloud(const std::set<Bonxai::IndicesT>& voxels_in, float min_pts)
 {
     std::vector<Bonxai::IndicesT> indices;
     indices.reserve(voxels_in.size());
@@ -81,7 +81,6 @@ std::vector<std::set<Bonxai::IndicesT>> GeometryOperations::ClusterVoxelCloud(co
         points.push_back({ .x = (float)vox.x, .y = (float)vox.y, .z = (float)vox.z });
 
     constexpr float epsilon = 1.5;
-    constexpr uint min_pts = 4;
     std::vector<std::vector<size_t>> clusters_idx = dbscan::dbscan(points, epsilon, min_pts);
 
     std::vector<std::set<Bonxai::IndicesT>> clusters_coords(clusters_idx.size());

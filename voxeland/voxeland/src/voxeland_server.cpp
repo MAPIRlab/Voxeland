@@ -594,20 +594,20 @@ namespace voxeland_server
             voxeland::ScopedStopwatch watch("Global refinement");
             doGlobalRefinement();
 
-            // remove old markers after global refinement
-            visualization_msgs::msg::MarkerArray clearMsg;
-            {
-                visualization_msgs::msg::Marker marker;
-                marker.action = visualization_msgs::msg::Marker::DELETEALL;
-                clearMsg.markers.push_back(marker);
-            }
-            textPub->publish(clearMsg);
         }
         publishAllWithInstances<DataT>(cloud->header.stamp);
-
+        
         SemanticsROSWrapper::InstanceMapMsgs msgs = semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp);
         semantic_map_pub_->publish(msgs.instanceMap);
-
+        
+        // ID text markers
+        visualization_msgs::msg::MarkerArray clearMsg;
+        {
+            visualization_msgs::msg::Marker marker;
+            marker.action = visualization_msgs::msg::Marker::DELETEALL;
+            clearMsg.markers.push_back(marker);
+        }
+        textPub->publish(clearMsg);
         textPub->publish(msgs.textMarkers);
     }
 
