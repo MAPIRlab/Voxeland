@@ -275,10 +275,9 @@ namespace voxeland_server
             return;
         }
         static int itemSelectedIdx = 0;  // Here we store our selection data as an index.
-        const SemanticObject& selectedInstance = semantics.globalSemanticMap.at(itemSelectedIdx);
-        auto selectInstance = [this, &selectedInstance](const char* label, int& itemSelectedIdx) {
+        auto selectInstance = [this](const char* label, int& itemSelectedIdx) {
             ImGui::SetNextItemWidth(200);
-            if (ImGui::BeginCombo(label, selectedInstance.instanceName.c_str()))
+            if (ImGui::BeginCombo(label, semantics.globalSemanticMap.at(itemSelectedIdx).instanceName.c_str()))
             {
                 for (size_t i = 0; i < semantics.globalSemanticMap.size(); i++)
                 {
@@ -294,6 +293,7 @@ namespace voxeland_server
             }
         };
         selectInstance("Selected Instance", itemSelectedIdx);
+        const SemanticObject& selectedInstance = semantics.globalSemanticMap.at(itemSelectedIdx);
 
         ImGui::Text("Alphas dirichlet:");
         ImGui::Indent(20.f);
