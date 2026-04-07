@@ -397,23 +397,23 @@ namespace voxeland_server
             }
 
             // Save fusion history if enabled
-            if (semantics.enableFusionHistory && !semantics.getFusionHistory().empty())
-            {
-                std::filesystem::path ply_p(output_ply_path_);
-                std::string fusion_history_path = (ply_p.parent_path() / (std::string("voxeland_fusion_history_") + detector_name_ + "_" + scene_name_ + ".txt")).string();
+            // if (semantics.enableFusionHistory && !semantics.getFusionHistory().empty())
+            // {
+            //     std::filesystem::path ply_p(output_ply_path_);
+            //     std::string fusion_history_path = (ply_p.parent_path() / (std::string("voxeland_fusion_history_") + detector_name_ + "_" + scene_name_ + ".txt")).string();
 
-                std::ofstream fusion_outfile(fusion_history_path);
-                if (fusion_outfile.is_open())
-                {
-                    fusion_outfile << semantics.fusionHistoryToString();
-                    fusion_outfile.close();
-                    VXL_INFO("Saved fusion history ({} fusions) to {}", semantics.getFusionHistory().size(), fusion_history_path);
-                }
-                else
-                {
-                    VXL_ERROR("Failed to save fusion history: {}", fusion_history_path);
-                }
-            }
+            //     std::ofstream fusion_outfile(fusion_history_path);
+            //     if (fusion_outfile.is_open())
+            //     {
+            //         fusion_outfile << semantics.fusionHistoryToString();
+            //         fusion_outfile.close();
+            //         VXL_INFO("Saved fusion history ({} fusions) to {}", semantics.getFusionHistory().size(), fusion_history_path);
+            //     }
+            //     else
+            //     {
+            //         VXL_ERROR("Failed to save fusion history: {}", fusion_history_path);
+            //     }
+            // }
         }
     }
 }  // namespace voxeland_server
