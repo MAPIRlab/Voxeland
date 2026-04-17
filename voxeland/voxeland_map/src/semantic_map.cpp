@@ -211,7 +211,7 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         std::vector<std::set<Bonxai::IndicesT>> clusters = GeometryOperations::ClusterVoxelCloud(geometry.at(startInstIdx));
 
         // if it's all disperse points, this instance is cooked
-        if(clusters.size() == 0)
+        if (clusters.size() == 0)
         {
             globalSemanticMap[startInstIdx].pointsTo = 0;
             continue;
@@ -256,6 +256,12 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
     // iterate over instance pairs, try to fuse them into bigger chunks
     for (InstanceID_t firstIdx = 1; firstIdx < globalSemanticMap.size(); firstIdx++)
     {
+        // fusion parameters
+        constexpr float semSimThr = 0.5;      // how similar the class distributions must be to allow fusing
+        constexpr float votesThr = 0.2;       // when retrieving the geometry that corresponds to this instance, which proportion of votes must a voxel have to count
+        constexpr uint coarseningFactor = 3;  // downsampling factor for the pointclouds when calculating IoU
+        constexpr float iouThr = 0.3;         // exactly what you think this is
+
         SemanticObject& firstInstance = globalSemanticMap[firstIdx];
 
         if (!firstInstance.isStillValid())
@@ -267,15 +273,34 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         {
             SemanticObject& secondInstance = globalSemanticMap[secondIdx];
 
-            if (secondInstance.isStillValid() && GeometryOperations::CheckBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
+            if (!secondInstance.isStillValid())
+                continue;
+            if (GeometryOperations::CheckBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
             {
                 std::set<Bonxai::IndicesT> voxelsSecond = geometry.at(secondIdx);
 
+                // semantics check
                 double semSim = computeSemanticSimilarity(firstInstance, secondInstance);
-                if (semSim < 0.5)
+                if (semSim < semSimThr)
                 {
-                    VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  SemSim: {:.2f}", firstIdx, secondIdx, semSim);
+                    VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient SemSim: {:.2f}", firstIdx, secondIdx, semSim);
                     continue;
+                }
+
+                // IoU check
+                {
+                    // TODO we are not caching the geometry used for this (with the votesThr). Check performance to see if it's worth bothering
+                    std::set<Bonxai::IndicesT> voxelsSomeVotesFirst;
+                    std::set<Bonxai::IndicesT> voxelsSomeVotesSecond;
+                    AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesFirst = listOfVoxelsInObject<DataT>(globalSemanticMap.at(firstIdx), votesThr));
+                    AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesSecond = listOfVoxelsInObject<DataT>(globalSemanticMap.at(secondIdx), votesThr));
+                    auto [iou, ios] = compute3DIoU(voxelsSomeVotesFirst, voxelsSomeVotesSecond, coarseningFactor);
+
+                    if (iou < iouThr)
+                    {
+                        VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient IoU: {}", firstIdx, secondIdx, iou);
+                        continue;
+                    }
                 }
 
                 std::set<Bonxai::IndicesT> _union = GeometryOperations::SetUnion(voxelsFirst, voxelsSecond);
@@ -297,7 +322,11 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                     geometry[firstIdx] = _union;
                 }
                 else
-                    VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  SemSim: {:.2f}", firstIdx, secondIdx, semSim);
+                    VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  {} clusters", firstIdx, secondIdx, semSim, clusters.size());
+            }
+            else
+            {
+                // VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  No BB intersection", firstIdx, secondIdx);
             }
         }
     }
