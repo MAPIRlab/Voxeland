@@ -95,6 +95,9 @@ namespace voxeland_server
     template <typename DataT>
     void VoxelandServer::SelectObjectsAndDraw()
     {
+        if (ImGui::Button("Randomize colors order"))
+            semantics.RandomizeColorsOrder();
+        
         if (semantics.globalSemanticMap.size() == 0)
         {
             ImGui::Text("There are no instances to show");

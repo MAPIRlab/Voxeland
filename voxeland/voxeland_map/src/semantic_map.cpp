@@ -9,7 +9,9 @@
 SemanticMap::SemanticMap()
     : kld_threshold(0.1f)
     , color_palette({ 0xFAD4E0, 0x9DBBE3, 0xBFE3DF, 0xB59CD9, 0xFFF5CC, 0xFFD9BD, 0xEE9D94, 0xF7ADCF, 0xe6194B, 0x3cb44b, 0xffe119, 0x4363d8, 0xf58231, 0x911eb4, 0x42d4f4, 0xf032e6, 0xbfef45, 0xfabed4, 0x469990, 0xdcbeff, 0x9A6324, 0xfffac8 })
-{}
+{
+    color_palette_offsets.resize(1000, 0);
+}
 
 /* COLOR PALETTES */
 
@@ -357,7 +359,18 @@ uint32_t SemanticMap::indexToHexColor(InstanceID_t index)
     if (index == CategoryManager::UNKNOWN_CATEGORY)
         return 0xbcbcbc;
 
-    return color_palette[index % color_palette.size()];
+    uint32_t offset = color_palette_offsets.at(index % color_palette_offsets.size());
+    return color_palette[(index + offset) % color_palette.size()];
+}
+
+void SemanticMap::RandomizeColorsOrder()
+{
+    static std::random_device rd;
+    static std::mt19937 g(rd());
+    static std::uniform_int_distribution<uint32_t> uniform;
+
+    for (size_t i = 0; i < color_palette_offsets.size(); i++)
+        color_palette_offsets.at(i) = uniform(g);
 }
 
 void SemanticMap::updateCategoryProbability(SemanticObject& semanticObject,

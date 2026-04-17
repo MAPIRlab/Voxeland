@@ -34,6 +34,7 @@ public:
     void setLocalSemanticMap(const std::vector<SemanticObject>& localMap);
     InstanceID_t localToGlobalInstance(InstanceID_t localInstance);
     uint32_t indexToHexColor(InstanceID_t index);
+    void RandomizeColorsOrder();
 
     // Updated methods to work with CategoryManager
     void updateCategoryProbability(SemanticObject& semanticObject, const std::string& categoryName, double probability);
@@ -96,6 +97,7 @@ public:
 private:
     std::vector<InstanceID_t> lastMapLocalToGlobal;
     std::vector<std::uint32_t> color_palette;
+    std::vector<std::uint32_t> color_palette_offsets; // used to re-randomize the colors in case of an unlucky coincidence on nearby instances
     bool initialized = false;
     double kld_threshold;
     voxeland::DataMode currentMode;
