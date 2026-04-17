@@ -1,4 +1,5 @@
 #include <cmath>
+#include <random>
 #include <set>
 #include <voxeland_map/category_manager.hpp>
 #include <voxeland_map/cell_types.hpp>
