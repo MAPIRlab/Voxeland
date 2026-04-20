@@ -116,12 +116,12 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
 
             // Compute semantic similarity using Jensen-Shannon divergence
             // This compares the FULL probability distributions, not just the top class
-            constexpr float minIOV = 0.6;
-            constexpr float maxIOV = 0.95;
-
             double semanticSimilarity = computeSemanticSimilarity(localInstance, globalInstance);
-
-            double fusionThreshold = std::lerp(maxIOV, minIOV, semanticSimilarity);
+            
+            // if the objects are very semantically similar, be a bit more lenient with the geometrical coincidence
+            constexpr float minIOVThr = 0.6;
+            constexpr float maxIOVThr = 0.85;
+            double fusionThreshold = std::lerp(maxIOVThr, minIOVThr, semanticSimilarity);
             double nFusionScore = iov / fusionThreshold;
 
             if (nFusionScore >= 1.0)
