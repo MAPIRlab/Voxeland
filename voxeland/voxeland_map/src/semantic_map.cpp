@@ -116,8 +116,8 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
 
             // Compute semantic similarity using Jensen-Shannon divergence
             // This compares the FULL probability distributions, not just the top class
-            constexpr float minIOV = 0.4;
-            constexpr float maxIOV = 0.8;
+            constexpr float minIOV = 0.6;
+            constexpr float maxIOV = 0.95;
 
             double semanticSimilarity = computeSemanticSimilarity(localInstance, globalInstance);
 
@@ -214,19 +214,43 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
             continue;
         std::vector<std::set<Bonxai::IndicesT>> clusters = GeometryOperations::ClusterVoxelCloud(geometry.at(startInstIdx));
 
+        auto filterLoosePoints = [&](const std::set<Bonxai::IndicesT>& validVoxels) {
+            for (const auto& voxel : geometry.at(startInstIdx))
+            {
+                AUTO_TEMPLATE_INSTANCES_ONLY(currentMode,
+                                             {
+                                                 Bonxai::ProbabilisticCell<DataT>* cell = BonxaiQuery<DataT>::getAccessor().value(voxel);
+                                                 if (!validVoxels.contains(voxel))
+                                                     cell->data.ReplaceInstanceVotes(startInstIdx, 0);
+                                             });
+            }
+        };
+
         // if it's all disperse points, this instance is cooked
         if (clusters.size() == 0)
         {
             globalSemanticMap[startInstIdx].pointsTo = 0;
             continue;
         }
-
-        // more than one chunk, let's split it into multiple instances
-        if (clusters.size() > 1)
+        else if (clusters.size() == 1)
         {
+            // update the geometry to remove any loose points
+            auto validVoxels = clusters.at(0);
+            filterLoosePoints(clusters.at(0));
+            geometry.at(startInstIdx) = clusters.at(0);
+        }
+        else
+        {
+            // more than one chunk, let's split it into multiple instances
             debugInfo.mostRecentClusters = clusters;
             VXL_DEBUG("Splitting instance {} into {} chunks", startInstIdx, clusters.size());
             PAUSE_THREAD_UNTIL_GUI_CONTINUE(debugging_utils::pause_on_splitting);
+
+            // remove loose points
+            std::set<Bonxai::IndicesT> _union;
+            for (size_t clusterIdx = 0; clusterIdx < clusters.size(); clusterIdx++)
+                _union = GeometryOperations::SetUnion(_union, clusters.at(clusterIdx));
+            filterLoosePoints(_union);
 
             // the first cluster will be assigned to the old instance ID
             geometry[startInstIdx] = clusters.at(0);
@@ -261,8 +285,8 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
     for (InstanceID_t firstIdx = 1; firstIdx < globalSemanticMap.size(); firstIdx++)
     {
         // fusion parameters
-        constexpr float semSimThr = 0.5;      // how similar the class distributions must be to allow fusing
-        constexpr float votesThr = 0.2;       // when retrieving the geometry that corresponds to this instance, which proportion of votes must a voxel have to count
+        constexpr float semSimThr = 0.6;      // how similar the class distributions must be to allow fusing
+        constexpr float votesThr = 0.3;       // when retrieving the geometry that corresponds to this instance, which proportion of votes must a voxel have to count
         constexpr uint coarseningFactor = 4;  // downsampling factor for the pointclouds when calculating IoU
         constexpr float iosThr = 0.15;        // exactly what you think this is
         constexpr float iouSkipThr = 0.7;     // if IoU is sufficiently large, the instances are overlapping entirely and we don't care about the other metrics.
@@ -287,18 +311,19 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
             {
                 std::set<Bonxai::IndicesT> voxelsSecond = geometry.at(secondIdx);
 
-                bool IoUSkip = false; // if IoU is huge, don't bother with any other checks: the instances correspond to the same geometry!
-                
+                bool IoUSkip = false;  // if IoU is huge, don't bother with any other checks: the instances correspond to the same geometry!
+
                 // IoU check
+                float iou, ios;
                 {
                     // TODO we are not caching the geometry used for this (with the votesThr). Check performance to see if it's worth bothering
                     std::set<Bonxai::IndicesT> voxelsSomeVotesFirst;
                     std::set<Bonxai::IndicesT> voxelsSomeVotesSecond;
                     AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesFirst = listOfVoxelsInObject<DataT>(globalSemanticMap.at(firstIdx), votesThr));
                     AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesSecond = listOfVoxelsInObject<DataT>(globalSemanticMap.at(secondIdx), votesThr));
-                    auto [iou, ios] = compute3DIoU(voxelsSomeVotesFirst, voxelsSomeVotesSecond, coarseningFactor);
+                    std::tie(iou, ios) = compute3DIoU(voxelsSomeVotesFirst, voxelsSomeVotesSecond, coarseningFactor);
 
-                    if(iou > iouSkipThr)
+                    if (iou > iouSkipThr)
                     {
                         IoUSkip = true;
                         VXL_DEBUG("Fusing global {} - global {}.  IoU above passthrough threshold: {}", firstIdx, secondIdx, iou);
@@ -328,9 +353,10 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                 {
                     // Fuse the second instance with the first one
                     VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow),
-                              "(Refine) Fusing global {} - global {}.  SemSim: {:.2f}",
+                              "(Refine) Fusing global {} - global {}. IoS: {:.2f}, SemSim: {:.2f}",
                               firstIdx,
                               secondIdx,
+                              ios,
                               semSim);
                     PAUSE_THREAD_UNTIL_GUI_CONTINUE(debugging_utils::pause_on_fusion);
                     secondInstance.pointsTo = firstIdx;
