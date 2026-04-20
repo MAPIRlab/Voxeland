@@ -586,29 +586,12 @@ namespace voxeland_server
             cloud->instances, pc, sensorPosition.x, sensorPosition.y, sensorPosition.z);
         bonxai_->With<DataT>()->insertPointCloud(pc.points, sensorPosition, max_range_);
 
-        // publish text markers with object IDs
-        static auto textPub = create_publisher<visualization_msgs::msg::MarkerArray>("/voxeland/IDs", 1);
-
         if (number_iterations % 10 == 0)
         {
             voxeland::ScopedStopwatch watch("Global refinement");
             doGlobalRefinement();
-
         }
         publishAllWithInstances<DataT>(cloud->header.stamp);
-        
-        SemanticsROSWrapper::InstanceMapMsgs msgs = semantics_ros_wrapper.getSemanticMapAsROSMessage(cloud->header.stamp);
-        semantic_map_pub_->publish(msgs.instanceMap);
-        
-        // ID text markers
-        visualization_msgs::msg::MarkerArray clearMsg;
-        {
-            visualization_msgs::msg::Marker marker;
-            marker.action = visualization_msgs::msg::Marker::DELETEALL;
-            clearMsg.markers.push_back(marker);
-        }
-        textPub->publish(clearMsg);
-        textPub->publish(msgs.textMarkers);
     }
 
     template <typename DataT>
@@ -657,6 +640,27 @@ namespace voxeland_server
     template <typename DataT>
     void VoxelandServer::publishAllWithInstances(const rclcpp::Time& rostime)
     {
+        // instance information
+        {
+            SemanticsROSWrapper::InstanceMapMsgs msgs = semantics_ros_wrapper.getSemanticMapAsROSMessage(rostime);
+            semantic_map_pub_->publish(msgs.instanceMap);
+
+            // ID text markers
+            static auto textPub = create_publisher<visualization_msgs::msg::MarkerArray>("/voxeland/IDs", 1);
+
+            visualization_msgs::msg::MarkerArray clearMsg;
+            {
+                visualization_msgs::msg::Marker marker;
+                marker.action = visualization_msgs::msg::Marker::DELETEALL;
+                clearMsg.markers.push_back(marker);
+            }
+            textPub->publish(clearMsg);
+            textPub->publish(msgs.textMarkers);
+        }
+
+        // Voxels
+        // -----------------------------------
+
         std::vector<DataT> cell_data;
         std::vector<Bonxai::Point3D> cell_points;
         cell_points.clear();

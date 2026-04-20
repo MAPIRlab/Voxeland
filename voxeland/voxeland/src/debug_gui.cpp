@@ -97,7 +97,10 @@ namespace voxeland_server
     {
         if (ImGui::Button("Randomize colors order"))
             semantics.RandomizeColorsOrder();
-        
+
+        if (ImGui::Button("Force Update Display"))
+            publishAllWithInstances<DataT>(now());
+
         if (semantics.globalSemanticMap.size() == 0)
         {
             ImGui::Text("There are no instances to show");
@@ -107,7 +110,7 @@ namespace voxeland_server
         static bool viewUnderSegmentationScore = false;
         ImGui::Checkbox("View under-segmentation score", &viewUnderSegmentationScore);
 
-        static bool enableByDefault = false;
+        static bool enableByDefault = true;
         ImGui::Checkbox("Enable new instances automatically", &enableByDefault);
         ImGui::VerticalSpace(20.f);
 
@@ -116,7 +119,8 @@ namespace voxeland_server
         if (enableByDefault)
         {
             for (size_t i = numBeforeResize; i < globalObjectsToDraw.size(); i++)
-                globalObjectsToDraw.at(i) = true;
+                if (i != 0)
+                    globalObjectsToDraw.at(i) = true;
         }
 
         if (ImGui::Button("Toggle all"))
