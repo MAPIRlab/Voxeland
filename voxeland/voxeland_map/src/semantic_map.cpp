@@ -355,19 +355,21 @@ std::pair<double, double> SemanticMap::compute3DIoU(const std::set<Bonxai::Indic
     return std::pair<double, double>(IoU, IoS);
 }
 
-double SemanticMap::computeIoV(const std::set<Bonxai::IndicesT>& localVoxels,
+double SemanticMap::computeIoV(const std::set<Bonxai::IndicesT>& visibleVoxels,
                                const std::set<Bonxai::IndicesT>& globalInstance,
                                const std::set<Bonxai::IndicesT>& localInstance,
                                uint coarsening_factor)
 {
-    std::set<Bonxai::IndicesT> localVoxels_coarse = GeometryOperations::DownsampleVoxels(localVoxels, coarsening_factor);
+    std::set<Bonxai::IndicesT> visibleVoxels_coarse = GeometryOperations::DownsampleVoxels(visibleVoxels, coarsening_factor);
+    std::set<Bonxai::IndicesT> globalVoxels_coarse = GeometryOperations::DownsampleVoxels(globalInstance, coarsening_factor);
+    std::set<Bonxai::IndicesT> localVoxels_coarse = GeometryOperations::DownsampleVoxels(localInstance, coarsening_factor);
 
     // find all the voxels in the global instance which were visible in this image
-    std::set<Bonxai::IndicesT> visibleGlobalVoxels = GeometryOperations::SetIntersection(globalInstance, localVoxels_coarse);
+    std::set<Bonxai::IndicesT> visibleGlobalVoxels = GeometryOperations::SetIntersection(globalVoxels_coarse, visibleVoxels_coarse);
     size_t numVisibleVoxels = visibleGlobalVoxels.size();
 
     // find which of the visible voxels were identified as part of this local instance
-    std::set<Bonxai::IndicesT> globalVoxelsInMask = GeometryOperations::SetIntersection(visibleGlobalVoxels, localInstance);
+    std::set<Bonxai::IndicesT> globalVoxelsInMask = GeometryOperations::SetIntersection(visibleGlobalVoxels, localVoxels_coarse);
     size_t numVoxelsInMask = globalVoxelsInMask.size();
 
     double iov = numVisibleVoxels > 0 ? numVoxelsInMask / static_cast<double>(numVisibleVoxels) : 0;
