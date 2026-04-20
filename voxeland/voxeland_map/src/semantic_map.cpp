@@ -546,8 +546,8 @@ double SemanticMap::computeSemanticSimilarity(const SemanticObject& obj1, const 
     double js_normalized = js_divergence / std::log(2.0);
     double similarity = 1.0 - js_normalized;
 
-    VXL_ASSERT(similarity > 0);
-    VXL_ASSERT(similarity != 0.5);
+    VXL_ASSERT(similarity >= 0);
+    VXL_ASSERT(similarity <= 1);
     return similarity;
 }
 
