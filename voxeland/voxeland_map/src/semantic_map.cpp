@@ -107,7 +107,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
 
             auto [iou, ios] = compute3DIoU(voxelsGlobal, voxelsLocal, 2);
 
-            double iov = computeIoV(voxelizedLocalPointCloud, voxelsGlobal, voxelsLocal, 1);
+            double iov = computeIoV(voxelizedLocalPointCloud, voxelsGlobal, voxelsLocal, 2);
 
             // ============================================================
             // HYBRID FUSION: IoV + Jensen-Shannon Semantic Similarity
@@ -116,9 +116,12 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
 
             // Compute semantic similarity using Jensen-Shannon divergence
             // This compares the FULL probability distributions, not just the top class
+            constexpr float minIOV = 0.4;
+            constexpr float maxIOV = 0.8;
+
             double semanticSimilarity = computeSemanticSimilarity(localInstance, globalInstance);
 
-            double fusionThreshold = std::lerp(0.7, 0.4, semanticSimilarity);
+            double fusionThreshold = std::lerp(maxIOV, minIOV, semanticSimilarity);
             double nFusionScore = iov / fusionThreshold;
 
             if (nFusionScore >= 1.0)
@@ -176,6 +179,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
             newObject.appearancesTimestamps = localInstance.appearancesTimestamps;
 
             lastMapLocalToGlobal[localInstanceID] = newObject.instanceID;
+            VXL_DEBUG("Created global instance {} from local {}", newObject.instanceID, localInstanceID);
             added++;
         }
     }
@@ -259,8 +263,12 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         // fusion parameters
         constexpr float semSimThr = 0.5;      // how similar the class distributions must be to allow fusing
         constexpr float votesThr = 0.2;       // when retrieving the geometry that corresponds to this instance, which proportion of votes must a voxel have to count
-        constexpr uint coarseningFactor = 3;  // downsampling factor for the pointclouds when calculating IoU
-        constexpr float iouThr = 0.3;         // exactly what you think this is
+        constexpr uint coarseningFactor = 4;  // downsampling factor for the pointclouds when calculating IoU
+        constexpr float iosThr = 0.15;        // exactly what you think this is
+        constexpr float iouSkipThr = 0.7;     // if IoU is sufficiently large, the instances are overlapping entirely and we don't care about the other metrics.
+                                              // This is necessary because we can sometimes end up with two overlapping instances which correspond to one class each,
+                                              // and every new observation always fuses with the instance which already agrees with its class.
+                                              // This can lead to a very low semantic similarity, preventing fusion
 
         SemanticObject& firstInstance = globalSemanticMap[firstIdx];
 
@@ -279,14 +287,8 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
             {
                 std::set<Bonxai::IndicesT> voxelsSecond = geometry.at(secondIdx);
 
-                // semantics check
-                double semSim = computeSemanticSimilarity(firstInstance, secondInstance);
-                if (semSim < semSimThr)
-                {
-                    VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient SemSim: {:.2f}", firstIdx, secondIdx, semSim);
-                    continue;
-                }
-
+                bool IoUSkip = false; // if IoU is huge, don't bother with any other checks: the instances correspond to the same geometry!
+                
                 // IoU check
                 {
                     // TODO we are not caching the geometry used for this (with the votesThr). Check performance to see if it's worth bothering
@@ -296,11 +298,25 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                     AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesSecond = listOfVoxelsInObject<DataT>(globalSemanticMap.at(secondIdx), votesThr));
                     auto [iou, ios] = compute3DIoU(voxelsSomeVotesFirst, voxelsSomeVotesSecond, coarseningFactor);
 
-                    if (iou < iouThr)
+                    if(iou > iouSkipThr)
                     {
-                        VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient IoU: {}", firstIdx, secondIdx, iou);
+                        IoUSkip = true;
+                        VXL_DEBUG("Fusing global {} - global {}.  IoU above passthrough threshold: {}", firstIdx, secondIdx, iou);
+                    }
+
+                    if (!IoUSkip && ios < iosThr)
+                    {
+                        VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient IoS: {}", firstIdx, secondIdx, ios);
                         continue;
                     }
+                }
+
+                // semantics check
+                double semSim = computeSemanticSimilarity(firstInstance, secondInstance);
+                if (!IoUSkip && semSim < semSimThr)
+                {
+                    VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient SemSim: {:.2f}", firstIdx, secondIdx, semSim);
+                    continue;
                 }
 
                 std::set<Bonxai::IndicesT> _union = GeometryOperations::SetUnion(voxelsFirst, voxelsSecond);
@@ -322,7 +338,7 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                     geometry[firstIdx] = _union;
                 }
                 else
-                    VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  {} clusters", firstIdx, secondIdx, semSim, clusters.size());
+                    VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  {} clusters", firstIdx, secondIdx, clusters.size());
             }
             else
             {
@@ -481,45 +497,45 @@ SemanticObject& SemanticMap::CreateGlobalInstance()
 
 double SemanticMap::computeSemanticSimilarity(const SemanticObject& obj1, const SemanticObject& obj2)
 {
-    // Collect all categories present in either object
-    std::set<CategoryManager::CategoryIndex> allCategories;
-    for (const auto& [cat, _] : obj1.alphaParamsCategories)
-        allCategories.insert(cat);
-    for (const auto& [cat, _] : obj2.alphaParamsCategories)
-        allCategories.insert(cat);
+    std::vector<std::string> _allCategories = CategoryManager::getInstance().getAllCategories();
+    std::vector<float> P;
+    P.reserve(_allCategories.size());
+    std::vector<float> Q;
+    Q.reserve(_allCategories.size());
 
-    if (allCategories.empty())
-        return 0.0;  // No semantic information available
+    // split the uncertainty mass equally over all the classes
+    constexpr float uncertaintyMassTotal = 5;
+    float uncertaintyMassCat = uncertaintyMassTotal / _allCategories.size();
 
-    // Compute total alpha sums for normalization
-    double sum1 = obj1.getSumAlphas(), sum2 = obj2.getSumAlphas();
+    for (size_t i = 0; i < _allCategories.size(); i++)
+    {
+        float prob1 = obj1.getCategoryAlpha(i);
+        float prob2 = obj2.getCategoryAlpha(i);
+        if (!obj1.isLocalInstance())
+            prob1 += uncertaintyMassCat;
+        if (!obj2.isLocalInstance())
+            prob2 += uncertaintyMassCat;
 
-    if (sum1 <= 0.0 || sum2 <= 0.0)
-        return 0.0;  // Invalid distributions
+        P.push_back(prob1);
+        Q.push_back(prob2);
+    }
 
     // Build normalized probability distributions P and Q
-    // Use small epsilon to avoid division by zero in KL computation
-    const double epsilon = 1e-10;
-    std::vector<double> P, Q, M;
+    Utils::Normalize(P);
+    Utils::Normalize(Q);
+    std::vector<double> M;
 
-    for (const auto& cat : allCategories)
-    {
-        double p = std::max(obj1.getCategoryAlpha(cat) / sum1, epsilon);
-        double q = std::max(obj2.getCategoryAlpha(cat) / sum2, epsilon);
-
-        P.push_back(p);
-        Q.push_back(q);
-        M.push_back((p + q) / 2.0);  // Midpoint distribution for JS divergence
-    }
+    for (size_t i = 0; i < _allCategories.size(); i++)
+        M.push_back((P.at(i) + Q.at(i)) / 2.0);  // Midpoint distribution for JS divergence
 
     // Compute Jensen-Shannon divergence: JS(P||Q) = 0.5 * KL(P||M) + 0.5 * KL(Q||M)
     double kl_pm = 0.0, kl_qm = 0.0;
 
     for (size_t i = 0; i < P.size(); ++i)
     {
-        if (P[i] > epsilon)
+        if (P[i] > 0)
             kl_pm += P[i] * std::log(P[i] / M[i]);
-        if (Q[i] > epsilon)
+        if (Q[i] > 0)
             kl_qm += Q[i] * std::log(Q[i] / M[i]);
     }
 
@@ -528,8 +544,10 @@ double SemanticMap::computeSemanticSimilarity(const SemanticObject& obj1, const 
     // JS divergence is bounded [0, ln(2)] when using natural log
     // Normalize to [0, 1] and convert to similarity (1 - normalized_divergence)
     double js_normalized = js_divergence / std::log(2.0);
-    double similarity = 1.0 - std::min(1.0, std::max(0.0, js_normalized));
+    double similarity = 1.0 - js_normalized;
 
+    VXL_ASSERT(similarity > 0);
+    VXL_ASSERT(similarity != 0.5);
     return similarity;
 }
 

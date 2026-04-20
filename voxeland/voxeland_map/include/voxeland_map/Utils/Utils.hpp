@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdlib>
 #include <set>
+#include <vector>
 
 namespace Utils
 {
@@ -15,5 +16,16 @@ namespace Utils
         std::set<T> set;
         std::copy(collection.begin(), collection.end(), std::inserter(set, set.begin()));
         return set;
+    }
+
+    template <typename T>
+    inline void Normalize(std::vector<T>& vec)
+    {
+        float sum = 0;
+        for (size_t i = 0; i < vec.size(); i++)
+            sum += vec.at(i);
+
+        for (size_t i = 0; i < vec.size(); i++)
+            vec.at(i) /= sum;
     }
 }  // namespace Utils

@@ -103,4 +103,9 @@ struct SemanticObject
             sum += alpha;
         return sum;
     }
+
+    bool isLocalInstance() const
+    {
+        return instanceID == -1;
+    }
 };
