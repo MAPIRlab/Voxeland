@@ -53,7 +53,7 @@ public:
                       uint coarsening_factor);
 
     template <typename DataT>
-    std::set<Bonxai::IndicesT> listOfVoxelsInObject(const SemanticObject& object, double probabilityThr = 1.0);
+    std::set<Bonxai::IndicesT> listOfVoxelsInObject(const SemanticObject& object, std::optional<double> probabilityThr = std::nullopt);
 
     /**
      * @brief Compute semantic similarity between two SemanticObjects using Jensen-Shannon divergence

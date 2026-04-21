@@ -197,7 +197,7 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         {
             std::set<Bonxai::IndicesT> voxelsGlobal;
             AUTO_TEMPLATE_INSTANCES_ONLY(currentMode,
-                                         voxelsGlobal = listOfVoxelsInObject<DataT>(globalSemanticMap.at(i), 1));
+                                         voxelsGlobal = listOfVoxelsInObject<DataT>(globalSemanticMap.at(i)));
 
             // remove instances with very few observations
             if (globalSemanticMap.at(i).numberObservations <= nObservationsToRemove || voxelsGlobal.size() == 0)

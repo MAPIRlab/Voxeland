@@ -71,7 +71,7 @@ inline void SemanticMap::addInstancesGeometryToLocalSemanticMap(std::vector<Sema
 }
 
 template <typename DataT>
-inline std::set<Bonxai::IndicesT> SemanticMap::listOfVoxelsInObject(const SemanticObject& object, double probabilityThr)
+inline std::set<Bonxai::IndicesT> SemanticMap::listOfVoxelsInObject(const SemanticObject& object, std::optional<double> probabilityThr)
 {
     std::set<Bonxai::IndicesT> cellsInside;
 
@@ -95,9 +95,8 @@ inline std::set<Bonxai::IndicesT> SemanticMap::listOfVoxelsInObject(const Semant
                 if (!cell)
                     continue;
 
-                if (cell->data.getMostRepresentativeInstance() == object.instanceID                                      //
-                    || (probabilityThr < 1 && cell->data.GetProbabilityOfInstance(object.instanceID) >= probabilityThr)  // if thr >=1, dont bother checking!
-                )
+                if (cell->data.getMostRepresentativeInstance() == object.instanceID  //
+                    || (probabilityThr.has_value() && cell->data.GetProbabilityOfInstance(object.instanceID) >= probabilityThr))
                 {
 #pragma omp critical
                     cellsInside.insert(coord);
