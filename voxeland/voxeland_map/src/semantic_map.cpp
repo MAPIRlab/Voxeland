@@ -287,7 +287,7 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         // fusion parameters
         constexpr float semSimThr = 0.5;      // how similar the class distributions must be to allow fusing
         constexpr float votesThr = 0.3;       // when retrieving the geometry that corresponds to this instance, which proportion of votes must a voxel have to count
-        constexpr uint coarseningFactor = 4;  // downsampling factor for the pointclouds when calculating IoU
+        constexpr uint coarseningFactor = 3;  // downsampling factor for the pointclouds when calculating IoU
         constexpr float iosThr = 0.15;        // exactly what you think this is
         constexpr float iouSkipThr = 0.7;     // if IoU is sufficiently large, the instances are overlapping entirely and we don't care about the other metrics.
                                               // This is necessary because we can sometimes end up with two overlapping instances which correspond to one class each,
@@ -301,76 +301,82 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
 
         std::set<Bonxai::IndicesT> voxelsFirst = geometry.at(firstIdx);
 
-        for (InstanceID_t secondIdx = firstIdx + 1; secondIdx < globalSemanticMap.size(); secondIdx++)
+        bool fusedSomething = false;
+        do
         {
-            SemanticObject& secondInstance = globalSemanticMap[secondIdx];
-
-            if (!secondInstance.isStillValid())
-                continue;
-            if (GeometryOperations::CheckBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
+            fusedSomething = false;
+            for (InstanceID_t secondIdx = firstIdx + 1; secondIdx < globalSemanticMap.size(); secondIdx++)
             {
-                std::set<Bonxai::IndicesT> voxelsSecond = geometry.at(secondIdx);
+                SemanticObject& secondInstance = globalSemanticMap[secondIdx];
 
-                bool IoUSkip = false;  // if IoU is huge, don't bother with any other checks: the instances correspond to the same geometry!
-
-                // IoU check
-                float iou, ios;
+                if (!secondInstance.isStillValid())
+                    continue;
+                if (GeometryOperations::CheckBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
                 {
-                    // TODO we are not caching the geometry used for this (with the votesThr). Check performance to see if it's worth bothering
-                    std::set<Bonxai::IndicesT> voxelsSomeVotesFirst;
-                    std::set<Bonxai::IndicesT> voxelsSomeVotesSecond;
-                    AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesFirst = listOfVoxelsInObject<DataT>(globalSemanticMap.at(firstIdx), votesThr));
-                    AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesSecond = listOfVoxelsInObject<DataT>(globalSemanticMap.at(secondIdx), votesThr));
-                    std::tie(iou, ios) = compute3DIoU(voxelsSomeVotesFirst, voxelsSomeVotesSecond, coarseningFactor);
+                    std::set<Bonxai::IndicesT> voxelsSecond = geometry.at(secondIdx);
 
-                    if (iou > iouSkipThr)
+                    bool IoUSkip = false;  // if IoU is huge, don't bother with any other checks: the instances correspond to the same geometry!
+
+                    // IoU check
+                    float iou, ios;
                     {
-                        IoUSkip = true;
-                        VXL_DEBUG("Fusing global {} - global {}.  IoU above passthrough threshold: {}", firstIdx, secondIdx, iou);
+                        // TODO we are not caching the geometry used for this (with the votesThr). Check performance to see if it's worth bothering
+                        std::set<Bonxai::IndicesT> voxelsSomeVotesFirst;
+                        std::set<Bonxai::IndicesT> voxelsSomeVotesSecond;
+                        AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesFirst = listOfVoxelsInObject<DataT>(globalSemanticMap.at(firstIdx), votesThr));
+                        AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesSecond = listOfVoxelsInObject<DataT>(globalSemanticMap.at(secondIdx), votesThr));
+                        std::tie(iou, ios) = compute3DIoU(voxelsSomeVotesFirst, voxelsSomeVotesSecond, coarseningFactor);
+
+                        if (iou > iouSkipThr)
+                        {
+                            IoUSkip = true;
+                            VXL_DEBUG("Fusing global {} - global {}.  IoU above passthrough threshold: {}", firstIdx, secondIdx, iou);
+                        }
+
+                        if (!IoUSkip && ios < iosThr)
+                        {
+                            VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient IoS: {}", firstIdx, secondIdx, ios);
+                            continue;
+                        }
                     }
 
-                    if (!IoUSkip && ios < iosThr)
+                    // semantics check
+                    double semSim = computeSemanticSimilarity(firstInstance, secondInstance);
+                    if (!IoUSkip && semSim < semSimThr)
                     {
-                        VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient IoS: {}", firstIdx, secondIdx, ios);
+                        VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient SemSim: {:.2f}", firstIdx, secondIdx, semSim);
                         continue;
                     }
-                }
 
-                // semantics check
-                double semSim = computeSemanticSimilarity(firstInstance, secondInstance);
-                if (!IoUSkip && semSim < semSimThr)
-                {
-                    VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient SemSim: {:.2f}", firstIdx, secondIdx, semSim);
-                    continue;
-                }
+                    std::set<Bonxai::IndicesT> _union = GeometryOperations::SetUnion(voxelsFirst, voxelsSecond);
+                    std::vector<std::set<Bonxai::IndicesT>> clusters = GeometryOperations::ClusterVoxelCloud(_union);
 
-                std::set<Bonxai::IndicesT> _union = GeometryOperations::SetUnion(voxelsFirst, voxelsSecond);
-                std::vector<std::set<Bonxai::IndicesT>> clusters = GeometryOperations::ClusterVoxelCloud(_union);
+                    VXL_ASSERT(clusters.size() < 3);  // given that we have already run the clustering algorithm on individual instances, we should never get more than two
 
-                VXL_ASSERT(clusters.size() < 3);  // given that we have already run the clustering algorithm on individual instances, we should never get more than two
-
-                if (clusters.size() == 1)
-                {
-                    // Fuse the second instance with the first one
-                    VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow),
-                              "(Refine) Fusing global {} - global {}. IoS: {:.2f}, SemSim: {:.2f}",
-                              firstIdx,
-                              secondIdx,
-                              ios,
-                              semSim);
-                    PAUSE_THREAD_UNTIL_GUI_CONTINUE(debugging_utils::pause_on_fusion);
-                    secondInstance.pointsTo = firstIdx;
-                    fuseSemanticObjects(firstInstance, secondInstance);
-                    geometry[firstIdx] = _union;
+                    if (clusters.size() == 1)
+                    {
+                        // Fuse the second instance with the first one
+                        VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow),
+                                  "(Refine) Fusing global {} - global {}. IoS: {:.2f}, SemSim: {:.2f}",
+                                  firstIdx,
+                                  secondIdx,
+                                  ios,
+                                  semSim);
+                        PAUSE_THREAD_UNTIL_GUI_CONTINUE(debugging_utils::pause_on_fusion);
+                        secondInstance.pointsTo = firstIdx;
+                        fuseSemanticObjects(firstInstance, secondInstance);
+                        geometry[firstIdx] = _union;
+                        fusedSomething = true;
+                    }
+                    else
+                        VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  {} clusters", firstIdx, secondIdx, clusters.size());
                 }
                 else
-                    VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  {} clusters", firstIdx, secondIdx, clusters.size());
+                {
+                    // VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  No BB intersection", firstIdx, secondIdx);
+                }
             }
-            else
-            {
-                // VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  No BB intersection", firstIdx, secondIdx);
-            }
-        }
+        } while (fusedSomething);
     }
 }
 
