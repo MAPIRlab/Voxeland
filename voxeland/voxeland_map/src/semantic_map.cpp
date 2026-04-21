@@ -117,10 +117,10 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
             // Compute semantic similarity using Jensen-Shannon divergence
             // This compares the FULL probability distributions, not just the top class
             double semanticSimilarity = computeSemanticSimilarity(localInstance, globalInstance);
-            
+
             // if the objects are very semantically similar, be a bit more lenient with the geometrical coincidence
-            constexpr float minIOVThr = 0.6;
-            constexpr float maxIOVThr = 0.85;
+            constexpr float minIOVThr = 0.5;
+            constexpr float maxIOVThr = 0.8;
             double fusionThreshold = std::lerp(maxIOVThr, minIOVThr, semanticSimilarity);
             double nFusionScore = iov / fusionThreshold;
 
@@ -285,7 +285,7 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
     for (InstanceID_t firstIdx = 1; firstIdx < globalSemanticMap.size(); firstIdx++)
     {
         // fusion parameters
-        constexpr float semSimThr = 0.6;      // how similar the class distributions must be to allow fusing
+        constexpr float semSimThr = 0.5;      // how similar the class distributions must be to allow fusing
         constexpr float votesThr = 0.3;       // when retrieving the geometry that corresponds to this instance, which proportion of votes must a voxel have to count
         constexpr uint coarseningFactor = 4;  // downsampling factor for the pointclouds when calculating IoU
         constexpr float iosThr = 0.15;        // exactly what you think this is
