@@ -659,8 +659,8 @@ nlohmann::json SemanticMap::mapToJSON()
                 }
             }
 
-            data_json["instances"][globalSemanticMap[i].instanceName]["n_observations"] =
-                globalSemanticMap[i].numberObservations;
+            data_json["instances"][globalSemanticMap[i].instanceName]["n_observations"] = globalSemanticMap[i].numberObservations;
+            data_json["instances"][globalSemanticMap[i].instanceName]["undersegmentation_score"] = globalSemanticMap[i].underSegmentScore;
         }
     }
 
