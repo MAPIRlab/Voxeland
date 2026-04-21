@@ -134,7 +134,7 @@ namespace voxeland
             double sum = 0;
             for (size_t i = 0; i < instances_candidates.size(); i++)
             {
-                sum = instances_votes.at(i);
+                sum += instances_votes.at(i);
                 if (instances_candidates.at(i) == id)
                     idx = i;
             }
