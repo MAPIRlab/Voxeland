@@ -81,27 +81,27 @@ public:
         map.header.stamp = rostime;
         visualization_msgs::msg::MarkerArray textMarkers;
 
-        for (size_t i = 0; i < semantics.globalSemanticMap.size(); i++)
+        for (auto& [id, instance] : semantics.globalSemanticMap)
         {
-            if (semantics.globalSemanticMap.at(i).isValidInstance())
+            if (instance.isValidInstance())
             {
-                vision_msgs::msg::Detection3D instance;
-                instance.id = semantics.globalSemanticMap.at(i).instanceName;
-                instance.bbox.center.position.x =
-                    (semantics.globalSemanticMap.at(i).bbox.minX + semantics.globalSemanticMap.at(i).bbox.maxX) / 2.0;
-                instance.bbox.center.position.y =
-                    (semantics.globalSemanticMap.at(i).bbox.minY + semantics.globalSemanticMap.at(i).bbox.maxY) / 2.0;
-                instance.bbox.center.position.z =
-                    (semantics.globalSemanticMap.at(i).bbox.minZ + semantics.globalSemanticMap.at(i).bbox.maxZ) / 2.0;
-                instance.bbox.size.x =
-                    semantics.globalSemanticMap.at(i).bbox.maxX - semantics.globalSemanticMap.at(i).bbox.minX;
-                instance.bbox.size.y =
-                    semantics.globalSemanticMap.at(i).bbox.maxY - semantics.globalSemanticMap.at(i).bbox.minY;
-                instance.bbox.size.z =
-                    semantics.globalSemanticMap.at(i).bbox.maxZ - semantics.globalSemanticMap.at(i).bbox.minZ;
+                vision_msgs::msg::Detection3D detection;
+                detection.id = instance.instanceName;
+                detection.bbox.center.position.x =
+                    (instance.bbox.minX + instance.bbox.maxX) / 2.0;
+                detection.bbox.center.position.y =
+                    (instance.bbox.minY + instance.bbox.maxY) / 2.0;
+                detection.bbox.center.position.z =
+                    (instance.bbox.minZ + instance.bbox.maxZ) / 2.0;
+                detection.bbox.size.x =
+                    instance.bbox.maxX - instance.bbox.minX;
+                detection.bbox.size.y =
+                    instance.bbox.maxY - instance.bbox.minY;
+                detection.bbox.size.z =
+                    instance.bbox.maxZ - instance.bbox.minZ;
 
                 // Convert category probabilities to results
-                for (const auto& [categoryIndex, probability] : semantics.globalSemanticMap.at(i).alphaParamsCategories)
+                for (const auto& [categoryIndex, probability] : instance.alphaParamsCategories)
                 {
                     if (probability > 0)
                     {
@@ -111,25 +111,25 @@ public:
                             vision_msgs::msg::ObjectHypothesisWithPose instanceHypothesis;
                             instanceHypothesis.hypothesis.class_id = categoryName;
                             instanceHypothesis.hypothesis.score = probability;
-                            instance.results.push_back(instanceHypothesis);
+                            detection.results.push_back(instanceHypothesis);
                         }
                     }
                 }
-                map.semantic_map.push_back(instance);
+                map.semantic_map.push_back(detection);
 
                 // marker with instance ID for RViz
                 visualization_msgs::msg::Marker textMarker;
                 {
                     textMarker.header.frame_id = "map";
-                    textMarker.id = i;
+                    textMarker.id = id;
                     textMarker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
                     textMarker.scale.z = 0.2;
-                    textMarker.text = instance.id;
-                    textMarker.pose.position.x = instance.bbox.center.position.x;
-                    textMarker.pose.position.y = instance.bbox.center.position.y;
-                    textMarker.pose.position.z = instance.bbox.center.position.z + 1.0f;
+                    textMarker.text = detection.id;
+                    textMarker.pose.position.x = detection.bbox.center.position.x;
+                    textMarker.pose.position.y = detection.bbox.center.position.y;
+                    textMarker.pose.position.z = detection.bbox.center.position.z + 1.0f;
 
-                    auto color = voxeland::Color::FromHex(SemanticMap::get_instance().indexToHexColor(i));
+                    auto color = voxeland::Color::FromHex(SemanticMap::get_instance().indexToHexColor(id));
                     textMarker.color.r = color.r / 255.f;
                     textMarker.color.g = color.g / 255.f;
                     textMarker.color.b = color.b / 255.f;

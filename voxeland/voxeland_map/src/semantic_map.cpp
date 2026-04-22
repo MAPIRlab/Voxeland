@@ -297,7 +297,7 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         // refresh the list of instances
         globalInstanceIDList = getCurrentInstanceIDs();
 
-        for (auto& firstIdx : globalInstanceIDList)
+        for (size_t firstIdx = 0; firstIdx < globalInstanceIDList.size(); firstIdx++)
         {
             // fusion parameters
             constexpr float semSimThr = 0.5;      // how similar the class distributions must be to allow fusing
@@ -557,7 +557,8 @@ double SemanticMap::computeKLD(const std::vector<double>& P, const std::vector<d
 
 SemanticObject& SemanticMap::CreateGlobalInstance(std::optional<InstanceID_t> forceID)
 {
-    InstanceID_t id = forceID ? *forceID : globalSemanticMap.size();
+    static InstanceID_t mostRecentID = 0;
+    InstanceID_t id = forceID ? *forceID : ++mostRecentID;
     VXL_ASSERT(!globalSemanticMap.contains(id));
     VXL_DEBUG("Creating instance {}", id);
     auto pair = globalSemanticMap.emplace(id, id);
