@@ -52,7 +52,7 @@ namespace voxeland_server
 
         void saveMapSrv(const std::shared_ptr<std_srvs::srv::Empty::Request> req, const std::shared_ptr<std_srvs::srv::Empty::Response> resp);
 
-        void loadMapSrv(const std::shared_ptr<voxeland_msgs::srv::UpdateMapResults::Request> req, const std::shared_ptr<voxeland_msgs::srv::UpdateMapResults::Response> resp);
+        void updateMapSrv(const std::shared_ptr<voxeland_msgs::srv::UpdateMapResults::Request> req, const std::shared_ptr<voxeland_msgs::srv::UpdateMapResults::Response> resp);
 
         bool getClassDistributionsSrv(const std::shared_ptr<rmw_request_id_t> requestHeader, GetClassDistributions::Request::SharedPtr request, GetClassDistributions::Response::SharedPtr response);
 

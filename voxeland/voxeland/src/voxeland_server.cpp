@@ -88,7 +88,7 @@ namespace voxeland_server
 
         save_map_srv_ = create_service<ResetSrv>("~/save_map", std::bind(&VoxelandServer::saveMapSrv, this, _1, _2));
 
-        load_map_srv_ = create_service<UpdateMapResultsSrv>("~/update_map_results", std::bind(&VoxelandServer::loadMapSrv, this, _1, _2));
+        load_map_srv_ = create_service<UpdateMapResultsSrv>("~/update_map_results", std::bind(&VoxelandServer::updateMapSrv, this, _1, _2));
 
         // set parameter callback
         set_param_res_ = this->add_on_set_parameters_callback(std::bind(&VoxelandServer::onParameter, this, _1));
@@ -388,7 +388,7 @@ namespace voxeland_server
         outfile.close();
     }
 
-    void VoxelandServer::loadMapSrv(const std::shared_ptr<UpdateMapResultsSrv::Request> req, const std::shared_ptr<UpdateMapResultsSrv::Response> resp)
+    void VoxelandServer::updateMapSrv(const std::shared_ptr<UpdateMapResultsSrv::Request> req, const std::shared_ptr<UpdateMapResultsSrv::Response> resp)
     {
         VXL_INFO("Loading map files");
         try
