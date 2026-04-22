@@ -267,7 +267,10 @@ namespace voxeland_server
         static std::string comparisonText;
         ImGui::Begin("Instance Info");
         if (ImGui::Button("Trigger Global Refinement"))
-            functionQueue.submit([&]() { doGlobalRefinement(); });
+            functionQueue.submit([&]() {
+                std::scoped_lock<std::mutex> lock(debugging_utils::mutex);
+                doGlobalRefinement();
+            });
 
         if (semantics.globalSemanticMap.size() == 0)
         {

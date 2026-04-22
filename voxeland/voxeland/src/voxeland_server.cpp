@@ -390,6 +390,7 @@ namespace voxeland_server
 
     void VoxelandServer::updateMapSrv(const std::shared_ptr<UpdateMapResultsSrv::Request> req, const std::shared_ptr<UpdateMapResultsSrv::Response> resp)
     {
+        std::scoped_lock<std::mutex> lock(debugging_utils::mutex);
         VXL_INFO("Loading map files");
         try
         {
@@ -421,6 +422,7 @@ namespace voxeland_server
         GetClassDistributions::Request::SharedPtr request,
         GetClassDistributions::Response::SharedPtr response)
     {
+        std::scoped_lock<std::mutex> lock(debugging_utils::mutex);
         if (!modeHas(DataMode::Semantics))
         {
             VXL_ERROR("Tried to get class distributions through service, but current mode does not have semantic information!");
