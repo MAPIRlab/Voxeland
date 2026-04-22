@@ -114,35 +114,29 @@ namespace voxeland_server
         ImGui::Checkbox("Enable new instances automatically", &enableByDefault);
         ImGui::VerticalSpace(20.f);
 
-        size_t numBeforeResize = globalObjectsToDraw.size();
-        globalObjectsToDraw.resize(semantics.globalSemanticMap.size());
-        if (enableByDefault)
-        {
-            for (size_t i = numBeforeResize; i < globalObjectsToDraw.size(); i++)
-                if (i != 0)
-                    globalObjectsToDraw.at(i) = true;
-        }
-
         if (ImGui::Button("Toggle all"))
         {
-            static bool set_to = false;
+            static bool set_to = true;
             set_to = !set_to;
 
-            for (size_t i = 0; i < globalObjectsToDraw.size(); i++)
-                if (i != 0)  // skip the background instance, it slows things down quite a bit
-                    globalObjectsToDraw.at(i) = set_to;
+            for (auto& [id, instance] : semantics.globalSemanticMap)
+                if (id != 0)  // skip the background instance, it slows things down quite a bit
+                    globalObjectsToDraw.at(id) = set_to;
         }
 
-        for (size_t i = 0; i < semantics.globalSemanticMap.size(); i++)
+        for (auto& [id, instance] : semantics.globalSemanticMap)
         {
-            if (semantics.globalSemanticMap.at(i).isStillValid())
+            if (instance.isValidInstance() && id != 0)
             {
-                ImGui::Checkbox(fmt::format("Object_{}", i).c_str(), (bool*)&globalObjectsToDraw[i]);
+                if (!globalObjectsToDraw.contains(id) && enableByDefault)
+                    globalObjectsToDraw[id] = true;
+
+                ImGui::Checkbox(instance.instanceName.c_str(), (bool*)&globalObjectsToDraw[id]);
                 ImGui::SameLine();
-                ImGui::Text("%s", fmt::format("- {}", CategoryManager::getInstance().getCategoryName(semantics.globalSemanticMap.at(i).mostLikelyCategory())).c_str());
+                ImGui::Text("%s", fmt::format("- {}", CategoryManager::getInstance().getCategoryName(instance.mostLikelyCategory())).c_str());
             }
             else
-                globalObjectsToDraw[i] = false;
+                globalObjectsToDraw[id] = false;
         }
 
         // render the selected instances
@@ -154,14 +148,14 @@ namespace voxeland_server
                 const SemanticObject& instance = semantics.globalSemanticMap.at(instanceID);
                 voxeland::Color visualization_color;
                 if (viewUnderSegmentationScore)
-                    visualization_color = voxeland::valueToColor(instance.underSegmentScore / instance.numberObservations, 0, 1);
+                    visualization_color = voxeland::valueToColor(instance.underSegmentScore / instance.numberObservations, 0, 0.7);
                 else
                     visualization_color = data.toColor();
                 std::uint32_t rgb = voxeland::serializeColor(visualization_color);
                 pcl_cloud.emplace_back((float)point.x, (float)point.y, (float)point.z, *reinterpret_cast<float*>(&rgb), instanceID);
             };
 
-            bool drawAny = std::any_of(globalObjectsToDraw.begin(), globalObjectsToDraw.end(), std::identity());
+            bool drawAny = std::any_of(globalObjectsToDraw.begin(), globalObjectsToDraw.end(), [](auto& pair) { return pair.second; });
             if (drawAny)
             {
                 std::vector<DataT> cell_data;
@@ -281,26 +275,26 @@ namespace voxeland_server
             ImGui::End();
             return;
         }
-        static int itemSelectedIdx = 0;  // Here we store our selection data as an index.
+        static int itemSelectedID = 0;  // Here we store our selection data as an ID
         auto selectInstance = [this](const char* label, int& itemSelectedIdx) {
             ImGui::SetNextItemWidth(200);
             if (ImGui::BeginCombo(label, semantics.globalSemanticMap.at(itemSelectedIdx).instanceName.c_str()))
             {
-                for (size_t i = 0; i < semantics.globalSemanticMap.size(); i++)
+                for (auto& [id, instance] : semantics.globalSemanticMap)
                 {
-                    if (!semantics.globalSemanticMap.at(i).isStillValid())
+                    if (!instance.isValidInstance())
                         continue;
-                    if (ImGui::Selectable(semantics.globalSemanticMap.at(i).instanceName.c_str()))
+                    if (ImGui::Selectable(instance.instanceName.c_str()))
                     {
-                        itemSelectedIdx = i;
+                        itemSelectedIdx = id;
                         comparisonText = "";
                     }
                 }
                 ImGui::EndCombo();
             }
         };
-        selectInstance("Selected Instance", itemSelectedIdx);
-        const SemanticObject& selectedInstance = semantics.globalSemanticMap.at(itemSelectedIdx);
+        selectInstance("Selected Instance", itemSelectedID);
+        const SemanticObject& selectedInstance = semantics.globalSemanticMap.at(itemSelectedID);
 
         ImGui::Text("Alphas dirichlet:");
         ImGui::Indent(20.f);

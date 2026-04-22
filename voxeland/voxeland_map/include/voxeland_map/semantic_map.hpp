@@ -17,7 +17,7 @@ class SemanticMap
 public:
     SemanticMap();
 
-    std::vector<SemanticObject> globalSemanticMap;
+    std::map<InstanceID_t, SemanticObject> globalSemanticMap;
     std::vector<SemanticObject> lastLocalSemanticMap;
 
     static SemanticMap& get_instance()
@@ -54,17 +54,19 @@ public:
 
     template <typename DataT>
     std::set<Bonxai::IndicesT> listOfVoxelsInObject(const SemanticObject& object, std::optional<double> probabilityThr = std::nullopt);
-
+    
+    void deleteOldInstances();
+    
     /**
      * @brief Compute semantic similarity between two SemanticObjects using Jensen-Shannon divergence
-     * 
+     *
      * Jensen-Shannon divergence is a symmetric and bounded (0-1) measure of similarity between
      * two probability distributions. Returns a similarity score where:
      * - 1.0 = identical distributions
      * - 0.0 = completely different distributions
-     * 
+     *
      * @param obj1 First semantic object
-     * @param obj2 Second semantic object  
+     * @param obj2 Second semantic object
      * @return Semantic similarity score in range [0, 1]
      */
     double computeSemanticSimilarity(const SemanticObject& obj1, const SemanticObject& obj2);
@@ -84,6 +86,7 @@ public:
     std::set<InstanceID_t> getCurrentVisibleInstances(double minOccupancyZ, double maxOccupancyZ);
 
     // JSON utils
+    void loadInstancesFromFile(const std::filesystem::path& path);
     nlohmann::json mapToJSON();
     void updateSemanticMapResultsFromJSON(const nlohmann::json& data_json);
     nlohmann::json appearancesToJson();
@@ -97,19 +100,21 @@ public:
 private:
     std::vector<InstanceID_t> lastMapLocalToGlobal;
     std::vector<std::uint32_t> color_palette;
-    std::vector<std::uint32_t> color_palette_offsets; // used to re-randomize the colors in case of an unlucky coincidence on nearby instances
+    std::vector<std::uint32_t> color_palette_offsets;  // used to re-randomize the colors in case of an unlucky coincidence on nearby instances
     bool initialized = false;
     double kld_threshold;
     voxeland::DataMode currentMode;
-    
+
     double computeKLD(const std::vector<double>& P, const std::vector<double>& Q);
-    
-    SemanticObject& CreateGlobalInstance();
+
+    SemanticObject& CreateGlobalInstance(std::optional<InstanceID_t> forceID = std::nullopt);
     void fuseSemanticObjects(SemanticObject& firstInstance, const SemanticObject& secondInstance);
 
     void updateAlphaCategories(SemanticObject& original, const SemanticObject& update);
     void updateAppearancesTimestamps(SemanticObject& original, const SemanticObject& update);
 
+    std::vector<size_t> getCurrentInstanceIDs();  // when iterating over the map directly, we can't create or delete instances (due to iterator invalidation)
+                                                  // so, when we need to modify, we can get the list of keys and just access the map element by element without iterators
     struct FusionScore
     {
         InstanceID_t fuseWithID;

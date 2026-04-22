@@ -24,7 +24,7 @@ def launch_arguments():
         DeclareLaunchArgument("pMiss", default_value="0.4"),                # p (occupancy | miss)
         DeclareLaunchArgument("clampOccupancyMin", default_value="0.12"),   # value at which the occupancy prob gets clamped
         DeclareLaunchArgument("clampOccupancyMax", default_value="0.97"),   # value at which the occupancy prob gets clamped
-        DeclareLaunchArgument("maxRange", default_value="4.0"),   # max distance from the sensor before discarding the point as unreliable
+        DeclareLaunchArgument("maxRange", default_value="10.0"),   # max distance from the sensor before discarding the point as unreliable
    ]
 #==========================
 
@@ -33,7 +33,7 @@ def launch_setup(context, *args, **kwargs):
         package="voxeland",
         executable="voxeland_server_node",
         name="voxeland_server",
-        prefix ="xterm -hold -e",
+        # prefix ="xterm -hold -e",
         parameters=[
            {"frame_id":parse_substitution("$(var fixed_frame)")},
            {"resolution":parse_substitution("$(var resolution)")},
@@ -50,6 +50,8 @@ def launch_setup(context, *args, **kwargs):
            {"sensor_model.min": parse_substitution("$(var clampOccupancyMin)")},
            {"sensor_model.max": parse_substitution("$(var clampOccupancyMax)")},
 
+           {"occupancy_min_z": 0.1},
+           {"occupancy_max_z": 10.0},
 
            {"log_level": "Debug"},
         ],

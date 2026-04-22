@@ -24,13 +24,13 @@ inline std::set<InstanceID_t> SemanticMap::getCurrentVisibleInstances(double min
             auto itInstances = std::max_element(data.instances_votes.begin(), data.instances_votes.end());
             auto idxMaxVotes = std::distance(data.instances_votes.begin(), itInstances);
             InstanceID_t bestInstanceID = data.instances_candidates[idxMaxVotes];
-            if (globalSemanticMap[bestInstanceID].isStillValid())
+            if (globalSemanticMap.at(bestInstanceID).isValidInstance())
             {
                 visibleInstances.insert(bestInstanceID);
             }
             else
             {
-                visibleInstances.insert(globalSemanticMap[bestInstanceID].pointsTo);
+                visibleInstances.insert(globalSemanticMap.at(bestInstanceID).pointsTo);
             }
         }
     }

@@ -88,6 +88,8 @@ namespace voxeland_server
         template <typename DataT>
         std::string fullSemanticMapToPLY();
 
+        void loadMapFromFile(const std::filesystem::path& path);
+
         template <typename DataT>
         void insertPointCloudBasic(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
 
@@ -178,7 +180,7 @@ namespace voxeland_server
         rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr clickedPointSub;
         
         segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr mostRecentPointCloud;
-        std::vector<uint8_t> globalObjectsToDraw;
+        std::map<InstanceID_t, uint8_t> globalObjectsToDraw;
         std::vector<uint8_t> localObjectsToDraw;
         Bonxai::Point3D selectedCoordinates;
         FunctionQueue functionQueue;

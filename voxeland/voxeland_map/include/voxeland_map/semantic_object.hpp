@@ -28,9 +28,6 @@ struct BoundingBox2D
 
 struct SemanticObject
 {
-    // Note: For now, it is supposed that in the globalSemanticMap, instances are not going to disappear.
-    // Otherwise, it should be considered, as the instanceID is also used as the index into the semantic map vector
-    // TODO (pepe) we should consider changing it to a hashmap. I think any performance impact from lookups will be compensated by not having to deal with lots of old invalid instances
     InstanceID_t instanceID;
     std::string instanceName;
     // Dynamic storage for category probabilities - grows as needed
@@ -62,7 +59,11 @@ struct SemanticObject
         , bbox(_bbox)
     {}
 
-    bool isStillValid() const
+    SemanticObject()
+        : SemanticObject(-1)
+    {}
+
+    bool isValidInstance() const
     {
         return pointsTo == -1;
     }

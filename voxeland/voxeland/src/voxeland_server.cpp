@@ -720,6 +720,12 @@ namespace voxeland_server
 
         return pcl::PointXYZ((float)t.x, (float)t.y, (float)t.z);
     }
+
+    void VoxelandServer::loadMapFromFile(const std::filesystem::path& path)
+    {
+        
+    }
+
 }  // namespace voxeland_server
 
 #include <rclcpp_components/register_node_macro.hpp>

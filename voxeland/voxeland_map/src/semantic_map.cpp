@@ -59,18 +59,18 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
         unknown.alphaParamsCategories = { { CategoryManager::UNKNOWN_CATEGORY, 1 } };
         updateAppearancesTimestamps(unknown, localMap[0]);
 
-        globalSemanticMap.push_back(unknown);
+        globalSemanticMap[0] = unknown;
     }
     else
     {
-        fuseSemanticObjects(globalSemanticMap[0], localMap[0]);
+        fuseSemanticObjects(globalSemanticMap.at(0), localMap[0]);
     }
 
     // First, integrate local "unknown" with global "unknown". They are always the 0-index
     lastMapLocalToGlobal[0] = 0;
     // Further integration of unknown is required: bbox, probabilities, etc. but to be decided yet
 
-    const InstanceID_t currentInstancesNumber = globalSemanticMap.size();
+    auto globalInstanceIDList = getCurrentInstanceIDs();
 
     // Both loops start at 1 to skip "unknown" class
     for (InstanceID_t localInstanceID = 1; localInstanceID < localMap.size(); localInstanceID++)
@@ -86,13 +86,17 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
         // Find category with maximum probability for local instance
         CategoryManager::CategoryIndex localMaxCategory = localInstance.mostLikelyCategory();
 
-        for (InstanceID_t globalInstanceID = 1; globalInstanceID < currentInstancesNumber; globalInstanceID++)
+        for (size_t globalIndex = 0; globalIndex < globalInstanceIDList.size(); globalIndex++)
         {
-            SemanticObject& globalInstance = globalSemanticMap[globalInstanceID];
+            InstanceID_t globalInstanceID = globalInstanceIDList.at(globalIndex);
+            if (globalInstanceID == 0)
+                continue;
+
+            SemanticObject& globalInstance = globalSemanticMap.at(globalInstanceID);
             // Find category with maximum probability for global instance
             CategoryManager::CategoryIndex globalMaxCategory = globalInstance.mostLikelyCategory();
 
-            if (!globalInstance.isStillValid() || !GeometryOperations::CheckBBoxIntersect(localInstance.bbox, globalInstance.bbox))
+            if (globalInstanceID == 0 || !globalInstance.isValidInstance() || !GeometryOperations::CheckBBoxIntersect(localInstance.bbox, globalInstance.bbox))
                 continue;
 
             // get all the voxels that belong to the global instance
@@ -142,7 +146,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
             }
             else
             {
-                VXL_DEBUG("NOT Fusing local {} - global {}:\n\tIoU:{:.2f}  IoS:{:.2f}  IoV:{:.2f}  SemSim:{:.2f}",
+                VXL_DEBUG("NOT integrating local {} - global {}:\n\tIoU:{:.2f}  IoS:{:.2f}  IoV:{:.2f}  SemSim:{:.2f}",
                           localInstanceID,
                           globalInstanceID,
                           iou,
@@ -183,7 +187,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
             added++;
         }
     }
-    VXL_INFO("Integrating {} new local objects: {} integrated and {} added", localMap.size(), integrated, added);
+    VXL_INFO("Integrated {} new local objects: {} integrated and {} added", localMap.size(), integrated, added);
 }
 
 void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
@@ -191,37 +195,42 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
     // cache the voxels for each global object to avoid repeated lookup
     std::map<InstanceID_t, std::set<Bonxai::IndicesT>> geometry;
 
-    for (InstanceID_t i = 1; i < globalSemanticMap.size(); i++)
+    // not using structured binding because OpenMP (in listOfVoxelsInObject) does not accept them
+    for (auto& pair : globalSemanticMap)
     {
-        if (globalSemanticMap.at(i).isStillValid())
+        InstanceID_t id = pair.first;
+        SemanticObject& instance = pair.second;
+        if (instance.isValidInstance() && id != 0)
         {
             std::set<Bonxai::IndicesT> voxelsGlobal;
             AUTO_TEMPLATE_INSTANCES_ONLY(currentMode,
-                                         voxelsGlobal = listOfVoxelsInObject<DataT>(globalSemanticMap.at(i)));
+                                         voxelsGlobal = listOfVoxelsInObject<DataT>(instance));
 
             // remove instances with very few observations
-            if (globalSemanticMap.at(i).numberObservations <= nObservationsToRemove || voxelsGlobal.size() == 0)
-                globalSemanticMap.at(i).pointsTo = 0;
+            if (instance.numberObservations <= nObservationsToRemove || voxelsGlobal.size() == 0)
+                instance.pointsTo = 0;
             else
-                geometry.insert({ i, voxelsGlobal });
+                geometry.insert({ id, voxelsGlobal });
         }
     }
 
+    auto globalInstanceIDList = getCurrentInstanceIDs();
     // iterate over individual instances, see if they need to be split into smaller chunks
-    for (InstanceID_t startInstIdx = 1; startInstIdx < globalSemanticMap.size(); startInstIdx++)
+    for (auto& id : globalInstanceIDList)
     {
-        if (!globalSemanticMap[startInstIdx].isStillValid())
+        auto& instance = globalSemanticMap.at(id);
+        if (!instance.isValidInstance() || id == 0)
             continue;
-        std::vector<std::set<Bonxai::IndicesT>> clusters = GeometryOperations::ClusterVoxelCloud(geometry.at(startInstIdx));
+        std::vector<std::set<Bonxai::IndicesT>> clusters = GeometryOperations::ClusterVoxelCloud(geometry.at(id));
 
         auto filterLoosePoints = [&](const std::set<Bonxai::IndicesT>& validVoxels) {
-            for (const auto& voxel : geometry.at(startInstIdx))
+            for (const auto& voxel : geometry.at(id))
             {
                 AUTO_TEMPLATE_INSTANCES_ONLY(currentMode,
                                              {
                                                  Bonxai::ProbabilisticCell<DataT>* cell = BonxaiQuery<DataT>::getAccessor().value(voxel);
                                                  if (!validVoxels.contains(voxel))
-                                                     cell->data.ReplaceInstanceVotes(startInstIdx, 0);
+                                                     cell->data.ReplaceInstanceVotes(id, 0);
                                              });
             }
         };
@@ -229,7 +238,7 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         // if it's all disperse points, this instance is cooked
         if (clusters.size() == 0)
         {
-            globalSemanticMap[startInstIdx].pointsTo = 0;
+            instance.pointsTo = 0;
             continue;
         }
         else if (clusters.size() == 1)
@@ -237,13 +246,13 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
             // update the geometry to remove any loose points
             auto validVoxels = clusters.at(0);
             filterLoosePoints(clusters.at(0));
-            geometry.at(startInstIdx) = clusters.at(0);
+            geometry.at(id) = clusters.at(0);
         }
         else
         {
             // more than one chunk, let's split it into multiple instances
             debugInfo.mostRecentClusters = clusters;
-            VXL_DEBUG("Splitting instance {} into {} chunks", startInstIdx, clusters.size());
+            VXL_DEBUG("Splitting instance {} into {} chunks", id, clusters.size());
             PAUSE_THREAD_UNTIL_GUI_CONTINUE(debugging_utils::pause_on_splitting);
 
             // remove loose points
@@ -253,7 +262,7 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
             filterLoosePoints(_union);
 
             // the first cluster will be assigned to the old instance ID
-            geometry[startInstIdx] = clusters.at(0);
+            geometry[id] = clusters.at(0);
 
             // every other cluster has now been promoted to being its own instance
             for (size_t clusterIdx = 1; clusterIdx < clusters.size(); clusterIdx++)
@@ -261,8 +270,8 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                 auto thisCluster = clusters.at(clusterIdx);
                 SemanticObject& newObject = CreateGlobalInstance();
                 newObject.bbox = GeometryOperations::FindBBox(thisCluster);
-                newObject.alphaParamsCategories = globalSemanticMap[startInstIdx].alphaParamsCategories;
-                newObject.appearancesTimestamps = globalSemanticMap[startInstIdx].appearancesTimestamps;
+                newObject.alphaParamsCategories = instance.alphaParamsCategories;
+                newObject.appearancesTimestamps = instance.appearancesTimestamps;
                 VXL_ASSERT(newObject.alphaParamsCategories.size() > 0);
 
                 // update the cache
@@ -274,7 +283,7 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                     AUTO_TEMPLATE_INSTANCES_ONLY(currentMode,
                                                  {
                                                      Bonxai::ProbabilisticCell<DataT>* cell = BonxaiQuery<DataT>::getAccessor().value(voxel);
-                                                     cell->data.ReplaceInstanceVotes(startInstIdx, newObject.instanceID);
+                                                     cell->data.ReplaceInstanceVotes(id, newObject.instanceID);
                                                  });
                 }
             }
@@ -282,38 +291,42 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
     }
 
     // iterate over instance pairs, try to fuse them into bigger chunks
-    for (InstanceID_t firstIdx = 1; firstIdx < globalSemanticMap.size(); firstIdx++)
+    bool fusedSomething = false;
+    do
     {
-        // fusion parameters
-        constexpr float semSimThr = 0.5;      // how similar the class distributions must be to allow fusing
-        constexpr float votesThr = 0.3;       // when retrieving the geometry that corresponds to this instance, which proportion of votes must a voxel have to count
-        constexpr uint coarseningFactor = 3;  // downsampling factor for the pointclouds when calculating IoU
-        constexpr float iosThr = 0.15;        // exactly what you think this is
-        constexpr float iouSkipThr = 0.7;     // if IoU is sufficiently large, the instances are overlapping entirely and we don't care about the other metrics.
-                                              // This is necessary because we can sometimes end up with two overlapping instances which correspond to one class each,
-                                              // and every new observation always fuses with the instance which already agrees with its class.
-                                              // This can lead to a very low semantic similarity, preventing fusion
+        // refresh the list of instances
+        globalInstanceIDList = getCurrentInstanceIDs();
 
-        SemanticObject& firstInstance = globalSemanticMap[firstIdx];
-
-        if (!firstInstance.isStillValid())
-            continue;
-
-        std::set<Bonxai::IndicesT> voxelsFirst = geometry.at(firstIdx);
-
-        bool fusedSomething = false;
-        do
+        for (auto& firstIdx : globalInstanceIDList)
         {
-            fusedSomething = false;
-            for (InstanceID_t secondIdx = firstIdx + 1; secondIdx < globalSemanticMap.size(); secondIdx++)
-            {
-                SemanticObject& secondInstance = globalSemanticMap[secondIdx];
+            // fusion parameters
+            constexpr float semSimThr = 0.5;      // how similar the class distributions must be to allow fusing
+            constexpr float votesThr = 0.5;       // when retrieving the geometry that corresponds to this instance, which proportion of votes must a voxel have to count
+            constexpr uint coarseningFactor = 2;  // downsampling factor for the pointclouds when calculating IoU
+            constexpr float iosThr = 0.25;        // exactly what you think this is
+            constexpr float iouSkipThr = 0.7;     // if IoU is sufficiently large, the instances are overlapping entirely and we don't care about the other metrics.
+                                                  // This is necessary because we can sometimes end up with two overlapping instances which correspond to one class each,
+                                                  // and every new observation always fuses with the instance which already agrees with its class.
+                                                  // This can lead to a very low semantic similarity, preventing fusion
 
-                if (!secondInstance.isStillValid())
+            InstanceID_t firstID = globalInstanceIDList.at(firstIdx);
+            SemanticObject& firstInstance = globalSemanticMap.at(firstID);
+            if (!firstInstance.isValidInstance() || firstID == 0)
+                continue;
+
+            std::set<Bonxai::IndicesT> voxelsFirst = geometry.at(firstID);
+
+            fusedSomething = false;
+            for (size_t secondIdx = firstIdx + 1; secondIdx < globalInstanceIDList.size(); secondIdx++)
+            {
+                InstanceID_t secondID = globalInstanceIDList.at(secondIdx);
+                SemanticObject& secondInstance = globalSemanticMap.at(secondID);
+
+                if (!secondInstance.isValidInstance() || secondID == 0)
                     continue;
                 if (GeometryOperations::CheckBBoxIntersect(firstInstance.bbox, secondInstance.bbox))
                 {
-                    std::set<Bonxai::IndicesT> voxelsSecond = geometry.at(secondIdx);
+                    std::set<Bonxai::IndicesT> voxelsSecond = geometry.at(secondID);
 
                     bool IoUSkip = false;  // if IoU is huge, don't bother with any other checks: the instances correspond to the same geometry!
 
@@ -323,19 +336,19 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                         // TODO we are not caching the geometry used for this (with the votesThr). Check performance to see if it's worth bothering
                         std::set<Bonxai::IndicesT> voxelsSomeVotesFirst;
                         std::set<Bonxai::IndicesT> voxelsSomeVotesSecond;
-                        AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesFirst = listOfVoxelsInObject<DataT>(globalSemanticMap.at(firstIdx), votesThr));
-                        AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesSecond = listOfVoxelsInObject<DataT>(globalSemanticMap.at(secondIdx), votesThr));
+                        AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesFirst = listOfVoxelsInObject<DataT>(globalSemanticMap.at(firstID), votesThr));
+                        AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesSecond = listOfVoxelsInObject<DataT>(globalSemanticMap.at(secondID), votesThr));
                         std::tie(iou, ios) = compute3DIoU(voxelsSomeVotesFirst, voxelsSomeVotesSecond, coarseningFactor);
 
                         if (iou > iouSkipThr)
                         {
                             IoUSkip = true;
-                            VXL_DEBUG("Fusing global {} - global {}.  IoU above passthrough threshold: {}", firstIdx, secondIdx, iou);
+                            VXL_DEBUG("Fusing global {} - global {}.  IoU above passthrough threshold: {}", firstID, secondID, iou);
                         }
 
                         if (!IoUSkip && ios < iosThr)
                         {
-                            VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient IoS: {}", firstIdx, secondIdx, ios);
+                            VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient IoS: {}", firstID, secondID, ios);
                             continue;
                         }
                     }
@@ -344,7 +357,7 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                     double semSim = computeSemanticSimilarity(firstInstance, secondInstance);
                     if (!IoUSkip && semSim < semSimThr)
                     {
-                        VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient SemSim: {:.2f}", firstIdx, secondIdx, semSim);
+                        VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient SemSim: {:.2f}", firstID, secondID, semSim);
                         continue;
                     }
 
@@ -358,26 +371,28 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                         // Fuse the second instance with the first one
                         VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow),
                                   "(Refine) Fusing global {} - global {}. IoS: {:.2f}, SemSim: {:.2f}",
-                                  firstIdx,
-                                  secondIdx,
+                                  firstID,
+                                  secondID,
                                   ios,
                                   semSim);
                         PAUSE_THREAD_UNTIL_GUI_CONTINUE(debugging_utils::pause_on_fusion);
-                        secondInstance.pointsTo = firstIdx;
+                        secondInstance.pointsTo = firstID;
                         fuseSemanticObjects(firstInstance, secondInstance);
-                        geometry[firstIdx] = _union;
+                        geometry[firstID] = _union;
                         fusedSomething = true;
                     }
                     else
-                        VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  {} clusters", firstIdx, secondIdx, clusters.size());
+                        VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  {} clusters", firstID, secondID, clusters.size());
                 }
                 else
                 {
                     // VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  No BB intersection", firstIdx, secondIdx);
                 }
             }
-        } while (fusedSomething);
-    }
+        }
+    } while (fusedSomething);
+
+    deleteOldInstances();
 }
 
 std::pair<double, double> SemanticMap::compute3DIoU(const std::set<Bonxai::IndicesT>& voxels1,
@@ -422,6 +437,27 @@ double SemanticMap::computeIoV(const std::set<Bonxai::IndicesT>& visibleVoxels,
 
     double iov = numVisibleVoxels > 0 ? numVoxelsInMask / static_cast<double>(numVisibleVoxels) : 0;
     return iov;
+}
+
+void SemanticMap::deleteOldInstances()
+{
+    // replace all votes to outdated instances with votes to the new ones
+    AUTO_TEMPLATE_INSTANCES_ONLY(currentMode,
+                                 {
+                                     auto bonxai = BonxaiQuery<DataT>::getBonxaiT();
+                                     auto visitor = [&](Bonxai::ProbabilisticCell<DataT>& cell, const Bonxai::IndicesT& indices) {
+                                         cell.data.updateCandidatesAndVotes();
+                                     };
+                                     bonxai->grid()->forEachCell(visitor);
+                                 });
+
+    // remove instances from the map
+    auto allIDs = getCurrentInstanceIDs();
+    for (InstanceID_t id : allIDs)
+    {
+        if (!globalSemanticMap.at(id).isValidInstance())
+            globalSemanticMap.erase(id);
+    }
 }
 
 void SemanticMap::setLocalSemanticMap(const std::vector<SemanticObject>& localMap)
@@ -519,12 +555,13 @@ double SemanticMap::computeKLD(const std::vector<double>& P, const std::vector<d
     }
 }
 
-SemanticObject& SemanticMap::CreateGlobalInstance()
+SemanticObject& SemanticMap::CreateGlobalInstance(std::optional<InstanceID_t> forceID)
 {
-    InstanceID_t id = globalSemanticMap.size();
-    globalSemanticMap.emplace_back(id);
+    InstanceID_t id = forceID ? *forceID : globalSemanticMap.size();
+    VXL_ASSERT(!globalSemanticMap.contains(id));
     VXL_DEBUG("Creating instance {}", id);
-    return globalSemanticMap.back();
+    auto pair = globalSemanticMap.emplace(id, id);
+    return pair.first->second;  // this is certainly a line of code
 }
 
 double SemanticMap::computeSemanticSimilarity(const SemanticObject& obj1, const SemanticObject& obj2)
@@ -604,6 +641,13 @@ void SemanticMap::updateAppearancesTimestamps(SemanticObject& original, const Se
     }
 }
 
+std::vector<size_t> SemanticMap::getCurrentInstanceIDs()
+{
+    auto ks = std::views::keys(globalSemanticMap);
+    std::vector<size_t> globalInstanceIDList{ ks.begin(), ks.end() };
+    return globalInstanceIDList;
+}
+
 /**
  * @brief Integrates the sencondInstance info into the firstInstance. That includes alphas, bbox and appearances
  *
@@ -625,48 +669,84 @@ void SemanticMap::fuseSemanticObjects(SemanticObject& firstInstance, const Seman
     firstInstance.underSegmentScore += secondInstance.underSegmentScore;
 }
 
+void SemanticMap::loadInstancesFromFile(const std::filesystem::path& path)
+{
+    using nlohmann::json;
+    std::ifstream file(path);
+    json json_file = json::parse(file);
+
+    json instances = json_file["instances"];
+
+    for (auto& [key, val] : instances.items())
+    {
+        std::string name = key;
+        InstanceID_t id = std::atoi(name.substr(3).c_str());
+
+        SemanticObject& object = CreateGlobalInstance(id);
+        object.instanceName = name;
+
+        float centerX = val["bbox"]["center"][0];
+        float centerY = val["bbox"]["center"][1];
+        float centerZ = val["bbox"]["center"][2];
+
+        float sizeX = val["bbox"]["size"][0];
+        float sizeY = val["bbox"]["size"][1];
+        float sizeZ = val["bbox"]["size"][2];
+        object.bbox.minX = centerX - sizeX * 0.5f;
+        object.bbox.minY = centerY - sizeY * 0.5f;
+        object.bbox.minZ = centerZ - sizeZ * 0.5f;
+
+        object.numberObservations = val["n_observations"];
+        object.underSegmentScore = val["undersegmentation_score"];
+
+        auto& alphasList = val["results"];
+        for (auto& [category, alpha] : alphasList.items())
+            object.addToCategoryAlpha(CategoryManager::getInstance().addCategory(category), alpha);
+    }
+}
+
 nlohmann::json SemanticMap::mapToJSON()
 {
     nlohmann::json data_json;
 
     data_json["instances"] = {};
 
-    for (size_t i = 0; i < globalSemanticMap.size(); i++)
+    for (auto& [id, instance] : globalSemanticMap)
     {
-        if (globalSemanticMap[i].isStillValid())
+        if (instance.isValidInstance())
         {
-            data_json["instances"][globalSemanticMap[i].instanceName] = {};
-            data_json["instances"][globalSemanticMap[i].instanceName]["bbox"] = {};
+            data_json["instances"][instance.instanceName] = {};
+            data_json["instances"][instance.instanceName]["bbox"] = {};
 
             nlohmann::json center = nlohmann::json::array();
-            center.push_back((globalSemanticMap[i].bbox.minX + globalSemanticMap[i].bbox.maxX) / 2.0);
-            center.push_back((globalSemanticMap[i].bbox.minY + globalSemanticMap[i].bbox.maxY) / 2.0);
-            center.push_back((globalSemanticMap[i].bbox.minZ + globalSemanticMap[i].bbox.maxZ) / 2.0);
-            data_json["instances"][globalSemanticMap[i].instanceName]["bbox"]["center"] = center;
+            center.push_back((instance.bbox.minX + instance.bbox.maxX) / 2.0);
+            center.push_back((instance.bbox.minY + instance.bbox.maxY) / 2.0);
+            center.push_back((instance.bbox.minZ + instance.bbox.maxZ) / 2.0);
+            data_json["instances"][instance.instanceName]["bbox"]["center"] = center;
 
             nlohmann::json size = nlohmann::json::array();
-            size.push_back(globalSemanticMap[i].bbox.maxX - globalSemanticMap[i].bbox.minX);
-            size.push_back(globalSemanticMap[i].bbox.maxY - globalSemanticMap[i].bbox.minY);
-            size.push_back(globalSemanticMap[i].bbox.maxZ - globalSemanticMap[i].bbox.minZ);
-            data_json["instances"][globalSemanticMap[i].instanceName]["bbox"]["size"] = size;
+            size.push_back(instance.bbox.maxX - instance.bbox.minX);
+            size.push_back(instance.bbox.maxY - instance.bbox.minY);
+            size.push_back(instance.bbox.maxZ - instance.bbox.minZ);
+            data_json["instances"][instance.instanceName]["bbox"]["size"] = size;
 
-            data_json["instances"][globalSemanticMap[i].instanceName]["results"] = {};
+            data_json["instances"][instance.instanceName]["results"] = {};
 
             // Convert dynamic category probabilities to JSON
-            for (const auto& [categoryIndex, probability] : globalSemanticMap[i].alphaParamsCategories)
+            for (const auto& [categoryIndex, probability] : instance.alphaParamsCategories)
             {
                 if (probability > 0)
                 {
                     std::string categoryName = getCategoryName(categoryIndex);
                     if (!categoryName.empty())
                     {
-                        data_json["instances"][globalSemanticMap[i].instanceName]["results"][categoryName] = probability;
+                        data_json["instances"][instance.instanceName]["results"][categoryName] = probability;
                     }
                 }
             }
 
-            data_json["instances"][globalSemanticMap[i].instanceName]["n_observations"] = globalSemanticMap[i].numberObservations;
-            data_json["instances"][globalSemanticMap[i].instanceName]["undersegmentation_score"] = globalSemanticMap[i].underSegmentScore;
+            data_json["instances"][instance.instanceName]["n_observations"] = instance.numberObservations;
+            data_json["instances"][instance.instanceName]["undersegmentation_score"] = instance.underSegmentScore;
         }
     }
 
@@ -680,9 +760,9 @@ void SemanticMap::updateSemanticMapResultsFromJSON(const nlohmann::json& data_js
         throw std::runtime_error("SemanticMap is not initialized.");
     }
 
-    for (SemanticObject& instance : globalSemanticMap)
+    for (auto& [id, instance] : globalSemanticMap)
     {
-        if (!instance.isStillValid())
+        if (!instance.isValidInstance())
             continue;
 
         auto index_iter = data_json["instances"].find(instance.instanceName);
@@ -707,22 +787,22 @@ nlohmann::json SemanticMap::appearancesToJson()
     nlohmann::json data_json;
 
     data_json = {};
-    for (size_t i = 0; i < globalSemanticMap.size(); i++)
+    for (auto& [id, instance] : globalSemanticMap)
     {
-        if (globalSemanticMap[i].isStillValid())
+        if (instance.isValidInstance())
         {
-            data_json[globalSemanticMap[i].instanceName] = {};
-            data_json[globalSemanticMap[i].instanceName]["timestamps"] = {};
-            for (size_t j = 0; j < globalSemanticMap[i].appearancesTimestamps.size(); j++)
+            data_json[instance.instanceName] = {};
+            data_json[instance.instanceName]["timestamps"] = {};
+            for (size_t j = 0; j < instance.appearancesTimestamps.size(); j++)
             {
                 std::string category = getCategoryName(j);
-                const auto& appearances_map = globalSemanticMap[i].appearancesTimestamps[j];
+                const auto& appearances_map = instance.appearancesTimestamps[j];
                 if (appearances_map.empty())
                 {
                     continue;
                 }
 
-                data_json[globalSemanticMap[i].instanceName]["timestamps"][category] = nlohmann::json::array();
+                data_json[instance.instanceName]["timestamps"][category] = nlohmann::json::array();
                 for (const auto& instancePair : appearances_map)
                 {
                     nlohmann::json instanceBbox;
@@ -732,7 +812,7 @@ nlohmann::json SemanticMap::appearancesToJson()
                     instanceBbox["bbox"]["sizeX"] = instancePair.second.sizeX;
                     instanceBbox["bbox"]["sizeY"] = instancePair.second.sizeY;
 
-                    data_json[globalSemanticMap[i].instanceName]["timestamps"][category].push_back(instanceBbox);
+                    data_json[instance.instanceName]["timestamps"][category].push_back(instanceBbox);
                 }
             }
         }

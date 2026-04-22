@@ -62,11 +62,11 @@ namespace voxeland
 
             for (InstanceID_t localInstanceID = 0; localInstanceID < instances_candidates.size(); localInstanceID++)
             {
-                const SemanticObject* globalInstance = &semantics.globalSemanticMap[instances_candidates[localInstanceID]];
+                const SemanticObject* globalInstance = &semantics.globalSemanticMap.at(instances_candidates[localInstanceID]);
 
                 // if the instance has been fused with others, find the new instance that represents the fusion
-                while (!globalInstance->isStillValid())
-                    globalInstance = &semantics.globalSemanticMap[globalInstance->pointsTo];
+                while (!globalInstance->isValidInstance())
+                    globalInstance = &semantics.globalSemanticMap.at(globalInstance->pointsTo);
 
                 float votesInstance = instances_votes[localInstanceID];
                 for (size_t category = 0; category < semantics.getNumCategories(); category++)
@@ -122,7 +122,7 @@ namespace voxeland
             }
 
             SemanticMap& semantics = SemanticMap::get_instance();
-            const SemanticObject* globalInstance = &semantics.globalSemanticMap[instances_candidates[idxMaxVotes1]];
+            const SemanticObject* globalInstance = &semantics.globalSemanticMap.at(instances_candidates[idxMaxVotes1]);
 
             return globalInstance->instanceID;
         }
@@ -176,9 +176,9 @@ namespace voxeland
             return ss.str();
         }
 
-    protected:
         void AddVote(InstanceID_t thisGlobalID)
         {
+            VXL_ASSERT(thisGlobalID >= 0);
             auto it = std::find(instances_candidates.begin(), instances_candidates.end(), thisGlobalID);
             if (it != instances_candidates.end())
                 instances_votes[std::distance(instances_candidates.begin(), it)] += 1;
@@ -200,7 +200,7 @@ namespace voxeland
             {
                 bool needed = false;
                 for (size_t i = 0; i < instances_candidates.size(); i++)
-                    if (!semantics.globalSemanticMap.at(instances_candidates.at(i)).isStillValid())
+                    if (!semantics.globalSemanticMap.at(instances_candidates.at(i)).isValidInstance())
                         needed = true;
 
                 if (!needed)
@@ -213,10 +213,10 @@ namespace voxeland
 
             for (InstanceID_t i = 0; i < instances_candidates.size(); i++)
             {
-                if (semantics.globalSemanticMap[instances_candidates[i]].isStillValid())
+                if (semantics.globalSemanticMap.at(instances_candidates[i]).isValidInstance())
                     candidates_temp.push_back(instances_candidates[i]);
                 else
-                    candidates_temp.push_back(semantics.globalSemanticMap[instances_candidates[i]].pointsTo);
+                    candidates_temp.push_back(semantics.globalSemanticMap.at(instances_candidates[i]).pointsTo);
             }
 
             for (InstanceID_t i = 0; i < candidates_temp.size(); i++)

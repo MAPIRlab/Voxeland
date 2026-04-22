@@ -85,7 +85,7 @@ namespace voxeland
         {
             r = 255;
             g = 0;
-            b = 255;
+            b = 0;
         }
         return Color(r, g, b);
     }

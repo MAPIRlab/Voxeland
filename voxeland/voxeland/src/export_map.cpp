@@ -28,7 +28,7 @@ namespace voxeland_server
         std::stringstream ply_data;
         size_t vertex_count = 0;
 
-        for (const auto& instance : semantics.globalSemanticMap)
+        for (const auto& [id, instance] : semantics.globalSemanticMap)
         {
             if (instance.pointsTo != -1)
                 continue;
@@ -164,7 +164,7 @@ namespace voxeland_server
             // For categories uncertainty: get from the instance's alpha parameters
             if (instanceID > 0)
             {
-                for (const auto& instance : semantics.globalSemanticMap)
+                for (const auto& [id, instance] : semantics.globalSemanticMap)
                 {
                     if (instance.pointsTo != -1)
                         continue;
@@ -283,7 +283,7 @@ namespace voxeland_server
             nlohmann::json map_json;
             nlohmann::json instances_json;
 
-            for (const auto& instance : semantics.globalSemanticMap)
+            for (const auto& [id, instance] : semantics.globalSemanticMap)
             {
                 if (instance.pointsTo != -1)
                     continue;
