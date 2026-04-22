@@ -52,6 +52,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
     uint8_t integrated = 0;
     uint8_t added = 0;
 
+    lastMapLocalToGlobal.clear();
     lastMapLocalToGlobal.resize(localMap.size());
     if (globalSemanticMap.empty())
     {
@@ -67,15 +68,13 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
     }
 
     // First, integrate local "unknown" with global "unknown". They are always the 0-index
-    lastMapLocalToGlobal[0] = 0;
-    // Further integration of unknown is required: bbox, probabilities, etc. but to be decided yet
+    lastMapLocalToGlobal[0].push_back(0);
 
     auto globalInstanceIDList = getCurrentInstanceIDs();
 
     // Both loops start at 1 to skip "unknown" class
     for (InstanceID_t localInstanceID = 1; localInstanceID < localMap.size(); localInstanceID++)
     {
-        std::optional<FusionScore> bestScore;
         const SemanticObject& localInstance = localMap[localInstanceID];
 
         if (!localInstance.localGeometry.has_value())
@@ -123,26 +122,28 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
             double semanticSimilarity = computeSemanticSimilarity(localInstance, globalInstance);
 
             // if the objects are very semantically similar, be a bit more lenient with the geometrical coincidence
-            constexpr float minIOVThr = 0.5;
+            constexpr float minIOVThr = 0.4;
             constexpr float maxIOVThr = 0.8;
             double fusionThreshold = std::lerp(maxIOVThr, minIOVThr, semanticSimilarity);
             double nFusionScore = iov / fusionThreshold;
 
             if (nFusionScore >= 1.0)
             {
-                if (!bestScore || nFusionScore > bestScore->normalizedScore)
-                {
-                    bestScore = FusionScore{ .fuseWithID = globalInstanceID, .normalizedScore = nFusionScore };
-                    VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow),
-                              "Integrating local {} - global {}:\n\tIoU:{:.2f}  IoS:{:.2f}  IoV:{:.2f}  SemSim:{:.2f}",
-                              localInstanceID,
-                              globalInstanceID,
-                              iou,
-                              ios,
-                              iov,
-                              semanticSimilarity);
-                    PAUSE_THREAD_UNTIL_GUI_CONTINUE(debugging_utils::pause_on_integration);
-                }
+                VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow),
+                          "Integrating local {} - global {}:\n\tIoU:{:.2f}  IoS:{:.2f}  IoV:{:.2f}  SemSim:{:.2f}",
+                          localInstanceID,
+                          globalInstanceID,
+                          iou,
+                          ios,
+                          iov,
+                          semanticSimilarity);
+                PAUSE_THREAD_UNTIL_GUI_CONTINUE(debugging_utils::pause_on_integration);
+                fuseSemanticObjects(globalInstance, localInstance);
+
+                lastMapLocalToGlobal[localInstanceID].push_back(globalInstance.instanceID);
+
+                globalInstance.numberObservations++;
+                integrated++;
             }
             else
             {
@@ -164,17 +165,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
             }
         }
 
-        if (bestScore.has_value())
-        {
-            SemanticObject& globalInstance = globalSemanticMap.at(bestScore->fuseWithID);
-            fuseSemanticObjects(globalInstance, localInstance);
-
-            lastMapLocalToGlobal[localInstanceID] = globalInstance.instanceID;
-
-            globalInstance.numberObservations++;
-            integrated++;
-        }
-        else
+        if (lastMapLocalToGlobal.at(localInstanceID).empty())
         {
             // Create new object integrating localMap information
             SemanticObject& newObject = CreateGlobalInstance();
@@ -182,7 +173,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
             newObject.alphaParamsCategories = localInstance.alphaParamsCategories;
             newObject.appearancesTimestamps = localInstance.appearancesTimestamps;
 
-            lastMapLocalToGlobal[localInstanceID] = newObject.instanceID;
+            lastMapLocalToGlobal[localInstanceID].push_back(newObject.instanceID);
             VXL_DEBUG("Created global instance {} from local {}", newObject.instanceID, localInstanceID);
             added++;
         }
@@ -208,7 +199,10 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
 
             // remove instances with very few observations
             if (instance.numberObservations <= nObservationsToRemove || voxelsGlobal.size() == 0)
+            {
                 instance.pointsTo = 0;
+                VXL_INFO("Removing instance {}: {} voxels after {} observations", id, voxelsGlobal.size(), instance.numberObservations);
+            }
             else
                 geometry.insert({ id, voxelsGlobal });
         }
@@ -238,6 +232,7 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         // if it's all disperse points, this instance is cooked
         if (clusters.size() == 0)
         {
+            VXL_INFO("Removing instance {}: 0 clusters in refinement", id);
             instance.pointsTo = 0;
             continue;
         }
@@ -300,10 +295,11 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         for (size_t firstIdx = 0; firstIdx < globalInstanceIDList.size(); firstIdx++)
         {
             // fusion parameters
-            constexpr float semSimThr = 0.5;      // how similar the class distributions must be to allow fusing
-            constexpr float votesThr = 0.5;       // when retrieving the geometry that corresponds to this instance, which proportion of votes must a voxel have to count
+            constexpr float semSimThr = 0.4;      // how similar the class distributions must be to allow fusing
+            constexpr float votesThr = 0.3;       // when retrieving the geometry that corresponds to this instance, which proportion of votes must a voxel have to count
             constexpr uint coarseningFactor = 2;  // downsampling factor for the pointclouds when calculating IoU
-            constexpr float iosThr = 0.25;        // exactly what you think this is
+            constexpr float iosThr = 0.5;         // exactly what you think this is
+            constexpr float iouThr = 0.3;         // exactly what you think this is
             constexpr float iouSkipThr = 0.7;     // if IoU is sufficiently large, the instances are overlapping entirely and we don't care about the other metrics.
                                                   // This is necessary because we can sometimes end up with two overlapping instances which correspond to one class each,
                                                   // and every new observation always fuses with the instance which already agrees with its class.
@@ -343,12 +339,12 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                         if (iou > iouSkipThr)
                         {
                             IoUSkip = true;
-                            VXL_DEBUG("Fusing global {} - global {}.  IoU above passthrough threshold: {}", firstID, secondID, iou);
+                            VXL_DEBUG("Fusing global {} - global {}.  IoU above passthrough threshold: {:.2f}", firstID, secondID, iou);
                         }
 
-                        if (!IoUSkip && ios < iosThr)
+                        if (!IoUSkip && (ios < iosThr && iou < iouThr))
                         {
-                            VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient IoS: {}", firstID, secondID, ios);
+                            VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient IoS: {:.2f} and IoU: {:.2f}", firstID, secondID, ios, iou);
                             continue;
                         }
                     }
@@ -465,7 +461,7 @@ void SemanticMap::setLocalSemanticMap(const std::vector<SemanticObject>& localMa
     lastLocalSemanticMap = localMap;
 }
 
-InstanceID_t SemanticMap::localToGlobalInstance(InstanceID_t localInstance)
+std::vector<InstanceID_t>& SemanticMap::localToGlobalInstance(InstanceID_t localInstance)
 {
     return lastMapLocalToGlobal[localInstance];
 }
@@ -557,7 +553,7 @@ double SemanticMap::computeKLD(const std::vector<double>& P, const std::vector<d
 
 SemanticObject& SemanticMap::CreateGlobalInstance(std::optional<InstanceID_t> forceID)
 {
-    static InstanceID_t nextID = 0;
+    static InstanceID_t nextID = 1;
     InstanceID_t id = forceID ? *forceID : nextID;
     nextID = id + 1;
     VXL_ASSERT(!globalSemanticMap.contains(id));
@@ -617,8 +613,9 @@ double SemanticMap::computeSemanticSimilarity(const SemanticObject& obj1, const 
     double js_normalized = js_divergence / std::log(2.0);
     double similarity = 1.0 - js_normalized;
 
-    VXL_ASSERT(similarity >= 0);
-    VXL_ASSERT(similarity <= 1);
+    constexpr float epsilon = 1e-4;
+    VXL_ASSERT(similarity >= 0 - epsilon);
+    VXL_ASSERT(similarity <= 1 + epsilon);
     return similarity;
 }
 

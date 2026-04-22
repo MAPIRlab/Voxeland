@@ -16,8 +16,10 @@ namespace voxeland
         void update(const pcl::PointXYZSemantics& pcl)
         {
             SemanticMap& semantics = SemanticMap::get_instance();
-            InstanceID_t thisGlobalID = semantics.localToGlobalInstance(pcl.instance_id);
-            AddVote(thisGlobalID);
+            std::vector<InstanceID_t>& globalIDs = semantics.localToGlobalInstance(pcl.instance_id);
+
+            for (InstanceID_t thisGlobalID : globalIDs)
+                AddVote(thisGlobalID);
         }
 
         virtual Color toColor()
@@ -198,7 +200,7 @@ namespace voxeland
             // possible early out
             {
                 bool needed = false;
-                for (size_t i = 0; i < instances_candidates.size(); i++)
+                for (size_t i = 0; i < instances_candidates.size() && !needed; i++)
                     if (!semantics.globalSemanticMap.at(instances_candidates.at(i)).isValidInstance())
                         needed = true;
 
@@ -212,16 +214,14 @@ namespace voxeland
 
             for (InstanceID_t i = 0; i < instances_candidates.size(); i++)
             {
-                if (semantics.globalSemanticMap.at(instances_candidates[i]).isValidInstance())
-                    candidates_temp.push_back(instances_candidates[i]);
-                else
-                    candidates_temp.push_back(semantics.globalSemanticMap.at(instances_candidates[i]).pointsTo);
+                SemanticObject* globalInstance = &semantics.globalSemanticMap.at(instances_candidates[i]);
+                while (!globalInstance->isValidInstance())
+                    globalInstance = &semantics.globalSemanticMap.at(globalInstance->pointsTo);
+                candidates_temp.push_back(globalInstance->instanceID);
             }
 
             for (InstanceID_t i = 0; i < candidates_temp.size(); i++)
-            {
                 combining_instances[candidates_temp[i]] += instances_votes[i];
-            }
 
             instances_candidates.clear();
             instances_votes.clear();

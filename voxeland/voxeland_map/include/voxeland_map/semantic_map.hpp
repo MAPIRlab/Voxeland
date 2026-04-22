@@ -32,7 +32,7 @@ public:
     bool isInitialized() { return initialized; }
 
     void setLocalSemanticMap(const std::vector<SemanticObject>& localMap);
-    InstanceID_t localToGlobalInstance(InstanceID_t localInstance);
+    std::vector<InstanceID_t>& localToGlobalInstance(InstanceID_t localInstance);
     uint32_t indexToHexColor(InstanceID_t index);
     void RandomizeColorsOrder();
 
@@ -98,7 +98,7 @@ public:
     DebugInformation debugInfo;
 
 private:
-    std::vector<InstanceID_t> lastMapLocalToGlobal;
+    std::vector<std::vector<InstanceID_t>> lastMapLocalToGlobal;
     std::vector<std::uint32_t> color_palette;
     std::vector<std::uint32_t> color_palette_offsets;  // used to re-randomize the colors in case of an unlucky coincidence on nearby instances
     bool initialized = false;
@@ -115,11 +115,6 @@ private:
 
     std::vector<size_t> getCurrentInstanceIDs();  // when iterating over the map directly, we can't create or delete instances (due to iterator invalidation)
                                                   // so, when we need to modify, we can get the list of keys and just access the map element by element without iterators
-    struct FusionScore
-    {
-        InstanceID_t fuseWithID;
-        double normalizedScore;
-    };
 };
 
 //----------------------------------------------------------

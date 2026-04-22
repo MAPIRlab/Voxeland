@@ -8,13 +8,15 @@ namespace voxeland
         using PointCloudType = pcl::PointCloud<pcl::PointXYZRGBSemantics>;
         Color rgb;
 
-        RGBSemanticsInstances(){};
+        RGBSemanticsInstances() {};
 
         void update(const pcl::PointXYZRGBSemantics& pcl)
         {
             SemanticMap& semantics = SemanticMap::get_instance();
-            InstanceID_t thisGlobalID = semantics.localToGlobalInstance(pcl.instance_id);
-            AddVote(thisGlobalID);
+            std::vector<InstanceID_t>& globalIDs = semantics.localToGlobalInstance(pcl.instance_id);
+
+            for (InstanceID_t thisGlobalID : globalIDs)
+                AddVote(thisGlobalID);
 
             rgb.r = pcl.r;
             rgb.g = pcl.g;
@@ -34,4 +36,4 @@ namespace voxeland
             return Color::FromHex(hexColor);
         }
     };
-}  // namespace Bonxai
+}  // namespace voxeland
