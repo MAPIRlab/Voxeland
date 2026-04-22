@@ -58,58 +58,6 @@ namespace voxeland_server
             semantics_as_instances_ = declare_parameter("semantics_as_instances", false);
         }
 
-        {
-            auto_save_enabled_ = declare_parameter("automatic_map_saving", false);
-
-            // Only declare scene and detector parameters if automatic saving is enabled
-            if (auto_save_enabled_)
-            {
-                scene_name_ = declare_parameter("scene_name", "unknown_scene");
-                detector_name_ = declare_parameter("detector_name", "unknown_detector");
-                VXL_INFO("Automatic map saving ENABLED - Scene: {}, Detector: {}", scene_name_, detector_name_);
-
-                // Determine output directory and file path at startup (only once)
-                // Use current working directory (usually the workspace root)
-                std::filesystem::path workspace_root = std::filesystem::current_path();
-                std::filesystem::path base_output_dir = workspace_root / "src" / "Voxeland" / "evaluation" / "voxeland_output";
-
-                // Use scene_name directly as folder name (e.g., scannet_scene0000_01 or scenenn_011)
-                output_dir_ = (base_output_dir / scene_name_).string();
-
-                // Create scene directory if it doesn't exist
-                std::filesystem::create_directories(output_dir_);
-
-                // Check if PLY file already exists
-                std::string base_filename = "voxeland_semantic_map_" + detector_name_ + "_" + scene_name_;
-                std::string candidate_path = output_dir_ + "/" + base_filename + ".ply";
-
-                if (std::filesystem::exists(candidate_path))
-                {
-                    // File exists, add timestamp
-                    auto now = std::chrono::system_clock::now();
-                    auto time_t_now = std::chrono::system_clock::to_time_t(now);
-                    std::tm tm_now;
-                    localtime_r(&time_t_now, &tm_now);
-
-                    char timestamp[64];
-                    std::strftime(timestamp, sizeof(timestamp), "%Y%m%d_%H%M%S", &tm_now);
-
-                    output_ply_path_ = output_dir_ + "/" + base_filename + "_" + timestamp + ".ply";
-                    VXL_INFO("Output file already exists. Will save to: {}", output_ply_path_);
-                }
-                else
-                {
-                    // File doesn't exist, use base name
-                    output_ply_path_ = candidate_path;
-                    VXL_INFO("Will save map to: {}", output_ply_path_);
-                }
-            }
-            else
-            {
-                VXL_INFO("Automatic map saving DISABLED");
-            }
-        }
-
         latched_topics_ = declare_parameter("latch", true);
         if (latched_topics_)
         {
@@ -142,15 +90,6 @@ namespace voxeland_server
 
         load_map_srv_ = create_service<UpdateMapResultsSrv>("~/update_map_results", std::bind(&VoxelandServer::loadMapSrv, this, _1, _2));
 
-        // Auto-save timer: save map every 30 seconds (only if enabled)
-        if (auto_save_enabled_)
-        {
-            auto_save_timer_ = create_wall_timer(
-                std::chrono::seconds(30),
-                std::bind(&VoxelandServer::autoSaveMapCallback, this));
-
-            VXL_INFO("Auto-save timer initialized: map will be saved every 30 seconds to {}", output_ply_path_);
-        }
 
         // set parameter callback
         set_param_res_ = this->add_on_set_parameters_callback(std::bind(&VoxelandServer::onParameter, this, _1));
@@ -159,6 +98,14 @@ namespace voxeland_server
 
         if (log_level)
             rclcpp::get_logger("VXL").set_level(log_level.value());
+
+        // map loading (for visualizing pre-existing maps)
+        std::string loadMapPathPLY = declare_parameter<std::string>("load_map_path_ply", "");
+        std::string loadMapPathJSON = declare_parameter<std::string>("load_map_path_json", "");
+        if (std::filesystem::exists(loadMapPathPLY) && std::filesystem::exists(loadMapPathPLY))
+        {
+            loadMapFromFile(loadMapPathJSON, loadMapPathPLY);
+        }
     }
 
     void VoxelandServer::initializeBonxaiObject()
@@ -236,6 +183,44 @@ namespace voxeland_server
         bonxai_->setOptions(options);
     }
 
+    void VoxelandServer::initializeWithMode(DataMode mode, const std::vector<std::string>& categories)
+    {
+        currentMode = mode;
+        get_distributions_srv_ = create_service<GetClassDistributions>("voxeland/get_class_distributions",
+                                                                       std::bind(&VoxelandServer::getClassDistributionsSrv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+
+        if (bonxai_.get() == nullptr)
+            initializeBonxaiObject();
+
+        // If semantics are included in the point cloud, the possible object categories are retrieved from the
+        // first message and can grow dynamically.
+        if (modeHas(DataMode::Semantics) && !semantics.isInitialized())
+        {
+            semantics.initialize(categories, *bonxai_, currentMode);
+            if (semantics_as_instances_)
+            {
+                semantic_map_pub_ = create_publisher<segmentation_msgs::msg::InstanceSemanticMap>("semantic_map_instances", 1);
+            }
+        }
+    }
+
+    DataMode VoxelandServer::GetDataMode(const std::vector<sensor_msgs::msg::PointField>& fields)
+    {
+        DataMode mode = DataMode::Empty;
+
+        for (size_t i = 0; i < fields.size(); i++)
+        {
+            if (fields[i].name == "rgb")
+                mode = mode | DataMode::RGB;
+            else if (fields[i].name == "instance_id")
+                mode = mode | DataMode::Semantics;
+        }
+        if (semantics_as_instances_ && modeHas(DataMode::Semantics))
+            mode = mode | DataMode::SemanticsInstances;
+
+        return mode;
+    }
+
     /* Modified by JL Matez: changing PointCloud2 msg to SemanticPointCloud msg */
     void VoxelandServer::insertCloudCallback(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud)
     {
@@ -259,36 +244,13 @@ namespace voxeland_server
         // considered as instances or isolated voxels.
         if (currentMode == DataMode::Uninitialized)
         {
-            currentMode = DataMode::Empty;
-
-            for (size_t i = 0; i < cloud->cloud.fields.size(); i++)
-            {
-                if (cloud->cloud.fields[i].name == "rgb")
-                    currentMode = currentMode | DataMode::RGB;
-                else if (cloud->cloud.fields[i].name == "instance_id")
-                    currentMode = currentMode | DataMode::Semantics;
-            }
-            if (semantics_as_instances_ && modeHas(DataMode::Semantics))
-            {
-                currentMode = currentMode | DataMode::SemanticsInstances;
-            }
-
-            get_distributions_srv_ = create_service<GetClassDistributions>("voxeland/get_class_distributions",
-                                                                           std::bind(&VoxelandServer::getClassDistributionsSrv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+            DataMode mode = GetDataMode(cloud->cloud.fields);
+            initializeWithMode(mode, cloud->categories);
         }
-
-        if (bonxai_.get() == nullptr)
-            initializeBonxaiObject();
-
-        // If semantics are included in the point cloud, the possible object categories are retrieved from the
-        // first message and can grow dynamically.
-        if (modeHas(DataMode::Semantics) && !semantics.isInitialized())
+        else if (currentMode != GetDataMode(cloud->cloud.fields))
         {
-            semantics.initialize(cloud->categories, *bonxai_, currentMode);
-            if (semantics_as_instances_)
-            {
-                semantic_map_pub_ = create_publisher<segmentation_msgs::msg::InstanceSemanticMap>("semantic_map_instances", 1);
-            }
+            VXL_ERROR("Current mode {} does not match cloud information {}", (int)currentMode, (int)GetDataMode(cloud->cloud.fields));
+            return;
         }
 
         if (currentMode == DataMode::Empty)  // Mode XYZ
@@ -419,25 +381,6 @@ namespace voxeland_server
         }
         outfile << ply;
         outfile.close();
-
-        // If PLY is empty and we have semantics instances, generate PLY from semantic map
-        if (ply.empty() && modeHas(DataMode::SemanticsInstances))
-        {
-            VXL_INFO("Generating PLY from semantic instances map");
-            std::string instances_ply = semanticsMapToPLY();
-
-            std::string instances_ply_filename = "voxeland_instances_map.ply";
-            std::ofstream instances_outfile(instances_ply_filename);
-
-            if (!instances_outfile.is_open())
-            {
-                VXL_ERROR("Cannot save instances .PLY file in: {}/{}", std::filesystem::current_path().string(), instances_ply_filename);
-                return;
-            }
-            instances_outfile << instances_ply;
-            instances_outfile.close();
-            VXL_INFO("Saved semantic instances to PLY: {} vertices", semantics.globalSemanticMap.size());
-        }
     }
 
     void VoxelandServer::loadMapSrv(const std::shared_ptr<UpdateMapResultsSrv::Request> req, const std::shared_ptr<UpdateMapResultsSrv::Response> resp)
@@ -721,15 +664,23 @@ namespace voxeland_server
         return pcl::PointXYZ((float)t.x, (float)t.y, (float)t.z);
     }
 
-    void VoxelandServer::loadMapFromFile(const std::filesystem::path& path)
+    void VoxelandServer::loadMapFromFile(const std::filesystem::path& jsonPath, const std::filesystem::path& plyPath)
     {
-        
+        if (currentMode != voxeland::DataMode::Uninitialized)
+        {
+            VXL_ERROR("Cannot load serialized map if we have already received new observations. Ignoring the file.");
+            return;
+        }
+
+        initializeWithMode(voxeland::DataMode::SemanticsInstances, {});  // force instances mode
+        semantics.loadInstancesFromFile(jsonPath);
+        AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, mapFromPLY<DataT>(plyPath));
     }
 
 }  // namespace voxeland_server
 
 #include <rclcpp_components/register_node_macro.hpp>
 
-#include "export_map.cpp"
+#include "serialization.cpp"
 
 RCLCPP_COMPONENTS_REGISTER_NODE(voxeland_server::VoxelandServer)

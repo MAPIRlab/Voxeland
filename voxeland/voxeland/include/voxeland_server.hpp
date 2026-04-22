@@ -67,6 +67,7 @@ namespace voxeland_server
         SemanticsROSWrapper semantics_ros_wrapper;
 
     protected:
+        void initializeWithMode(DataMode mode, const std::vector<std::string>& categories);
         void initializeBonxaiObject();
 
         template <typename DataT>
@@ -81,14 +82,15 @@ namespace voxeland_server
         template <typename DataT>
         std::string mapToPLY();
 
-        std::string semanticsMapToPLY();
+        template <typename DataT>
+        void mapFromPLY(const std::filesystem::path& plyPath);
 
-        void autoSaveMapCallback();
-        
         template <typename DataT>
         std::string fullSemanticMapToPLY();
 
-        void loadMapFromFile(const std::filesystem::path& path);
+        void loadMapFromFile(const std::filesystem::path& jsonPath, const std::filesystem::path& plyPath);
+
+        DataMode GetDataMode(const std::vector<sensor_msgs::msg::PointField>& fields);
 
         template <typename DataT>
         void insertPointCloudBasic(const segmentation_msgs::msg::SemanticPointCloud::ConstSharedPtr cloud);
@@ -117,8 +119,6 @@ namespace voxeland_server
         rclcpp::Service<GetClassDistributions>::SharedPtr get_distributions_srv_;
         rclcpp::Service<UpdateMapResultsSrv>::SharedPtr load_map_srv_;
         
-        rclcpp::TimerBase::SharedPtr auto_save_timer_;
-
         std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
         std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;
 
@@ -139,13 +139,10 @@ namespace voxeland_server
 
         bool publish_2d_map_;
         bool map_origin_changed;
-        // octomap::OcTreeKey padded_min_key_;
         unsigned multires_2d_scale_;
         bool project_complete_map_;
 
-        // Added by JL Matez: SemanticBonxai Parameters
         bool semantics_as_instances_;
-        bool auto_save_enabled_;
         u_int32_t number_iterations = 0;
 
         bool paused = false;  // stop processing new observations. To be toggled from the GUI

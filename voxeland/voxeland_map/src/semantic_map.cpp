@@ -557,8 +557,9 @@ double SemanticMap::computeKLD(const std::vector<double>& P, const std::vector<d
 
 SemanticObject& SemanticMap::CreateGlobalInstance(std::optional<InstanceID_t> forceID)
 {
-    static InstanceID_t mostRecentID = 0;
-    InstanceID_t id = forceID ? *forceID : ++mostRecentID;
+    static InstanceID_t nextID = 0;
+    InstanceID_t id = forceID ? *forceID : nextID;
+    nextID = id + 1;
     VXL_ASSERT(!globalSemanticMap.contains(id));
     VXL_DEBUG("Creating instance {}", id);
     auto pair = globalSemanticMap.emplace(id, id);
@@ -696,6 +697,9 @@ void SemanticMap::loadInstancesFromFile(const std::filesystem::path& path)
         object.bbox.minX = centerX - sizeX * 0.5f;
         object.bbox.minY = centerY - sizeY * 0.5f;
         object.bbox.minZ = centerZ - sizeZ * 0.5f;
+        object.bbox.maxX = centerX + sizeX * 0.5f;
+        object.bbox.maxY = centerY + sizeY * 0.5f;
+        object.bbox.maxZ = centerZ + sizeZ * 0.5f;
 
         object.numberObservations = val["n_observations"];
         object.underSegmentScore = val["undersegmentation_score"];
