@@ -90,7 +90,6 @@ namespace voxeland_server
 
         load_map_srv_ = create_service<UpdateMapResultsSrv>("~/update_map_results", std::bind(&VoxelandServer::loadMapSrv, this, _1, _2));
 
-
         // set parameter callback
         set_param_res_ = this->add_on_set_parameters_callback(std::bind(&VoxelandServer::onParameter, this, _1));
 
@@ -102,10 +101,13 @@ namespace voxeland_server
         // map loading (for visualizing pre-existing maps)
         std::string loadMapPathPLY = declare_parameter<std::string>("load_map_path_ply", "");
         std::string loadMapPathJSON = declare_parameter<std::string>("load_map_path_json", "");
-        if (std::filesystem::exists(loadMapPathPLY) && std::filesystem::exists(loadMapPathPLY))
+        if (std::filesystem::exists(loadMapPathJSON) && std::filesystem::exists(loadMapPathPLY))
         {
+            VXL_INFO("Parsing pre-generated maps at '{}' and '{}'", loadMapPathJSON, loadMapPathPLY);
             loadMapFromFile(loadMapPathJSON, loadMapPathPLY);
         }
+        else
+            VXL_INFO("Voxeland server ready for observations!");
     }
 
     void VoxelandServer::initializeBonxaiObject()
@@ -215,7 +217,8 @@ namespace voxeland_server
             else if (fields[i].name == "instance_id")
                 mode = mode | DataMode::Semantics;
         }
-        if (semantics_as_instances_ && modeHas(DataMode::Semantics))
+        
+        if (semantics_as_instances_ && modeHas(mode, DataMode::Semantics))
             mode = mode | DataMode::SemanticsInstances;
 
         return mode;
@@ -334,6 +337,8 @@ namespace voxeland_server
 
     void VoxelandServer::saveMapSrv(const std::shared_ptr<std_srvs::srv::Empty::Request>, const std::shared_ptr<std_srvs::srv::Empty::Response>)
     {
+        std::scoped_lock<std::mutex> lock(debugging_utils::mutex);
+
         VXL_INFO("Saving map files");
 
         if (modeHas(DataMode::SemanticsInstances))
@@ -666,6 +671,7 @@ namespace voxeland_server
 
     void VoxelandServer::loadMapFromFile(const std::filesystem::path& jsonPath, const std::filesystem::path& plyPath)
     {
+        std::scoped_lock<std::mutex> lock(debugging_utils::mutex);
         if (currentMode != voxeland::DataMode::Uninitialized)
         {
             VXL_ERROR("Cannot load serialized map if we have already received new observations. Ignoring the file.");

@@ -64,6 +64,11 @@ namespace voxeland_server
             return static_cast<int>(currentMode & mode) != 0;
         }
 
+        bool modeHas(DataMode mode, DataMode value)
+        {
+            return static_cast<int>(mode & value) != 0;
+        }
+
         SemanticsROSWrapper semantics_ros_wrapper;
 
     protected:
