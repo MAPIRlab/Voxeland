@@ -117,7 +117,8 @@ namespace voxeland
                     }
                 }
 
-                if ((instances_candidates[idxMaxVotes1] == 0) && (max1 * 0.2 < max2))
+                constexpr float proportionRequired = 0.5;
+                if ((instances_candidates[idxMaxVotes1] == 0) && (max1 * proportionRequired < max2))
                     idxMaxVotes1 = idxMaxVotes2;
             }
 
@@ -187,8 +188,6 @@ namespace voxeland
                 instances_candidates.push_back(thisGlobalID);
                 instances_votes.push_back(1);
             }
-            // TODO (pepe) since this adds a vote for every *pixel* that falls inside the voxel, we could end up running into numerical precission issues if left running for a while
-            // might be a good idea to, at some point, reduce the votes to all the instances by a set amount to avoid that
         }
 
         // account for instances having been fused since they were last observed
