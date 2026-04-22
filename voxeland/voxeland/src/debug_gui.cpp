@@ -126,9 +126,9 @@ namespace voxeland_server
 
         for (auto& [id, instance] : semantics.globalSemanticMap)
         {
-            if (instance.isValidInstance() && id != 0)
+            if (instance.isValidInstance())
             {
-                if (!globalObjectsToDraw.contains(id) && enableByDefault)
+                if (!globalObjectsToDraw.contains(id) && id != 0 && enableByDefault)
                     globalObjectsToDraw[id] = true;
 
                 ImGui::Checkbox(instance.instanceName.c_str(), (bool*)&globalObjectsToDraw[id]);
