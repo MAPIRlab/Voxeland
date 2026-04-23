@@ -229,13 +229,8 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
             }
         };
 
-        // if it's all disperse points, this instance is cooked
         if (clusters.size() == 0)
-        {
-            VXL_INFO("Removing instance {}: 0 clusters in refinement", id);
-            instance.pointsTo = 0;
             continue;
-        }
         else if (clusters.size() == 1)
         {
             // update the geometry to remove any loose points
@@ -298,7 +293,7 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
             constexpr float semSimThr = 0.4;      // how similar the class distributions must be to allow fusing
             constexpr float votesThr = 0.3;       // when retrieving the geometry that corresponds to this instance, which proportion of votes must a voxel have to count
             constexpr uint coarseningFactor = 2;  // downsampling factor for the pointclouds when calculating IoU
-            constexpr float iosThr = 0.5;         // exactly what you think this is
+            constexpr float iosThr = 0.4;         // exactly what you think this is
             constexpr float iouThr = 0.3;         // exactly what you think this is
             constexpr float iouSkipThr = 0.7;     // if IoU is sufficiently large, the instances are overlapping entirely and we don't care about the other metrics.
                                                   // This is necessary because we can sometimes end up with two overlapping instances which correspond to one class each,
@@ -388,6 +383,23 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         }
     } while (fusedSomething);
 
+    // do one last pass, removing any individual instances with no geometric clusters
+    for (auto& id : globalInstanceIDList)
+    {
+        auto& instance = globalSemanticMap.at(id);
+        if (!instance.isValidInstance() || id == 0)
+            continue;
+        std::vector<std::set<Bonxai::IndicesT>> clusters = GeometryOperations::ClusterVoxelCloud(geometry.at(id));
+
+        // if it's all disperse points, this instance is cooked
+        if (clusters.size() == 0)
+        {
+            VXL_INFO("Removing instance {}: 0 clusters in refinement", id);
+            instance.pointsTo = 0;
+        }
+    }
+
+    // update the global map
     deleteOldInstances();
 }
 
