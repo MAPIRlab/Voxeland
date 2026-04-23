@@ -50,8 +50,8 @@ def launch_setup(context, *args, **kwargs):
            {"sensor_model.min": parse_substitution("$(var clampOccupancyMin)")},
            {"sensor_model.max": parse_substitution("$(var clampOccupancyMax)")},
 
-           {"occupancy_min_z": 0.1},
-           {"occupancy_max_z": 10.0},
+           {"occupancy_min_z": -100.0},
+           {"occupancy_max_z": 100.0},
 
            {"log_level": "Debug"},
         ],

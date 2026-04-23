@@ -35,8 +35,8 @@ def launch_setup(context, *args, **kwargs):
 
            {"log_level": "Debug"},
 
-           {"load_map_path_ply": "/mnt/HDD/Evaluation_Voxeland/SceneNN/evaluation2016/030/voxeland_pointcloud.ply"},
-           {"load_map_path_json": "/mnt/HDD/Evaluation_Voxeland/SceneNN/evaluation2016/030/voxeland_instanceMap.json"},
+           {"load_map_path_ply": "/mnt/HDD/Evaluation_Voxeland/SceneNN/evaluation2016/061/voxeland_pointcloud.ply"},
+           {"load_map_path_json": "/mnt/HDD/Evaluation_Voxeland/SceneNN/evaluation2016/061/voxeland_instanceMap.json"},
 
         ],
     )
