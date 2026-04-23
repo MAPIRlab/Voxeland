@@ -312,6 +312,33 @@ namespace voxeland_server
         ImGui::Text("Num observations: %d", selectedInstance.numberObservations);
         ImGui::Text("Under-segment score: %.2f", selectedInstance.underSegmentScore);
 
+        static bool useThr = false;
+        static float probThr = 1;
+        ImGui::Checkbox("##Prob thr", &useThr);
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(70);
+        ImGui::BeginDisabled(!useThr);
+        ImGui::InputFloat("Prob Thr", &probThr);
+        ImGui::EndDisabled();
+
+        static bool writeVoxels = false;
+        ImGui::Checkbox("Write voxel indices", &writeVoxels);
+        ImGui::SameLine();
+        static std::string voxelCountLine;
+        if (ImGui::Button("Find voxels"))
+        {
+            std::set<Bonxai::IndicesT> voxels1;
+            std::optional<float> thr = std::nullopt;
+            if (useThr)
+                thr = probThr;
+            AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxels1 = semantics.listOfVoxelsInObject<DataT>(selectedInstance, thr););
+            voxelCountLine = fmt::format("{} voxels in instance", voxels1.size()).c_str();
+            if (writeVoxels)
+                for (auto& indices : voxels1)
+                    VXL_INFO("({},{},{})", indices.x, indices.y, indices.z);
+        }
+        ImGui::Text("%s", voxelCountLine.c_str());
+
         static int compareInstanceIdx = 0;
         selectInstance("Compare with", compareInstanceIdx);
         const SemanticObject& compareInstance = semantics.globalSemanticMap.at(compareInstanceIdx);
@@ -325,6 +352,7 @@ namespace voxeland_server
             double semSim = semantics.computeSemanticSimilarity(selectedInstance, compareInstance);
             comparisonText = fmt::format("IoU: {:.2f}\nIoS: {:.2f}\nSemanticSimilarity: {:.2f}", iou, ios, semSim);
         }
+
         if (comparisonText != "")
         {
             ImGui::Indent(20.f);
