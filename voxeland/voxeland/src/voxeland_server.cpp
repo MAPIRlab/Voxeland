@@ -497,7 +497,7 @@ namespace voxeland_server
     void VoxelandServer::doGlobalRefinement()
     {
         voxeland::ScopedStopwatch watch("Global refinement");
-        semantics.refineGlobalSemanticMap(2);
+        semantics.refineGlobalSemanticMap(8);
     }
 
     template <typename DataT>
@@ -536,7 +536,7 @@ namespace voxeland_server
             cloud->instances, pc, sensorPosition.x, sensorPosition.y, sensorPosition.z);
         bonxai_->With<DataT>()->insertPointCloud(pc.points, sensorPosition, max_range_);
 
-        if (number_iterations % 10 == 0)
+        if (number_iterations % 20 == 0)
         {
             voxeland::ScopedStopwatch watch("Global refinement");
             doGlobalRefinement();
