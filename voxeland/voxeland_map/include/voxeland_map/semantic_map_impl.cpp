@@ -75,12 +75,13 @@ inline std::set<Bonxai::IndicesT> SemanticMap::listOfVoxelsInObject(const Semant
 {
     std::set<Bonxai::IndicesT> cellsInside;
 
-    Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>* bonxai = BonxaiQuery<DataT>::getBonxaiT()->grid();
+    Bonxai::ProbabilisticMapT<DataT>* bonxai = BonxaiQuery<DataT>::getBonxaiT();
+    Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>* voxelGrid = bonxai->grid();
 
-    const Bonxai::IndicesT coordMin = bonxai->posToIndex(Bonxai::Point3D(
-        object.bbox.minX - bonxai->resolution, object.bbox.minY - bonxai->resolution, object.bbox.minZ - bonxai->resolution));
-    const Bonxai::IndicesT coordMax = bonxai->posToIndex(Bonxai::Point3D(
-        object.bbox.maxX + bonxai->resolution, object.bbox.maxY + bonxai->resolution, object.bbox.maxZ + bonxai->resolution));
+    const Bonxai::IndicesT coordMin = voxelGrid->posToIndex(Bonxai::Point3D(
+        object.bbox.minX - voxelGrid->resolution, object.bbox.minY - voxelGrid->resolution, object.bbox.minZ - voxelGrid->resolution));
+    const Bonxai::IndicesT coordMax = voxelGrid->posToIndex(Bonxai::Point3D(
+        object.bbox.maxX + voxelGrid->resolution, object.bbox.maxY + voxelGrid->resolution, object.bbox.maxZ + voxelGrid->resolution));
 
 // Iterate over all points inside the bounding box
 #pragma omp parallel for collapse(3)
@@ -92,11 +93,11 @@ inline std::set<Bonxai::IndicesT> SemanticMap::listOfVoxelsInObject(const Semant
             {
                 Bonxai::IndicesT coord = Bonxai::IndicesT{ x, y, z };
                 Bonxai::ProbabilisticCell<DataT>* cell = BonxaiQuery<DataT>::getAccessor().value(coord);
-                if (!cell)
+                if (!cell || cell->probability_log <= bonxai->options().occupancy_threshold_log)
                     continue;
 
                 if (cell->data.getMostRepresentativeInstance() == object.instanceID  //
-                    || (probabilityThr.has_value() && cell->data.GetProbabilityOfInstance(object.instanceID) >= probabilityThr))
+                    || (probabilityThr.has_value() && cell->data.GetProbabilityOfInstance(object.instanceID) > probabilityThr))
                 {
 #pragma omp critical
                     cellsInside.insert(coord);
