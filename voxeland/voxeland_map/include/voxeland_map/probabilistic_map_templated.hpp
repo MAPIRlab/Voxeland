@@ -120,10 +120,9 @@ namespace Bonxai
         const auto coord = _grid.posToIndex(point);
         ProbabilisticCell<DataT>* cell = _accessor.value(coord, true);
 
-        cell->data.update(data);
-
         if (cell->update_id != _update_count)
         {
+            cell->data.update(data);
             cell->probability_log = std::min(cell->probability_log + _options.prob_hit_log - ProbabilisticMap::UnknownProbability, _options.clamp_max_log);
 
             cell->update_id = _update_count;
