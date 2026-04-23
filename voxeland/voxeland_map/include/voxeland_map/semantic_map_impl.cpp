@@ -74,7 +74,6 @@ template <typename DataT>
 inline std::set<Bonxai::IndicesT> SemanticMap::listOfVoxelsInObject(const SemanticObject& object, std::optional<double> probabilityThr)
 {
     std::set<Bonxai::IndicesT> cellsInside;
-
     Bonxai::ProbabilisticMapT<DataT>* bonxai = BonxaiQuery<DataT>::getBonxaiT();
     Bonxai::VoxelGrid<Bonxai::ProbabilisticCell<DataT>>* voxelGrid = bonxai->grid();
 

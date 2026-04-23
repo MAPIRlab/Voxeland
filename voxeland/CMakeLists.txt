@@ -18,11 +18,11 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -g")
 set(CMAKE_CXX_FLAGS_DEBUG "-fsanitize=undefined -O0 -g")
 
 #---- Add the subdirectory cmake ----
-set(CMAKE_CONFIG_PATH ${CMAKE_MODULE_PATH}  "${CMAKE_CURRENT_LIST_DIR}/cmake")
+set(CMAKE_CONFIG_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CONFIG_PATH}")
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-add_compile_options(-Wpedantic -fno-omit-frame-pointer)
+    add_compile_options(-Wpedantic -fno-omit-frame-pointer)
 endif()
 
 
@@ -49,7 +49,7 @@ find_package(magic_enum REQUIRED)
 
 add_subdirectory(bonxai_core)
 
-if ( ament_cmake_FOUND )
+if(ament_cmake_FOUND)
 
     project(voxeland)
 
@@ -68,15 +68,16 @@ if ( ament_cmake_FOUND )
 
     # Server node
     ament_auto_add_library(voxeland_server SHARED
-      voxeland/src/voxeland_server.cpp
-      voxeland/src/debug_gui.cpp
+        voxeland/src/voxeland_server.cpp
+        voxeland/src/debug_gui.cpp
+        3rdparty/backward-cpp/backward.cpp
     )
 
     target_link_libraries(voxeland_server
-      voxeland_map
-      ${PCL_LIBRARIES}
-      OpenMP::OpenMP_CXX
-      magic_enum::magic_enum
+        voxeland_map
+        ${PCL_LIBRARIES}
+        OpenMP::OpenMP_CXX
+        magic_enum::magic_enum
     )
 
     if(ENABLE_DEBUG_GUI)
@@ -86,17 +87,19 @@ if ( ament_cmake_FOUND )
         target_compile_definitions(voxeland_map PUBLIC "ENABLE_DEBUG_GUI=1")
     endif()
 
+    include(cmake/backward.cmake)
+
     rclcpp_components_register_node(voxeland_server
-      PLUGIN "voxeland_server::VoxelandServer"
-      EXECUTABLE voxeland_server_node
+        PLUGIN "voxeland_server::VoxelandServer"
+        EXECUTABLE voxeland_server_node
     )
-    
+
     # Install 
     ament_auto_package(
-      INSTALL_TO_SHARE
-      voxeland/launch 
-      voxeland/rviz 
-      resources
+        INSTALL_TO_SHARE
+        voxeland/launch
+        voxeland/rviz
+        resources
     )
 
     # Include directories and library for downstream packages
@@ -111,12 +114,12 @@ if ( ament_cmake_FOUND )
     )
 
     install(
-        TARGETS voxeland_map 
+        TARGETS voxeland_map
         DESTINATION lib
     )
 
 else()
     add_subdirectory(voxeland_map)
     message(STATUS "Building with cmake")
-  
+
 endif()
