@@ -81,7 +81,6 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
             continue;
         const std::set<Bonxai::IndicesT>& voxelsLocal = *localInstance.localGeometry;
         std::map<InstanceID_t, std::set<Bonxai::IndicesT>> globalsGeometry;  // cache the voxels for each global object to avoid repeated lookup
-        std::map<InstanceID_t, std::set<Bonxai::IndicesT>> globalsGeometryAnyVote;  // cache the voxels for each global object to avoid repeated lookup
 
         // Find category with maximum probability for local instance
         CategoryManager::CategoryIndex localMaxCategory = localInstance.mostLikelyCategory();
@@ -99,26 +98,19 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
             if (globalInstanceID == 0 || !globalInstance.isValidInstance() || !GeometryOperations::CheckBBoxIntersect(localInstance.bbox, globalInstance.bbox))
                 continue;
 
-            // get the voxels that belong to the global instance
+            // get all the voxels that belong to the global instance
             std::set<Bonxai::IndicesT> voxelsGlobal;
-            std::set<Bonxai::IndicesT> voxelsGlobalAnyVote;
             if (globalsGeometry.contains(globalInstanceID))
                 voxelsGlobal = globalsGeometry.at(globalInstanceID);
             else
             {
                 AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsGlobal = listOfVoxelsInObject<DataT>(globalInstance));
-                AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsGlobalAnyVote = listOfVoxelsInObject<DataT>(globalInstance, 0));
                 globalsGeometry.insert({ globalInstanceID, voxelsGlobal });
-                globalsGeometryAnyVote.insert({ globalInstanceID, voxelsGlobalAnyVote });
             }
 
             auto [iou, ios] = compute3DIoU(voxelsGlobal, voxelsLocal, 2);
 
             double iov = computeIoV(voxelizedLocalPointCloud, voxelsGlobal, voxelsLocal, 2);
-            
-            double iovAnyVote = computeIoV(voxelizedLocalPointCloud, voxelsGlobalAnyVote, voxelsLocal, 2);
-            iov = std::max(iov, iovAnyVote);
-
 
             // ============================================================
             // HYBRID FUSION: IoV + Jensen-Shannon Semantic Similarity
@@ -133,8 +125,9 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
             constexpr float minIOVThr = 0.4;
             constexpr float maxIOVThr = 0.8;
             double fusionThreshold = std::lerp(maxIOVThr, minIOVThr, semanticSimilarity);
+            double nFusionScore = iov / fusionThreshold;
 
-            if (iov > fusionThreshold)
+            if (nFusionScore >= 1.0)
             {
                 VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow),
                           "Integrating local {} - global {}:\n\tIoU:{:.2f}  IoS:{:.2f}  IoV:{:.2f}  SemSim:{:.2f}",
