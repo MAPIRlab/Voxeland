@@ -119,7 +119,7 @@ namespace voxeland
                     }
                 }
 
-                constexpr float proportionRequired = 0.5;
+                constexpr float proportionRequired = 0.3;
                 if ((instances_candidates[idxMaxVotes1] == 0) && (max1 * proportionRequired < max2))
                     idxMaxVotes1 = idxMaxVotes2;
             }
@@ -195,41 +195,50 @@ namespace voxeland
         // account for instances having been fused since they were last observed
         void updateCandidatesAndVotes()
         {
-            SemanticMap& semantics = SemanticMap::get_instance();
-
-            // possible early out
+            try
             {
-                bool needed = false;
-                for (size_t i = 0; i < instances_candidates.size() && !needed; i++)
-                    if (!semantics.globalSemanticMap.at(instances_candidates.at(i)).isValidInstance())
-                        needed = true;
+                SemanticMap& semantics = SemanticMap::get_instance();
 
-                if (!needed)
-                    return;
+                // possible early out
+                {
+                    bool needed = false;
+                    for (size_t i = 0; i < instances_candidates.size() && !needed; i++)
+                        if (!semantics.globalSemanticMap.at(instances_candidates.at(i)).isValidInstance())
+                            needed = true;
+
+                    if (!needed)
+                        return;
+                }
+
+                std::vector<InstanceID_t> candidates_temp;
+                candidates_temp.reserve(instances_candidates.size());
+                std::map<InstanceID_t, uint32_t> combining_instances;
+
+                for (InstanceID_t i = 0; i < instances_candidates.size(); i++)
+                {
+                    SemanticObject* globalInstance = &semantics.globalSemanticMap.at(instances_candidates[i]);
+                    while (!globalInstance->isValidInstance())
+                        globalInstance = &semantics.globalSemanticMap.at(globalInstance->pointsTo);
+                    candidates_temp.push_back(globalInstance->instanceID);
+                }
+
+                for (InstanceID_t i = 0; i < candidates_temp.size(); i++)
+                    combining_instances[candidates_temp[i]] += instances_votes[i];
+
+                instances_candidates.clear();
+                instances_votes.clear();
+
+                for (const std::pair<InstanceID_t, uint32_t>& instance : combining_instances)
+                {
+                    instances_candidates.push_back(instance.first);
+                    instances_votes.push_back(instance.second);
+                }
             }
-
-            std::vector<InstanceID_t> candidates_temp;
-            candidates_temp.reserve(instances_candidates.size());
-            std::map<InstanceID_t, uint32_t> combining_instances;
-
-            for (InstanceID_t i = 0; i < instances_candidates.size(); i++)
+            catch (std::exception& e)
             {
-                SemanticObject* globalInstance = &semantics.globalSemanticMap.at(instances_candidates[i]);
-                while (!globalInstance->isValidInstance())
-                    globalInstance = &semantics.globalSemanticMap.at(globalInstance->pointsTo);
-                candidates_temp.push_back(globalInstance->instanceID);
-            }
-
-            for (InstanceID_t i = 0; i < candidates_temp.size(); i++)
-                combining_instances[candidates_temp[i]] += instances_votes[i];
-
-            instances_candidates.clear();
-            instances_votes.clear();
-
-            for (const std::pair<InstanceID_t, uint32_t>& instance : combining_instances)
-            {
-                instances_candidates.push_back(instance.first);
-                instances_votes.push_back(instance.second);
+                VXL_ERROR("Caugh exception while updating votes with instances: ");
+                for (InstanceID_t id : instances_votes)
+                    VXL_ERROR("{}", id);
             }
         }
     };
