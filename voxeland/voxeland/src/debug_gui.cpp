@@ -348,7 +348,7 @@ namespace voxeland_server
             std::set<Bonxai::IndicesT> voxels1, voxels2;
             AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxels1 = semantics.listOfVoxelsInObject<DataT>(selectedInstance););
             AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxels2 = semantics.listOfVoxelsInObject<DataT>(compareInstance););
-            auto [iou, ios] = semantics.compute3DIoU(voxels1, voxels2);
+            auto [iou, ios] = semantics.compute3DIoU(voxels1, voxels2, semantics.defaultOptions.coarseningFactor);
             double semSim = semantics.computeSemanticSimilarity(selectedInstance, compareInstance);
             comparisonText = fmt::format("IoU: {:.2f}\nIoS: {:.2f}\nSemanticSimilarity: {:.2f}", iou, ios, semSim);
         }

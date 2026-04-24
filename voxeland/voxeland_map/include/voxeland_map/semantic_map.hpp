@@ -31,17 +31,28 @@ public:
                     voxeland::DataMode mode);
     bool isInitialized() { return initialized; }
 
-    void setLocalSemanticMap(const std::vector<SemanticObject>& localMap);
-    std::vector<InstanceID_t>& localToGlobalInstance(InstanceID_t localInstance);
-    uint32_t indexToHexColor(InstanceID_t index);
-    void RandomizeColorsOrder();
+    void integrateNewSemantics(const std::vector<SemanticObject>& localMap,
+                               const std::set<Bonxai::IndicesT>& voxelizedLocalPointCloud,
+                               float sensorX = 0.0f,
+                               float sensorY = 0.0f,
+                               float sensorZ = 0.0f);
 
-    // Updated methods to work with CategoryManager
-    void updateCategoryProbability(SemanticObject& semanticObject, const std::string& categoryName, double probability);
-    CategoryManager::CategoryIndex addCategory(const std::string& categoryName);
-    CategoryManager::CategoryIndex getCategoryIndex(const std::string& categoryName) const;
-    std::string getCategoryName(CategoryManager::CategoryIndex index) const;
-    size_t getNumCategories() const;
+    // options for global refinement
+    struct FusionOptions
+    {
+        // fusion parameters
+        float semSimThr = 0.6;      // how similar the class distributions must be to allow fusing
+        float votesThr = 0.3;       // when retrieving the geometry that corresponds to this instance, which proportion of votes must a voxel have to count
+        uint coarseningFactor = 2;  // downsampling factor for the pointclouds when calculating IoU
+        float iosThr = 0.4;         // exactly what you think this is
+        float iouThr = 0.3;         // exactly what you think this is
+        float iouSkipThr = 0.7;     // if IoU is sufficiently large, the instances are overlapping entirely and we don't care about the other metrics.
+                                    // This is necessary because we can sometimes end up with two overlapping instances which correspond to one class each,
+                                    // and every new observation always fuses with the instance which already agrees with its class.
+                                    // This can lead to a very low semantic similarity, preventing fusion
+    };
+    void refineGlobalSemanticMap(uint minimumObservations = 5, uint minimumVoxels = 0, const FusionOptions* options = nullptr);
+    void deleteOldInstances();
 
     std::pair<double, double> compute3DIoU(const std::set<Bonxai::IndicesT>& voxels1,
                                            const std::set<Bonxai::IndicesT>& voxels2,
@@ -54,9 +65,19 @@ public:
 
     template <typename DataT>
     std::set<Bonxai::IndicesT> listOfVoxelsInObject(const SemanticObject& object, std::optional<double> probabilityThr = std::nullopt);
-    
-    void deleteOldInstances();
-    
+
+    void setLocalSemanticMap(const std::vector<SemanticObject>& localMap);
+    std::vector<InstanceID_t>& localToGlobalInstance(InstanceID_t localInstance);
+    uint32_t indexToHexColor(InstanceID_t index);
+    void RandomizeColorsOrder();
+
+    // Updated methods to work with CategoryManager
+    void updateCategoryProbability(SemanticObject& semanticObject, const std::string& categoryName, double probability);
+    CategoryManager::CategoryIndex addCategory(const std::string& categoryName);
+    CategoryManager::CategoryIndex getCategoryIndex(const std::string& categoryName) const;
+    std::string getCategoryName(CategoryManager::CategoryIndex index) const;
+    size_t getNumCategories() const;
+
     /**
      * @brief Compute semantic similarity between two SemanticObjects using Jensen-Shannon divergence
      *
@@ -70,14 +91,6 @@ public:
      * @return Semantic similarity score in range [0, 1]
      */
     double computeSemanticSimilarity(const SemanticObject& obj1, const SemanticObject& obj2);
-
-    void refineGlobalSemanticMap(uint minimumObservations = 5, uint minimumVoxels = 4);
-
-    void integrateNewSemantics(const std::vector<SemanticObject>& localMap,
-                               const std::set<Bonxai::IndicesT>& voxelizedLocalPointCloud,
-                               float sensorX = 0.0f,
-                               float sensorY = 0.0f,
-                               float sensorZ = 0.0f);
 
     template <typename DataT, typename PointCloudTypeT>
     void addInstancesGeometryToLocalSemanticMap(std::vector<SemanticObject>& localMap, const PointCloudTypeT& pc);
@@ -96,6 +109,8 @@ public:
         std::vector<std::set<Bonxai::IndicesT>> mostRecentClusters;
     };
     DebugInformation debugInfo;
+
+    FusionOptions defaultOptions;
 
 private:
     std::vector<std::vector<InstanceID_t>> lastMapLocalToGlobal;

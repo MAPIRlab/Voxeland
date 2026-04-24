@@ -12,6 +12,7 @@ SemanticMap::SemanticMap()
     , color_palette({ 0xFAD4E0, 0x9DBBE3, 0xBFE3DF, 0xB59CD9, 0xFFF5CC, 0xFFD9BD, 0xEE9D94, 0xF7ADCF, 0xe6194B, 0x3cb44b, 0xffe119, 0x4363d8, 0xf58231, 0x911eb4, 0x42d4f4, 0xf032e6, 0xbfef45, 0xfabed4, 0x469990, 0xdcbeff, 0x9A6324, 0xfffac8 })
 {
     color_palette_offsets.resize(1000, 0);
+    RandomizeColorsOrder();
 }
 
 /* COLOR PALETTES */
@@ -180,8 +181,11 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
     VXL_INFO("Integrated {} new local objects: {} integrated and {} added", localMap.size(), integrated, added);
 }
 
-void SemanticMap::refineGlobalSemanticMap(uint minimumObservations, uint minimumVoxels)
+void SemanticMap::refineGlobalSemanticMap(uint minimumObservations, uint minimumVoxels, const FusionOptions* options)
 {
+    if (!options)
+        options = &defaultOptions;
+
     // cache the voxels for each global object to avoid repeated lookup
     std::map<InstanceID_t, std::set<Bonxai::IndicesT>> geometry;
 
@@ -288,17 +292,6 @@ void SemanticMap::refineGlobalSemanticMap(uint minimumObservations, uint minimum
 
         for (size_t firstIdx = 0; firstIdx < globalInstanceIDList.size(); firstIdx++)
         {
-            // fusion parameters
-            constexpr float semSimThr = 0.6;      // how similar the class distributions must be to allow fusing
-            constexpr float votesThr = 0.3;       // when retrieving the geometry that corresponds to this instance, which proportion of votes must a voxel have to count
-            constexpr uint coarseningFactor = 2;  // downsampling factor for the pointclouds when calculating IoU
-            constexpr float iosThr = 0.4;         // exactly what you think this is
-            constexpr float iouThr = 0.3;         // exactly what you think this is
-            constexpr float iouSkipThr = 0.7;     // if IoU is sufficiently large, the instances are overlapping entirely and we don't care about the other metrics.
-                                                  // This is necessary because we can sometimes end up with two overlapping instances which correspond to one class each,
-                                                  // and every new observation always fuses with the instance which already agrees with its class.
-                                                  // This can lead to a very low semantic similarity, preventing fusion
-
             InstanceID_t firstID = globalInstanceIDList.at(firstIdx);
             SemanticObject& firstInstance = globalSemanticMap.at(firstID);
             if (!firstInstance.isValidInstance() || firstID == 0)
@@ -326,17 +319,17 @@ void SemanticMap::refineGlobalSemanticMap(uint minimumObservations, uint minimum
                         // TODO we are not caching the geometry used for this (with the votesThr). Check performance to see if it's worth bothering
                         std::set<Bonxai::IndicesT> voxelsSomeVotesFirst;
                         std::set<Bonxai::IndicesT> voxelsSomeVotesSecond;
-                        AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesFirst = listOfVoxelsInObject<DataT>(globalSemanticMap.at(firstID), votesThr));
-                        AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesSecond = listOfVoxelsInObject<DataT>(globalSemanticMap.at(secondID), votesThr));
-                        std::tie(iou, ios) = compute3DIoU(voxelsSomeVotesFirst, voxelsSomeVotesSecond, coarseningFactor);
+                        AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesFirst = listOfVoxelsInObject<DataT>(globalSemanticMap.at(firstID), options->votesThr));
+                        AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesSecond = listOfVoxelsInObject<DataT>(globalSemanticMap.at(secondID), options->votesThr));
+                        std::tie(iou, ios) = compute3DIoU(voxelsSomeVotesFirst, voxelsSomeVotesSecond, options->coarseningFactor);
 
-                        if (iou > iouSkipThr)
+                        if (iou > options->iouSkipThr)
                         {
                             IoUSkip = true;
                             VXL_DEBUG("Fusing global {} - global {}.  IoU above passthrough threshold: {:.2f}", firstID, secondID, iou);
                         }
 
-                        if (!IoUSkip && (ios < iosThr && iou < iouThr))
+                        if (!IoUSkip && (ios < options->iosThr && iou < options->iouThr))
                         {
                             VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient IoS: {:.2f} and IoU: {:.2f}", firstID, secondID, ios, iou);
                             continue;
@@ -347,7 +340,7 @@ void SemanticMap::refineGlobalSemanticMap(uint minimumObservations, uint minimum
                     double semSim = computeSemanticSimilarity(firstInstance, secondInstance);
                     CategoryManager::CategoryIndex mostLikelyFirst = firstInstance.mostLikelyCategory();
                     CategoryManager::CategoryIndex mostLikelySecond = secondInstance.mostLikelyCategory();
-                    bool semanticsOk = semSim >= semSimThr || mostLikelyFirst == mostLikelySecond;
+                    bool semanticsOk = semSim >= options->semSimThr || mostLikelyFirst == mostLikelySecond;
                     if (!IoUSkip && semanticsOk)
                     {
                         VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient SemSim: {:.2f}", firstID, secondID, semSim);
