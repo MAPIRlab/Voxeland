@@ -124,10 +124,11 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
             // if the objects are very semantically similar, be a bit more lenient with the geometrical coincidence
             constexpr float minIOVThr = 0.4;
             constexpr float maxIOVThr = 0.8;
-            double fusionThreshold = std::lerp(maxIOVThr, minIOVThr, semanticSimilarity);
-            double nFusionScore = iov / fusionThreshold;
+            double iovThreshold = std::lerp(maxIOVThr, minIOVThr, semanticSimilarity);
 
-            if (nFusionScore >= 1.0)
+            bool iosCheck = ios > 0.7 && globalMaxCategory == localMaxCategory;
+
+            if (iov >= iovThreshold || iosCheck)
             {
                 VXL_DEBUG(fmt::fg(fmt::terminal_color::yellow),
                           "Integrating local {} - global {}:\n\tIoU:{:.2f}  IoS:{:.2f}  IoV:{:.2f}  SemSim:{:.2f}",
@@ -157,7 +158,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
 
                 // Track potential under-segmentation using IoS vs IoV difference
                 // If IoS is high but IoV is low, it suggests the local observation covers part of a larger global object (under-segmentation)
-                if (ios > fusionThreshold)
+                if (ios > iovThreshold)
                 {
                     globalInstance.underSegmentScore += ios - iov;
                     globalInstance.numberObservations++;
