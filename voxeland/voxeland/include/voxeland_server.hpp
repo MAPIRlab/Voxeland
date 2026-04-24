@@ -176,6 +176,7 @@ namespace voxeland_server
         void ShowObservationPointCloud();
 
         void PrintCategoriesList();
+        void ShowFusionOptions();
         
         rclcpp::Publisher<PointCloud2>::SharedPtr debugInstancesPub;
         rclcpp::Publisher<PointCloud2>::SharedPtr debugInputPub;

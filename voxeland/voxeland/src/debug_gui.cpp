@@ -81,6 +81,9 @@ namespace voxeland_server
         // pause button
         PauseButton();
 
+        // access the global refinement parameters
+        ShowFusionOptions();
+
         // local instances in most recent observation
         ImGui::Begin("Local Geometry");
         if (modeHas(voxeland::DataMode::SemanticsInstances))
@@ -359,6 +362,31 @@ namespace voxeland_server
             ImGui::Text("%s", comparisonText.c_str());
             ImGui::Unindent(20.f);
         }
+
+        ImGui::End();
+    }
+
+    void VoxelandServer::ShowFusionOptions()
+    {
+        ImGui::Begin("Refinement options");
+
+        ImGui::SetNextItemWidth(50);
+        ImGui::DragFloat("IoU Passthrough thr", &semantics.defaultOptions.iouSkipThr, 0.01, 0, 1, "%.2f");
+
+        ImGui::SetNextItemWidth(50);
+        ImGui::DragFloat("SemSim thr", &semantics.defaultOptions.semSimThr, 0.01, 0, 1, "%.2f");
+
+        ImGui::SetNextItemWidth(50);
+        ImGui::DragFloat("Votes thr", &semantics.defaultOptions.votesThr, 0.01, 0, 1, "%.2f");
+
+        ImGui::SetNextItemWidth(50);
+        ImGui::DragFloat("IoS thr", &semantics.defaultOptions.iosThr, 0.01, 0, 1, "%.2f");
+
+        ImGui::SetNextItemWidth(50);
+        ImGui::DragFloat("IoU thr", &semantics.defaultOptions.iouThr, 0.01, 0, 1, "%.2f");
+
+        ImGui::SetNextItemWidth(100);
+        ImGui::InputInt("Coarsening factor", (int*)&semantics.defaultOptions.coarseningFactor);
 
         ImGui::End();
     }
