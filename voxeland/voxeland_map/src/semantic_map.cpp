@@ -84,6 +84,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
 
         // Find category with maximum probability for local instance
         CategoryManager::CategoryIndex localMaxCategory = localInstance.mostLikelyCategory();
+        VXL_DEBUG("Processing local instance {}, '{}'", localInstanceID, CategoryManager::getInstance().getCategoryName(localMaxCategory));
 
         for (size_t globalIndex = 0; globalIndex < globalInstanceIDList.size(); globalIndex++)
         {
@@ -99,18 +100,16 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
                 continue;
 
             // get all the voxels that belong to the global instance
-            std::set<Bonxai::IndicesT> voxelsGlobal;
-            if (globalsGeometry.contains(globalInstanceID))
-                voxelsGlobal = globalsGeometry.at(globalInstanceID);
-            else
+            if (!globalsGeometry.contains(globalInstanceID))
             {
-                AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsGlobal = listOfVoxelsInObject<DataT>(globalInstance));
-                globalsGeometry.insert({ globalInstanceID, voxelsGlobal });
+                AUTO_TEMPLATE_INSTANCES_ONLY(currentMode,
+                                             globalsGeometry.insert({ globalInstanceID, listOfVoxelsInObject<DataT>(globalInstance) }););
             }
+            const std::set<Bonxai::IndicesT>& voxelsGlobal = globalsGeometry.at(globalInstanceID);
 
-            auto [iou, ios] = compute3DIoU(voxelsGlobal, voxelsLocal, 2);
+            auto [iou, ios] = compute3DIoU(voxelsGlobal, voxelsLocal, 1);
 
-            double iov = computeIoV(voxelizedLocalPointCloud, voxelsGlobal, voxelsLocal, 2);
+            double iov = computeIoV(voxelizedLocalPointCloud, voxelsGlobal, voxelsLocal, 1);
 
             // ============================================================
             // HYBRID FUSION: IoV + Jensen-Shannon Semantic Similarity
@@ -181,7 +180,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
     VXL_INFO("Integrated {} new local objects: {} integrated and {} added", localMap.size(), integrated, added);
 }
 
-void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
+void SemanticMap::refineGlobalSemanticMap(uint minimumObservations, uint minimumVoxels)
 {
     // cache the voxels for each global object to avoid repeated lookup
     std::map<InstanceID_t, std::set<Bonxai::IndicesT>> geometry;
@@ -198,7 +197,7 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
                                          voxelsGlobal = listOfVoxelsInObject<DataT>(instance));
 
             // remove instances with very few observations
-            if (instance.numberObservations <= nObservationsToRemove || voxelsGlobal.size() == 0)
+            if (instance.numberObservations <= minimumObservations || voxelsGlobal.size() < minimumVoxels)
             {
                 instance.pointsTo = 0;
                 VXL_INFO("Removing instance {}: {} voxels after {} observations", id, voxelsGlobal.size(), instance.numberObservations);
@@ -290,7 +289,7 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
         for (size_t firstIdx = 0; firstIdx < globalInstanceIDList.size(); firstIdx++)
         {
             // fusion parameters
-            constexpr float semSimThr = 0.4;      // how similar the class distributions must be to allow fusing
+            constexpr float semSimThr = 0.6;      // how similar the class distributions must be to allow fusing
             constexpr float votesThr = 0.3;       // when retrieving the geometry that corresponds to this instance, which proportion of votes must a voxel have to count
             constexpr uint coarseningFactor = 2;  // downsampling factor for the pointclouds when calculating IoU
             constexpr float iosThr = 0.4;         // exactly what you think this is
@@ -346,7 +345,10 @@ void SemanticMap::refineGlobalSemanticMap(int nObservationsToRemove)
 
                     // semantics check
                     double semSim = computeSemanticSimilarity(firstInstance, secondInstance);
-                    if (!IoUSkip && semSim < semSimThr)
+                    CategoryManager::CategoryIndex mostLikelyFirst = firstInstance.mostLikelyCategory();
+                    CategoryManager::CategoryIndex mostLikelySecond = secondInstance.mostLikelyCategory();
+                    bool semanticsOk = semSim >= semSimThr || mostLikelyFirst == mostLikelySecond;
+                    if (!IoUSkip && semanticsOk)
                     {
                         VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient SemSim: {:.2f}", firstID, secondID, semSim);
                         continue;

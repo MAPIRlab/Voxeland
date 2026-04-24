@@ -71,7 +71,7 @@ public:
      */
     double computeSemanticSimilarity(const SemanticObject& obj1, const SemanticObject& obj2);
 
-    void refineGlobalSemanticMap(int nObservationsToRemove);
+    void refineGlobalSemanticMap(uint minimumObservations = 5, uint minimumVoxels = 4);
 
     void integrateNewSemantics(const std::vector<SemanticObject>& localMap,
                                const std::set<Bonxai::IndicesT>& voxelizedLocalPointCloud,

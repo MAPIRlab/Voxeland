@@ -343,7 +343,7 @@ namespace voxeland_server
 
         if (modeHas(DataMode::SemanticsInstances))
         {
-            semantics.refineGlobalSemanticMap(15);
+            semantics.refineGlobalSemanticMap(20, 10);
             nlohmann::json json_data = semantics.mapToJSON();
 
             std::string json_filename = "voxeland_instanceMap.json";

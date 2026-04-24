@@ -80,7 +80,7 @@ std::vector<std::set<Bonxai::IndicesT>> GeometryOperations::ClusterVoxelCloud(co
     for (const auto& vox : indices)
         points.push_back({ .x = (float)vox.x, .y = (float)vox.y, .z = (float)vox.z });
 
-    constexpr float epsilon = 1.5;
+    constexpr float epsilon = 3;
     std::vector<std::vector<size_t>> clusters_idx = dbscan::dbscan(points, epsilon, min_pts);
 
     std::vector<std::set<Bonxai::IndicesT>> clusters_coords(clusters_idx.size());
