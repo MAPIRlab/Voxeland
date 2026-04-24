@@ -340,8 +340,8 @@ void SemanticMap::refineGlobalSemanticMap(uint minimumObservations, uint minimum
                     double semSim = computeSemanticSimilarity(firstInstance, secondInstance);
                     CategoryManager::CategoryIndex mostLikelyFirst = firstInstance.mostLikelyCategory();
                     CategoryManager::CategoryIndex mostLikelySecond = secondInstance.mostLikelyCategory();
-                    bool semanticsOk = semSim >= options->semSimThr || mostLikelyFirst == mostLikelySecond;
-                    if (!IoUSkip && semanticsOk)
+                    bool semanticsOk = (semSim >= options->semSimThr) || (mostLikelyFirst == mostLikelySecond);
+                    if (!IoUSkip && !semanticsOk)
                     {
                         VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient SemSim: {:.2f}", firstID, secondID, semSim);
                         continue;
