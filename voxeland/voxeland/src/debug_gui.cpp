@@ -300,6 +300,8 @@ namespace voxeland_server
             }
         };
         selectInstance("Selected Instance", itemSelectedID);
+        if (!semantics.globalSemanticMap.contains(itemSelectedID))
+            itemSelectedID = 0;
         const SemanticObject& selectedInstance = semantics.globalSemanticMap.at(itemSelectedID);
 
         ImGui::Text("Alphas dirichlet:");
@@ -342,9 +344,11 @@ namespace voxeland_server
         }
         ImGui::Text("%s", voxelCountLine.c_str());
 
-        static int compareInstanceIdx = 0;
-        selectInstance("Compare with", compareInstanceIdx);
-        const SemanticObject& compareInstance = semantics.globalSemanticMap.at(compareInstanceIdx);
+        static int compareInstanceID = 0;
+        selectInstance("Compare with", compareInstanceID);
+        if (!semantics.globalSemanticMap.contains(compareInstanceID))
+            compareInstanceID = 0;
+        const SemanticObject& compareInstance = semantics.globalSemanticMap.at(compareInstanceID);
         ImGui::SameLine();
         if (ImGui::Button("Calculate"))
         {
