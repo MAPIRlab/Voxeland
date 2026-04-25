@@ -236,6 +236,7 @@ namespace voxeland_server
 #endif
 
         number_iterations++;
+        lastTimestamp = cloud->header.stamp;
 
         const auto start_time = rclcpp::Clock{}.now();
         voxeland::ScopedStopwatch watch("Inserting pointcloud");
@@ -343,7 +344,11 @@ namespace voxeland_server
 
         if (modeHas(DataMode::SemanticsInstances))
         {
-            semantics.refineGlobalSemanticMap(20, 10);
+            SemanticMap::FusionOptions fuseOpt;
+            SemanticMap::RemovalOptions removeOpt;
+            removeOpt.minimumObservations = 20;
+            removeOpt.secondsSinceLastObs = 0;
+            semantics.refineGlobalSemanticMap(lastTimestamp.sec, &removeOpt, &fuseOpt);
             nlohmann::json json_data = semantics.mapToJSON();
 
             std::string json_filename = "voxeland_instanceMap.json";
@@ -497,7 +502,7 @@ namespace voxeland_server
     void VoxelandServer::doGlobalRefinement()
     {
         voxeland::ScopedStopwatch watch("Global refinement");
-        semantics.refineGlobalSemanticMap(8);
+        semantics.refineGlobalSemanticMap(lastTimestamp.sec);
     }
 
     template <typename DataT>

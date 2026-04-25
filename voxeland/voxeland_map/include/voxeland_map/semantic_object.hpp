@@ -34,6 +34,7 @@ struct SemanticObject
     std::unordered_map<CategoryManager::CategoryIndex, double> alphaParamsCategories;
 
     // Dynamic storage for appearances per category - grows as needed
+    uint32_t timeLastObservation = 0; // a number of seconds, from the message timestamp
     std::unordered_map<CategoryManager::CategoryIndex, std::map<uint32_t, BoundingBox2D>> appearancesTimestamps;
     uint32_t numberObservations = 1;
     BoundingBox3D bbox;

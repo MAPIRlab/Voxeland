@@ -299,9 +299,9 @@ namespace voxeland_server
                 ImGui::EndCombo();
             }
         };
-        selectInstance("Selected Instance", itemSelectedID);
         if (!semantics.globalSemanticMap.contains(itemSelectedID))
             itemSelectedID = 0;
+        selectInstance("Selected Instance", itemSelectedID);
         const SemanticObject& selectedInstance = semantics.globalSemanticMap.at(itemSelectedID);
 
         ImGui::Text("Alphas dirichlet:");
@@ -345,9 +345,9 @@ namespace voxeland_server
         ImGui::Text("%s", voxelCountLine.c_str());
 
         static int compareInstanceID = 0;
-        selectInstance("Compare with", compareInstanceID);
         if (!semantics.globalSemanticMap.contains(compareInstanceID))
             compareInstanceID = 0;
+        selectInstance("Compare with", compareInstanceID);
         const SemanticObject& compareInstance = semantics.globalSemanticMap.at(compareInstanceID);
         ImGui::SameLine();
         if (ImGui::Button("Calculate"))
@@ -355,7 +355,7 @@ namespace voxeland_server
             std::set<Bonxai::IndicesT> voxels1, voxels2;
             AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxels1 = semantics.listOfVoxelsInObject<DataT>(selectedInstance););
             AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxels2 = semantics.listOfVoxelsInObject<DataT>(compareInstance););
-            auto [iou, ios] = semantics.compute3DIoU(voxels1, voxels2, semantics.defaultOptions.coarseningFactor);
+            auto [iou, ios] = semantics.compute3DIoU(voxels1, voxels2, semantics.defaultFuseOptions.coarseningFactor);
             double semSim = semantics.computeSemanticSimilarity(selectedInstance, compareInstance);
             comparisonText = fmt::format("IoU: {:.2f}\nIoS: {:.2f}\nSemanticSimilarity: {:.2f}", iou, ios, semSim);
         }
@@ -375,22 +375,22 @@ namespace voxeland_server
         ImGui::Begin("Refinement options");
 
         ImGui::SetNextItemWidth(50);
-        ImGui::DragFloat("IoU Passthrough thr", &semantics.defaultOptions.iouSkipThr, 0.01, 0, 1, "%.2f");
+        ImGui::DragFloat("IoU Passthrough thr", &semantics.defaultFuseOptions.iouSkipThr, 0.01, 0, 1, "%.2f");
 
         ImGui::SetNextItemWidth(50);
-        ImGui::DragFloat("SemSim thr", &semantics.defaultOptions.semSimThr, 0.01, 0, 1, "%.2f");
+        ImGui::DragFloat("SemSim thr", &semantics.defaultFuseOptions.semSimThr, 0.01, 0, 1, "%.2f");
 
         ImGui::SetNextItemWidth(50);
-        ImGui::DragFloat("Votes thr", &semantics.defaultOptions.votesThr, 0.01, 0, 1, "%.2f");
+        ImGui::DragFloat("Votes thr", &semantics.defaultFuseOptions.votesThr, 0.01, 0, 1, "%.2f");
 
         ImGui::SetNextItemWidth(50);
-        ImGui::DragFloat("IoS thr", &semantics.defaultOptions.iosThr, 0.01, 0, 1, "%.2f");
+        ImGui::DragFloat("IoS thr", &semantics.defaultFuseOptions.iosThr, 0.01, 0, 1, "%.2f");
 
         ImGui::SetNextItemWidth(50);
-        ImGui::DragFloat("IoU thr", &semantics.defaultOptions.iouThr, 0.01, 0, 1, "%.2f");
+        ImGui::DragFloat("IoU thr", &semantics.defaultFuseOptions.iouThr, 0.01, 0, 1, "%.2f");
 
         ImGui::SetNextItemWidth(100);
-        ImGui::InputInt("Coarsening factor", (int*)&semantics.defaultOptions.coarseningFactor);
+        ImGui::InputInt("Coarsening factor", (int*)&semantics.defaultFuseOptions.coarseningFactor);
 
         ImGui::End();
     }

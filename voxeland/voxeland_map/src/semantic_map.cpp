@@ -173,6 +173,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
             newObject.bbox = localInstance.bbox;
             newObject.alphaParamsCategories = localInstance.alphaParamsCategories;
             newObject.appearancesTimestamps = localInstance.appearancesTimestamps;
+            newObject.timeLastObservation = localInstance.timeLastObservation;
 
             lastMapLocalToGlobal[localInstanceID].push_back(newObject.instanceID);
             VXL_DEBUG("Created global instance {} from local {}", newObject.instanceID, localInstanceID);
@@ -182,10 +183,13 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
     VXL_INFO("Integrated {} new local objects: {} integrated and {} added", localMap.size(), integrated, added);
 }
 
-void SemanticMap::refineGlobalSemanticMap(uint minimumObservations, uint minimumVoxels, const FusionOptions* options)
+void SemanticMap::refineGlobalSemanticMap(uint32_t timestamp, const RemovalOptions* removeOptions, const FusionOptions* fuseOptions)
 {
-    if (!options)
-        options = &defaultOptions;
+    if (!fuseOptions)
+        fuseOptions = &defaultFuseOptions;
+
+    if (!removeOptions)
+        removeOptions = &defaultRemoveOptions;
 
     // cache the voxels for each global object to avoid repeated lookup
     std::map<InstanceID_t, std::set<Bonxai::IndicesT>> geometry;
@@ -201,8 +205,10 @@ void SemanticMap::refineGlobalSemanticMap(uint minimumObservations, uint minimum
             AUTO_TEMPLATE_INSTANCES_ONLY(currentMode,
                                          voxelsGlobal = listOfVoxelsInObject<DataT>(instance));
 
+            bool stale = timestamp - instance.timeLastObservation >= removeOptions->secondsSinceLastObs;  //do not remove instances that have been very recently updated
+
             // remove instances with very few observations
-            if (instance.numberObservations <= minimumObservations || voxelsGlobal.size() < minimumVoxels)
+            if (stale && (instance.numberObservations <= removeOptions->minimumObservations || voxelsGlobal.size() < removeOptions->minimumVoxels))
             {
                 instance.pointsTo = 0;
                 VXL_INFO("Removing instance {}: {} voxels after {} observations", id, voxelsGlobal.size(), instance.numberObservations);
@@ -320,17 +326,17 @@ void SemanticMap::refineGlobalSemanticMap(uint minimumObservations, uint minimum
                         // TODO we are not caching the geometry used for this (with the votesThr). Check performance to see if it's worth bothering
                         std::set<Bonxai::IndicesT> voxelsSomeVotesFirst;
                         std::set<Bonxai::IndicesT> voxelsSomeVotesSecond;
-                        AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesFirst = listOfVoxelsInObject<DataT>(globalSemanticMap.at(firstID), options->votesThr));
-                        AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesSecond = listOfVoxelsInObject<DataT>(globalSemanticMap.at(secondID), options->votesThr));
-                        std::tie(iou, ios) = compute3DIoU(voxelsSomeVotesFirst, voxelsSomeVotesSecond, options->coarseningFactor);
+                        AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesFirst = listOfVoxelsInObject<DataT>(globalSemanticMap.at(firstID), fuseOptions->votesThr));
+                        AUTO_TEMPLATE_INSTANCES_ONLY(currentMode, voxelsSomeVotesSecond = listOfVoxelsInObject<DataT>(globalSemanticMap.at(secondID), fuseOptions->votesThr));
+                        std::tie(iou, ios) = compute3DIoU(voxelsSomeVotesFirst, voxelsSomeVotesSecond, fuseOptions->coarseningFactor);
 
-                        if (iou > options->iouSkipThr)
+                        if (iou > fuseOptions->iouSkipThr)
                         {
                             IoUSkip = true;
                             VXL_DEBUG("Fusing global {} - global {}.  IoU above passthrough threshold: {:.2f}", firstID, secondID, iou);
                         }
 
-                        if (!IoUSkip && (ios < options->iosThr && iou < options->iouThr))
+                        if (!IoUSkip && (ios < fuseOptions->iosThr && iou < fuseOptions->iouThr))
                         {
                             VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient IoS: {:.2f} and IoU: {:.2f}", firstID, secondID, ios, iou);
                             continue;
@@ -341,7 +347,7 @@ void SemanticMap::refineGlobalSemanticMap(uint minimumObservations, uint minimum
                     double semSim = computeSemanticSimilarity(firstInstance, secondInstance);
                     CategoryManager::CategoryIndex mostLikelyFirst = firstInstance.mostLikelyCategory();
                     CategoryManager::CategoryIndex mostLikelySecond = secondInstance.mostLikelyCategory();
-                    bool semanticsOk = (semSim >= options->semSimThr) || (mostLikelyFirst == mostLikelySecond);
+                    bool semanticsOk = (semSim >= fuseOptions->semSimThr) || (mostLikelyFirst == mostLikelySecond);
                     if (!IoUSkip && !semanticsOk)
                     {
                         VXL_DEBUG("(Refine) NOT Fusing global {} - global {}.  Insufficient SemSim: {:.2f}", firstID, secondID, semSim);
@@ -674,6 +680,7 @@ void SemanticMap::fuseSemanticObjects(SemanticObject& firstInstance, const Seman
 
     firstInstance.numberObservations += secondInstance.numberObservations;
     firstInstance.underSegmentScore += secondInstance.underSegmentScore;
+    firstInstance.timeLastObservation = std::max(firstInstance.timeLastObservation, secondInstance.timeLastObservation);
 }
 
 void SemanticMap::loadInstancesFromFile(const std::filesystem::path& path)

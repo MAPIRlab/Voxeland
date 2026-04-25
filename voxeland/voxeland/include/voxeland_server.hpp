@@ -149,6 +149,7 @@ namespace voxeland_server
 
         bool semantics_as_instances_;
         u_int32_t number_iterations = 0;
+        builtin_interfaces::msg::Time lastTimestamp;
 
         bool paused = false;  // stop processing new observations. To be toggled from the GUI
         

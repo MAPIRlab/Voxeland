@@ -51,7 +51,15 @@ public:
                                     // and every new observation always fuses with the instance which already agrees with its class.
                                     // This can lead to a very low semantic similarity, preventing fusion
     };
-    void refineGlobalSemanticMap(uint minimumObservations = 5, uint minimumVoxels = 0, const FusionOptions* options = nullptr);
+
+    struct RemovalOptions
+    {
+        uint minimumObservations = 5;
+        uint32_t secondsSinceLastObs = 10;
+        uint minimumVoxels = 0;
+    };
+
+    void refineGlobalSemanticMap(uint32_t timestamp, const RemovalOptions* removeOptions = nullptr, const FusionOptions* fuseOptions = nullptr);
     void deleteOldInstances();
 
     std::pair<double, double> compute3DIoU(const std::set<Bonxai::IndicesT>& voxels1,
@@ -110,8 +118,8 @@ public:
     };
     DebugInformation debugInfo;
 
-    FusionOptions defaultOptions;
-
+    FusionOptions defaultFuseOptions;
+    RemovalOptions defaultRemoveOptions;
 private:
     std::vector<std::vector<InstanceID_t>> lastMapLocalToGlobal;
     std::vector<std::uint32_t> color_palette;

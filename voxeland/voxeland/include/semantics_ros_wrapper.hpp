@@ -39,6 +39,7 @@ public:
             if (categoryIndex != CategoryManager::INVALID_CATEGORY)
             {
                 semanticObject.appearancesTimestamps[categoryIndex][instance.header.stamp.sec] = bbox;
+                semanticObject.timeLastObservation  = instance.header.stamp.sec;
             }
         }
 

@@ -18,6 +18,7 @@ def launch_arguments():
     ]
 # ==========================
 
+
 def launch_setup(context, *args, **kwargs):
 
     voxeland_server = Node(
@@ -26,18 +27,20 @@ def launch_setup(context, *args, **kwargs):
         name="voxeland_server",
         # prefix ="xterm -hold -e",
         parameters=[
-           {"resolution":0.05},
-           {"latch": False},
-           {"semantics_as_instances": True},
-           
-           {"occupancy_min_z": 0.0},
-           {"occupancy_max_z": 10.0},
+            {"resolution": 0.05},
+            {"latch": False},
+            {"semantics_as_instances": True},
 
-           {"log_level": "Debug"},
+            {"occupancy_min_z": 0.0},
+            {"occupancy_max_z": 10.0},
 
-           {"load_map_path_ply": "/mnt/HDD/Evaluation_Voxeland/SceneNN/evaluation2016/223/voxeland_pointcloud.ply"},
-           {"load_map_path_json": "/mnt/HDD/Evaluation_Voxeland/SceneNN/evaluation2016/223/voxeland_instanceMap.json"},
+            {"log_level": "Debug"},
 
+            #{"load_map_path_ply": "/mnt/HDD/Evaluation_Voxeland/SceneNN/evaluation2016/078/voxeland_pointcloud.ply"},
+            #{"load_map_path_json": "/mnt/HDD/Evaluation_Voxeland/SceneNN/evaluation2016/078/voxeland_instanceMap.json"},
+            
+            {"load_map_path_ply": "/mnt/HDD/Evaluation_Voxeland/ScanNet/evaluation/122/voxeland_pointcloud.ply"},
+            {"load_map_path_json": "/mnt/HDD/Evaluation_Voxeland/ScanNet/evaluation/122/voxeland_instanceMap.json"},
         ],
     )
 
