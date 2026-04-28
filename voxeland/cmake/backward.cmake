@@ -1,4 +1,5 @@
-
+# conditional defines for backward-cpp
+# backward-cpp adds automatic stack traces and line info when crashing or throwing exceptions
 
 find_package(Libunwind QUIET)
 if(LIBUNWIND_FOUND)

@@ -205,7 +205,7 @@ void SemanticMap::refineGlobalSemanticMap(uint32_t timestamp, const RemovalOptio
             AUTO_TEMPLATE_INSTANCES_ONLY(currentMode,
                                          voxelsGlobal = listOfVoxelsInObject<DataT>(instance));
 
-            bool stale = timestamp - instance.timeLastObservation >= removeOptions->secondsSinceLastObs;  //do not remove instances that have been very recently updated
+            bool stale = timestamp - instance.timeLastObservation >= removeOptions->secondsSinceLastObs;  // do not remove instances that have been very recently updated
 
             // remove instances with very few observations
             if (stale && (instance.numberObservations <= removeOptions->minimumObservations || voxelsGlobal.size() < removeOptions->minimumVoxels))
@@ -585,7 +585,6 @@ double SemanticMap::computeSemanticSimilarity(const SemanticObject& obj1, const 
     Q.reserve(_allCategories.size());
 
     // split the uncertainty mass equally over all the classes
-    constexpr float uncertaintyMassTotal = 5;
     float uncertaintyMassCat = uncertaintyMassTotal / _allCategories.size();
 
     for (size_t i = 0; i < _allCategories.size(); i++)
