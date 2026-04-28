@@ -98,6 +98,7 @@ public:
      * @param obj2 Second semantic object
      * @return Semantic similarity score in range [0, 1]
      */
+    const float uncertaintyMassTotal = 5;
     double computeSemanticSimilarity(const SemanticObject& obj1, const SemanticObject& obj2);
 
     template <typename DataT, typename PointCloudTypeT>

@@ -2,6 +2,7 @@
 #include <sstream>
 
 #include "Color.hpp"
+#include "voxeland_map/Utils/Utils.hpp"
 
 namespace voxeland
 {
@@ -36,10 +37,10 @@ namespace voxeland
         std::string toPLY(const Bonxai::Point3D& point)
         {
             updateCandidatesAndVotes();
-            std::vector<double> total_probability = GetClassProbabilities();
+            std::vector<double> total_probability = GetClassProbabilities(true);
             InstanceID_t instanceid = getMostRepresentativeInstance();
             double uncertainty_instances = expected_shannon_entropy<uint32_t>(instances_votes);
-            double uncertainty_categories = expected_shannon_entropy<double>(total_probability);
+            double uncertainty_categories = Utils::Shannon_entropy(total_probability);
             return fmt::format("{} {} {} {} {}\n", XYZtoPLY(point), RGBtoPLY(toColor()), instanceid, uncertainty_instances, uncertainty_categories);
         }
 
@@ -55,12 +56,12 @@ namespace voxeland
                 getRGBheader());
         }
 
-        std::vector<double> GetClassProbabilities()
+        std::vector<double> GetClassProbabilities(bool normalized = true)
         {
             if (instances_candidates.size() == 0)
                 return {};
             SemanticMap& semantics = SemanticMap::get_instance();
-            std::vector<double> alphasDirichlet(semantics.getNumCategories(), 0.01);  // arbitrary amount of weight to all classes to avoid 0 probability
+            std::vector<double> alphasDirichlet(semantics.getNumCategories(), semantics.uncertaintyMassTotal / semantics.getNumCategories());  // arbitrary amount of weight to all classes to avoid 0 probability
 
             for (InstanceID_t localInstanceID = 0; localInstanceID < instances_candidates.size(); localInstanceID++)
             {
@@ -77,13 +78,17 @@ namespace voxeland
                         alphasDirichlet.at(category) += votesInstance * globalInstance->alphaParamsCategories.at(category);
                 }
             }
-            double sum = std::accumulate(alphasDirichlet.begin(), alphasDirichlet.end(), 0.);
             std::vector<double> probabilities(alphasDirichlet.size());
 
-            for (size_t i = 0; i < alphasDirichlet.size(); i++)
-                probabilities[i] = alphasDirichlet[i] / sum;
+            if (normalized)
+            {
+                double sum = std::accumulate(alphasDirichlet.begin(), alphasDirichlet.end(), 0.);
+                for (size_t i = 0; i < alphasDirichlet.size(); i++)
+                    probabilities[i] = alphasDirichlet[i] / sum;
+                return probabilities;
+            }
 
-            return probabilities;
+            return alphasDirichlet;
         }
 
         // if the instance with the most votes is background, but there is a real instance very close behind, returns the second one
