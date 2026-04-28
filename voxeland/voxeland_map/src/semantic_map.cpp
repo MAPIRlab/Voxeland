@@ -699,26 +699,33 @@ void SemanticMap::loadInstancesFromFile(const std::filesystem::path& path)
         SemanticObject& object = CreateGlobalInstance(id);
         object.instanceName = name;
 
-        float centerX = val["bbox"]["center"][0];
-        float centerY = val["bbox"]["center"][1];
-        float centerZ = val["bbox"]["center"][2];
+        try
+        {
+            float centerX = val["bbox"]["center"][0];
+            float centerY = val["bbox"]["center"][1];
+            float centerZ = val["bbox"]["center"][2];
 
-        float sizeX = val["bbox"]["size"][0];
-        float sizeY = val["bbox"]["size"][1];
-        float sizeZ = val["bbox"]["size"][2];
-        object.bbox.minX = centerX - sizeX * 0.5f;
-        object.bbox.minY = centerY - sizeY * 0.5f;
-        object.bbox.minZ = centerZ - sizeZ * 0.5f;
-        object.bbox.maxX = centerX + sizeX * 0.5f;
-        object.bbox.maxY = centerY + sizeY * 0.5f;
-        object.bbox.maxZ = centerZ + sizeZ * 0.5f;
+            float sizeX = val["bbox"]["size"][0];
+            float sizeY = val["bbox"]["size"][1];
+            float sizeZ = val["bbox"]["size"][2];
+            object.bbox.minX = centerX - sizeX * 0.5f;
+            object.bbox.minY = centerY - sizeY * 0.5f;
+            object.bbox.minZ = centerZ - sizeZ * 0.5f;
+            object.bbox.maxX = centerX + sizeX * 0.5f;
+            object.bbox.maxY = centerY + sizeY * 0.5f;
+            object.bbox.maxZ = centerZ + sizeZ * 0.5f;
 
-        object.numberObservations = val["n_observations"];
-        object.underSegmentScore = val["undersegmentation_score"];
+            object.numberObservations = val["n_observations"];
+            object.underSegmentScore = val["undersegmentation_score"];
+        }
+        catch (std::exception& e)
+        {
+            VXL_ERROR("Error loading instance {} fom json: {}", id, e.what());
+        }
 
-        auto& alphasList = val["results"];
-        for (auto& [category, alpha] : alphasList.items())
-            object.addToCategoryAlpha(CategoryManager::getInstance().addCategory(category), alpha);
+            auto& alphasList = val["results"];
+            for (auto& [category, alpha] : alphasList.items())
+                object.addToCategoryAlpha(CategoryManager::getInstance().addCategory(category), alpha);
     }
 }
 
