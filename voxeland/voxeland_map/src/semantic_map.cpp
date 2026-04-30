@@ -722,9 +722,9 @@ void SemanticMap::loadInstancesFromFile(const std::filesystem::path& path)
             VXL_ERROR("Error loading instance {} fom json: {}", id, e.what());
         }
 
-            auto& alphasList = val["results"];
-            for (auto& [category, alpha] : alphasList.items())
-                object.addToCategoryAlpha(CategoryManager::getInstance().addCategory(category), alpha);
+        auto& alphasList = val["results"];
+        for (auto& [category, alpha] : alphasList.items())
+            object.addToCategoryAlpha(CategoryManager::getInstance().addCategory(category), alpha);
     }
 }
 
