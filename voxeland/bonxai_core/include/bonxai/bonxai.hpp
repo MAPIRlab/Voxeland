@@ -111,11 +111,6 @@ class Mask
   uint64_t static_words_[8];
 
 public:
-  // Number of bits in mask
-  const uint32_t SIZE;
-  // Number of 64 bit words
-  const uint32_t WORD_COUNT;
-
   /// Initialize all bits to zero.
   Mask(size_t log2dim);
   /// Initialize all bits to a given value.
@@ -123,7 +118,7 @@ public:
 
   Mask(const Mask& other);
   Mask(Mask&& other);
-
+  Mask& operator=(Mask&& other);
   ~Mask();
 
   /// Return the memory footprint in bytes of this Mask
@@ -203,6 +198,11 @@ public:
   void toggle(uint32_t n);
 
 private:
+  // Number of bits in mask
+  uint32_t SIZE;
+  // Number of 64 bit words
+  uint32_t WORD_COUNT;
+  
   uint32_t findFirstOn() const;
   uint32_t findNextOn(uint32_t start) const;
 
@@ -1016,9 +1016,14 @@ inline Mask::Mask(const Mask& other)
 }
 
 inline Mask::Mask(Mask&& other)
-  : SIZE(other.SIZE)
-  , WORD_COUNT(other.WORD_COUNT)
 {
+  *this = std::move(other); // just call the move assignment operator to avoid duplicating the logic
+}
+
+inline Mask& Mask::operator=(Mask&& other) 
+{
+  SIZE = other.SIZE;
+  WORD_COUNT = other.WORD_COUNT;
   if (WORD_COUNT <= 8)
   {
     words_ = static_words_;
@@ -1031,6 +1036,7 @@ inline Mask::Mask(Mask&& other)
   {
     std::swap(words_, other.words_);
   }
+  return *this;
 }
 
 inline Mask::~Mask()
