@@ -6,6 +6,7 @@
 #include <set>
 #include <voxeland_map/category_manager.hpp>
 
+#include "voxeland_map/dirichlet.hpp"
 #include "voxeland_map/pcl_utils.hpp"
 
 struct BoundingBox3D
@@ -34,7 +35,7 @@ struct SemanticObject
     std::unordered_map<CategoryManager::CategoryIndex, double> alphaParamsCategories;
 
     // Dynamic storage for appearances per category - grows as needed
-    uint32_t timeLastObservation = 0; // a number of seconds, from the message timestamp
+    uint32_t timeLastObservation = 0;  // a number of seconds, from the message timestamp
     std::unordered_map<CategoryManager::CategoryIndex, std::map<uint32_t, BoundingBox2D>> appearancesTimestamps;
     uint32_t numberObservations = 1;
     BoundingBox3D bbox;
@@ -109,5 +110,13 @@ struct SemanticObject
     bool isLocalInstance() const
     {
         return instanceID == -1;
+    }
+
+    double ExpectedEntropy() const
+    {
+        std::vector<double> alphas;
+        for (const auto& [cat, alpha] : alphaParamsCategories)
+            alphas.push_back(alpha);
+        return expected_shannon_entropy<double>(alphas);
     }
 };

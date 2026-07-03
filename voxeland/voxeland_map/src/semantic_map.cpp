@@ -185,6 +185,7 @@ void SemanticMap::integrateNewSemantics(const std::vector<SemanticObject>& local
 
 void SemanticMap::refineGlobalSemanticMap(uint32_t timestamp, const RemovalOptions* removeOptions, const FusionOptions* fuseOptions)
 {
+    //TODO update the BB whenever the geometry is changed!
     if (!fuseOptions)
         fuseOptions = &defaultFuseOptions;
 

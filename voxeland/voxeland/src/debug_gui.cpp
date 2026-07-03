@@ -110,8 +110,15 @@ namespace voxeland_server
             return;
         }
 
-        static bool viewUnderSegmentationScore = false;
-        ImGui::Checkbox("View under-segmentation score", &viewUnderSegmentationScore);
+        enum ViewMode
+        {
+            ID,
+            Entropy,
+            UnderSegmentation
+        };
+        static int viewMode = false;
+        ImGui::SetNextItemWidth(150);
+        ImGui::Combo("Visualization Mode", &viewMode, "Instance ID\0Category Entropy\0Under-Segmentation Score\0");
 
         static bool enableByDefault = true;
         ImGui::Checkbox("Enable new instances automatically", &enableByDefault);
@@ -150,10 +157,13 @@ namespace voxeland_server
                 InstanceID_t instanceID = data.getMostRepresentativeInstance();
                 const SemanticObject& instance = semantics.globalSemanticMap.at(instanceID);
                 voxeland::Color visualization_color;
-                if (viewUnderSegmentationScore)
+                if (viewMode == UnderSegmentation)
                     visualization_color = voxeland::valueToColor(instance.underSegmentScore / instance.numberObservations, 0, 0.7);
-                else
+                else if (viewMode == ID)
                     visualization_color = data.toColor();
+                else if (viewMode == Entropy)
+                    visualization_color = voxeland::valueToColor(instance.ExpectedEntropy(), 0, 1.0);
+                
                 std::uint32_t rgb = voxeland::serializeColor(visualization_color);
                 pcl_cloud.emplace_back((float)point.x, (float)point.y, (float)point.z, *reinterpret_cast<float*>(&rgb), instanceID);
             };
